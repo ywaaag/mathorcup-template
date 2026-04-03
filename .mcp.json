@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "env": {}
+    },
+    "highs": {
+      "command": "docker",
+      "args": [
+        "run", "--rm",
+        "-i",
+        "ghcr.io/highs-server/highs-mcp:latest"
+      ],
+      "env": {}
+    },
+    "math": {
+      "command": "uvx",
+      "args": ["mcp-math-evaluator"],
+      "env": {}
+    },
+    "fetch": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-fetch"],
+      "env": {}
+    }
+  }
+}

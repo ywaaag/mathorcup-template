@@ -1,0 +1,40 @@
+# ============================================================
+# MathorCup 数模竞赛模板 — Docker Compose 配置
+#
+# 前提：已拉取镜像
+#   docker pull math-modeling-competition:latest
+#   或使用版本标签：math-modeling-competition:20260403
+#
+# 用法：
+#   cp .env.template .env          # 编辑比赛名称等参数
+#   docker-compose up -d           # 启动容器
+#   docker-compose exec dev bash   # 进入容器
+#   docker-compose down             # 停止并删除容器
+# ============================================================
+
+services:
+  dev:
+    # ── 直接使用已拉取的镜像（复用，无需 build）────────
+    image: ${IMAGE_NAME:-math-modeling-competition:latest}
+    container_name: ${CONTAINER_NAME:-mathorcup-dev}
+    # ── GPU 配置 ──────────────────────────────────────
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    # ── 特权模式 ───────────────────────────────────────
+    privileged: true
+    # ── 端口映射 ──────────────────────────────────────
+    ports:
+      - "${JUPYTER_PORT:-8888}:8888"    # Jupyter Notebook
+      - "${RSTUDIO_PORT:-8787}:8787"    # RStudio（可选）
+    # ── 目录挂载（实时同步）───────────────────────────
+    volumes:
+      - ${HOST_PROJECT_DIR:-./project}:/workspace/mathorcup
+    # ── 环境变量 ───────────────────────────────────────
+    environment:
+      - JUPYTER_TOKEN=${JUPYTER_TOKEN:-mathorcup}
+    # ── 保持运行 ───────────────────────────────────────
+    stdin_open: true
+    tty: true
+    restart: unless-stopped

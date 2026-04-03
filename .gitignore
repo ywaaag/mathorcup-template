@@ -1,0 +1,38 @@
+# MathorCup Template — .gitignore
+
+# Environment
+.env
+*.env.local
+
+# Docker
+.docker/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Output files (keep structure, ignore contents)
+project/output/*
+project/figures/*
+!project/output/.gitkeep
+!project/figures/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary
+*.tmp
+*.swp
+*.swo
