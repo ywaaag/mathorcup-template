@@ -41,6 +41,14 @@ check_codex() {
     fi
 }
 
+check_agent_docs() {
+    if ! bash "$SCRIPT_DIR/validate_agent_docs.sh"; then
+        echo "❌ Agent 协议校验失败，已阻止启动"
+        echo "   请先修复 MEMORY.md 或 handoff 文档格式"
+        exit 1
+    fi
+}
+
 start_code_brain() {
     echo "→ 启动代码脑..."
     echo ""
@@ -76,16 +84,19 @@ start_paper_brain() {
 
 case "${1:-menu}" in
     code)
+        check_agent_docs
         check_container
         check_codex
         start_code_brain
         ;;
     paper)
+        check_agent_docs
         check_container
         check_codex
         start_paper_brain
         ;;
     both)
+        check_agent_docs
         check_container
         check_codex
         echo "⚠️  双脑需要两个终端窗口，请执行以下操作:"
@@ -110,8 +121,8 @@ case "${1:-menu}" in
         read -p "请输入 (1/2/3): " choice
         case "$choice" in
             1) bash "$0" both ;;
-            2) check_container && check_codex && start_code_brain ;;
-            3) check_container && check_codex && start_paper_brain ;;
+            2) check_agent_docs && check_container && check_codex && start_code_brain ;;
+            3) check_agent_docs && check_container && check_codex && start_paper_brain ;;
             *) echo "无效选择" ;;
         esac
         ;;

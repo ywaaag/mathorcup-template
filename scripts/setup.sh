@@ -173,7 +173,7 @@ else
 fi
 
 # 7. 生成配置文件
-echo "[7/8] 生成 Codex 规则文件..."
+echo "[7/8] 冷启动重置 Agent 协议文件..."
 
 export HOST_DIR
 export COMPETITION_NAME
@@ -181,6 +181,7 @@ export CONTAINER_NAME
 
 python3 << 'PYEOF'
 import os, datetime
+import re
 
 HOST_DIR = os.environ.get('HOST_DIR', '/home/ywag/mathorcup-template')
 COMPETITION_NAME = os.environ.get('COMPETITION_NAME', 'mathorcup')
@@ -228,6 +229,48 @@ for sec in ['00_abstract', '01_intro', '02_symbols', '03_model_1', '04_model_2',
             f.write(f'%% \\section{{{sec_name}}}\n')
             f.write(f'%% \\label{{sec:{sec}}}\n\n')
             f.write('%% 在此填写内容\n')
+
+# 冷启动重置 handoff 目录与模板
+handoff_dir = os.path.join(HOST_DIR, 'project', 'output', 'handoff')
+os.makedirs(handoff_dir, exist_ok=True)
+
+handoff_template = """# Handoff Template
+
+Filename must be: `P{n}_{topic}_{YYYYMMDD}.md`
+
+## Problem
+- P1
+
+## Inputs
+- data source:
+
+## Method
+- model:
+
+## Outputs
+- figures:
+- tables:
+- csv:
+
+## For Paper Brain
+- key claims:
+- variable definitions:
+
+## Risks
+- assumption risk:
+- sensitivity risk:
+"""
+
+with open(os.path.join(handoff_dir, 'HANDOFF_TEMPLATE.md'), 'w', encoding='utf-8') as f:
+    f.write(handoff_template)
+
+with open(os.path.join(handoff_dir, '.gitkeep'), 'w', encoding='utf-8') as f:
+    f.write('')
+
+# 删除历史 handoff 产物，保证冷启动状态
+for name in os.listdir(handoff_dir):
+    if re.match(r'^P[0-9]+_[a-z0-9_]+_[0-9]{8}\\.md$', name):
+        os.remove(os.path.join(handoff_dir, name))
 PYEOF
 
 # 8. 生成 .env
@@ -243,6 +286,10 @@ HOST_PROJECT_DIR=$HOST_DIR/project
 HOST_DIR=$HOST_DIR
 EOF
 status_ok ".env 已生成"
+
+echo "→ 校验 Agent 协议文件..."
+bash "$HOST_DIR/scripts/validate_agent_docs.sh"
+status_ok "Agent 协议校验通过"
 
 echo ""
 echo "============================================"

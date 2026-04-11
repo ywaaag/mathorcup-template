@@ -1,169 +1,62 @@
-# MathorCup 数模竞赛模板（Codex 版）
+# MathorCup Template (Agent-First)
 
-一套可复用的数学建模竞赛工程模板，采用 Docker 容器 + 双脑协作（代码脑/论文脑）模式。
+这是一个可复用的数模模板，默认面向 Agent 协议，不面向人类教程。
 
-## 文档分层
+## 核心文件
+- `AGENTS.md`: 代码脑硬约束
+- `project/paper/AGENTS.md`: 论文脑硬约束
+- `MEMORY.md`: 运行时状态板（固定 7 段，<=120 行）
+- `project/output/handoff/`: 题目交接文档目录（每题一个文件）
 
-| 文档 | 受众 | 用途 |
-|------|------|------|
-| `README.md` | 人类开发者 | 项目结构、环境搭建、操作说明 |
-| `AGENTS.md` | 代码脑（根目录 Codex） | 建模与代码规则 |
-| `project/paper/AGENTS.md` | 论文脑（paper 目录 Codex） | LaTeX 写作与排版规则 |
-| `MEMORY.md` | 双脑共享 | 跨会话记忆、交付记录、进度同步 |
-
-## 核心原则
-
-1. 非侵入式开发：模板不内置赛题数据与示例解法。
-2. 上下文隔离：代码脑与论文脑分会话协作，通过 `MEMORY.md` 交接。
-3. 容器内执行：竞赛代码统一在容器内运行，确保可复现。
-
-## 快速开始
-
-### 1) 初始化
-
+## 快速使用
 ```bash
-cd ~/mathorcup-template
-bash scripts/setup.sh mathorcup2026
-```
+# 1) 新克隆后初始化
+bash scripts/setup.sh <competition_name>
 
-### 2) 启动双脑
-
-```bash
-# 交互菜单
-bash scripts/dual_brain.sh
-
-# 或直接启动代码脑
+# 2) 启动代码脑或论文脑（启动前会自动校验协议）
 bash scripts/dual_brain.sh code
-
-# 或直接启动论文脑
 bash scripts/dual_brain.sh paper
 ```
 
-`dual_brain.sh` 会检查：
-- Docker 容器已运行
-- `codex` 命令可用
-
-### 3) 比赛准备
-
-1. 把赛题原始数据放入 `project/data/`。
-2. 把官方 LaTeX 模板放入 `project/paper/`。
-3. 在 `AGENTS.md` 的填空区写本场比赛信息（假设、时间节点、模型框架）。
-
-## 常用命令
-
-### 容器管理
-
+## 文档校验
 ```bash
-docker start mathorcup-dev
-docker exec -it mathorcup-dev bash
+# 全量校验
+bash scripts/validate_agent_docs.sh
+
+# 仅校验 MEMORY.md
+bash scripts/validate_agent_docs.sh --memory-only
+
+# 仅校验 handoff 文档
+bash scripts/validate_agent_docs.sh --handoff-only
 ```
 
-### 代码脑
+## 协议摘要
+- `MEMORY.md` 固定标题顺序：
+  - `## Phase`
+  - `## Current Task`
+  - `## Active Problem`
+  - `## Decisions`
+  - `## Blockers`
+  - `## Next Actions`
+  - `## Handoff Index`
+- handoff 命名必须是：`P{n}_{topic}_{YYYYMMDD}.md`
+- handoff 固定字段：`Problem` / `Inputs` / `Method` / `Outputs` / `For Paper Brain` / `Risks`
+- handoff 每个字段最多 5 行非空内容
 
-```bash
-# 运行 Python（参数1是容器名，参数2是脚本路径）
-bash scripts/python_run.sh mathorcup-dev src/main.py
-
-# 编译 C++（参数1是容器名，参数2是 cpp 文件名）
-bash scripts/cpp_build.sh mathorcup-dev main.cpp
-
-# 启动 Jupyter（容器名 + 端口）
-bash scripts/jupyter.sh mathorcup-dev 8888
-```
-
-### 论文脑
-
-```bash
-# 完整编译（默认 build）
-bash scripts/paper.sh mathorcup-dev build
-
-# 仅编译参考文献
-bash scripts/paper.sh mathorcup-dev biber
-
-# 清理辅助文件
-bash scripts/paper.sh mathorcup-dev clean
-
-# 打开 PDF
-bash scripts/paper.sh mathorcup-dev open
-```
-
-## 双脑协作协议
-
-### 代码脑产出要求
-
-- 图表输出到：`project/figures/`
-- 数据输出到：`project/output/`
-- 每完成一个问题，在 `MEMORY.md` 写清：
-  - 核心公式
-  - 关键参数
-  - 生成文件
-  - 给论文脑的解释与引用建议
-
-### 论文脑消费流程
-
-1. 读取 `../MEMORY.md`。
-2. 读取 `../figures/` 与 `../output/`。
-3. 写入 `sections/*.tex`。
-4. 更新 `MEMORY.md` 的论文进度区。
-
-## Codex MCP 初始化（用户级）
-
-本模板不再以仓库内 `.mcp.json` 作为主入口。推荐使用用户级命令维护 MCP：
-
-```bash
-# 查看已配置 MCP
-codex mcp list
-
-# 示例：添加 sequential-thinking
-codex mcp add sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking
-
-# 示例：添加 math
-codex mcp add math -- npx -y math-mcp
-```
-
-> 提示：MCP 属于本机用户环境配置，不随仓库自动迁移。
-
-## 项目结构
-
+## 目录（精简）
 ```text
-mathorcup-template/
+.
 ├── AGENTS.md
-├── AGENTS.md.template
 ├── MEMORY.md
-├── MEMORY.md.template
-├── README.md
-├── docker-compose.yml
-├── .env.template
 ├── scripts/
 │   ├── setup.sh
 │   ├── dual_brain.sh
-│   ├── python_run.sh
-│   ├── cpp_build.sh
-│   ├── paper.sh
-│   ├── jupyter.sh
-│   ├── start.sh
-│   └── run.sh
-├── project/
-│   ├── src/
-│   ├── cpp/
-│   ├── data/
-│   ├── notebooks/
-│   ├── figures/
-│   ├── output/
-│   └── paper/
-│       ├── AGENTS.md
-│       ├── AGENTS.md.template
-│       ├── sections/
-│       └── references/
-└── legacy/
-    └── claude/
-        └── ...（历史归档，仅供回溯）
+│   └── validate_agent_docs.sh
+└── project/
+    ├── output/handoff/
+    └── paper/AGENTS.md
 ```
 
-## 历史归档
-
-旧版工具链相关文件已归档到 `legacy/claude/`，包括历史规则文件与历史配置。当前默认流程仅使用 Codex 入口与 `AGENTS.md` 体系。
-
-## License
-
-MIT
+## 说明
+- 每场比赛建议从 GitHub 拉取新模板并重新初始化。
+- `legacy/claude/` 仅用于历史回溯，不参与当前流程。
