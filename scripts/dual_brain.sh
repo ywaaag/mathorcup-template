@@ -15,6 +15,15 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+ENV_FILE="$PROJECT_DIR/.env"
+
+# 优先级：显式环境变量 > .env 配置 > 默认值
+if [[ -z "${CONTAINER_NAME:-}" && -f "$ENV_FILE" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+    set +a
+fi
 CONTAINER_NAME="${CONTAINER_NAME:-mathorcup-dev}"
 
 echo "============================================"

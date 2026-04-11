@@ -86,6 +86,13 @@ bash scripts/dual_brain.sh paper
 - Docker 容器是否在运行。
 - `codex` 命令是否存在。
 
+说明：`dual_brain.sh` 会自动读取项目根目录 `.env` 中的 `CONTAINER_NAME`。  
+如果你临时要切换容器，可用：
+
+```bash
+CONTAINER_NAME=<your_container> bash scripts/dual_brain.sh code
+```
+
 ## 4. 日常操作命令
 
 ### 容器管理
