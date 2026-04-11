@@ -3,9 +3,9 @@
 # 在容器内编译并运行 C++ 代码
 #
 # 用法:
-#   bash scripts/cpp_build.sh                    # 运行默认 cpp/main.cpp
-#   bash scripts/cpp_build.sh my_solver.cpp      # 运行指定文件
-#   bash scripts/cpp_build.sh main 1000          # 运行并传参 1000
+#   bash scripts/cpp_build.sh                               # 默认容器 + 默认 main.cpp
+#   bash scripts/cpp_build.sh mathorcup-dev my_solver.cpp  # 指定容器 + 指定文件
+#   bash scripts/cpp_build.sh mathorcup-dev main.cpp 1000  # 运行并传参
 # ============================================================
 CONTAINER_NAME="${1:-mathorcup-dev}"
 CFILE="${2:-main.cpp}"

@@ -3,10 +3,11 @@
 # MathorCup 数模模板 — LaTeX 编译脚本
 #
 # 用法:
-#   bash scripts/paper.sh              # 完整编译 main.tex（xelatex + biber + xelatex x2）
-#   bash scripts/paper.sh biber         # 仅编译参考文献
-#   bash scripts/paper.sh clean         # 清理辅助文件
-#   bash scripts/paper.sh watch         # 监视文件变化自动重编译（需 inotify）
+#   bash scripts/paper.sh                            # 默认容器 + build
+#   bash scripts/paper.sh mathorcup-dev build        # 完整编译 main.tex（xelatex + biber + xelatex x2）
+#   bash scripts/paper.sh mathorcup-dev biber        # 仅编译参考文献
+#   bash scripts/paper.sh mathorcup-dev clean        # 清理辅助文件
+#   bash scripts/paper.sh mathorcup-dev open         # 打开 PDF
 # ============================================================
 CONTAINER_NAME="${1:-mathorcup-dev}"
 COMMAND="${2:-build}"

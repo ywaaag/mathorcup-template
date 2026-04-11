@@ -1,0 +1,24 @@
+{
+    "mcpServers": {
+        "sequential-thinking": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+            "env": {}
+        },
+        "highs": {
+            "command": "npx",
+            "args": ["highs-mcp"],
+            "env": {}
+        },
+        "math": {
+            "command": "npx",
+            "args": ["-y", "math-mcp"],
+            "env": {}
+        },
+        "fetch": {
+            "command": "python3",
+            "args": ["-m", "mcp_server_fetch"],
+            "env": {}
+        }
+    }
+}

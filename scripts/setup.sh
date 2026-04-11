@@ -173,7 +173,11 @@ else
 fi
 
 # 7. 生成配置文件
-echo "[7/8] 生成 Claude Code 配置文件..."
+echo "[7/8] 生成 Codex 规则文件..."
+
+export HOST_DIR
+export COMPETITION_NAME
+export CONTAINER_NAME
 
 python3 << 'PYEOF'
 import os, datetime
@@ -202,11 +206,11 @@ def fill_template(src_path):
     print(f'  ✓ {os.path.relpath(dst_path, HOST_DIR)}')
 
 # 根目录模板
-for t in ['CLAUDE.md.template', 'MEMORY.md.template']:
+for t in ['AGENTS.md.template', 'MEMORY.md.template']:
     fill_template(os.path.join(HOST_DIR, t))
 
 # 论文脑模板
-paper_src = os.path.join(HOST_DIR, 'project', 'paper', 'CLAUDE.md.template')
+paper_src = os.path.join(HOST_DIR, 'project', 'paper', 'AGENTS.md.template')
 if os.path.exists(paper_src):
     fill_template(paper_src)
 
@@ -254,15 +258,15 @@ echo "  │  双脑协作启动方式：                  │"
 echo "  │                                     │"
 echo "  │  终端 A (代码脑):                   │"
 echo "  │    cd $HOST_DIR                    │"
-echo "  │    claude code .                    │"
+echo "  │    codex                            │"
 echo "  │                                     │"
 echo "  │  终端 B (论文脑):                   │"
 echo "  │    cd $HOST_DIR/project/paper      │"
-echo "  │    claude code .                    │"
+echo "  │    codex                            │"
 echo "  │                                     │"
 echo "  │  或用脚本（自动分配终端）:          │"
 echo "  │    bash scripts/dual_brain.sh both  │"
 echo "  └─────────────────────────────────────┘"
 echo ""
-echo "  LaTeX 编译: bash scripts/paper.sh build"
+echo "  LaTeX 编译: bash scripts/paper.sh $CONTAINER_NAME build"
 echo "============================================"

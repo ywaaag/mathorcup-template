@@ -2,7 +2,7 @@
 # ============================================================
 # MathorCup 数模模板 — 双脑协作启动脚本
 #
-# 同时启动代码脑和论文脑两个 Claude Code 实例
+# 同时启动代码脑和论文脑两个 Codex 实例
 # 代码脑: 根目录
 # 论文脑: paper/ 目录
 #
@@ -33,6 +33,14 @@ check_container() {
     fi
 }
 
+check_codex() {
+    if ! command -v codex >/dev/null 2>&1; then
+        echo "❌ 未检测到 codex 命令"
+        echo "   请先安装 Codex CLI，并确保 'codex' 在 PATH 中"
+        exit 1
+    fi
+}
+
 start_code_brain() {
     echo "→ 启动代码脑..."
     echo ""
@@ -46,7 +54,7 @@ start_code_brain() {
     echo ""
     echo "  按 Enter 在当前终端启动代码脑..."
     read
-    cd "$PROJECT_DIR" && claude code .
+    cd "$PROJECT_DIR" && codex
 }
 
 start_paper_brain() {
@@ -63,29 +71,32 @@ start_paper_brain() {
     echo ""
     echo "  按 Enter 在当前终端启动论文脑..."
     read
-    cd "$PROJECT_DIR/project/paper" && claude code .
+    cd "$PROJECT_DIR/project/paper" && codex
 }
 
 case "${1:-menu}" in
     code)
         check_container
+        check_codex
         start_code_brain
         ;;
     paper)
         check_container
+        check_codex
         start_paper_brain
         ;;
     both)
         check_container
+        check_codex
         echo "⚠️  双脑需要两个终端窗口，请执行以下操作:"
         echo ""
         echo "  【终端 A - 代码脑】"
         echo "    cd $PROJECT_DIR"
-        echo "    claude code ."
+        echo "    codex"
         echo ""
         echo "  【终端 B - 论文脑】"
         echo "    cd $PROJECT_DIR/project/paper"
-        echo "    claude code ."
+        echo "    codex"
         echo ""
         read -p "按 Enter 启动代码脑（论文脑请手动开另一个终端）..."
         start_code_brain
@@ -99,8 +110,8 @@ case "${1:-menu}" in
         read -p "请输入 (1/2/3): " choice
         case "$choice" in
             1) bash "$0" both ;;
-            2) check_container && start_code_brain ;;
-            3) check_container && start_paper_brain ;;
+            2) check_container && check_codex && start_code_brain ;;
+            3) check_container && check_codex && start_paper_brain ;;
             *) echo "无效选择" ;;
         esac
         ;;

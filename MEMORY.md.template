@@ -1,8 +1,8 @@
 # MEMORY.md — {{COMPETITION_NAME}} 数模竞赛项目记忆（双脑共享）
 
 > **【重要】这是代码脑和论文脑共享的全局记忆库。**
-> 代码脑（根目录 Claude Code）负责维护"建模部分"。
-> 论文脑（paper/ 目录 Claude Code）负责维护"论文进度部分"。
+> 代码脑（根目录 Codex 会话）负责维护"建模部分"。
+> 论文脑（paper/ 目录 Codex 会话）负责维护"论文进度部分"。
 > 每次会话开始时，双方都应先读取此文件。
 
 > **【文档哲学】此项目由 AI 驱动，除 README 外，所有文档均优先面向 AI 上下文管理。**
@@ -68,7 +68,7 @@
 |-------|----------|------|
 | `document-skills` | .xlsx/.pdf/.docx 文件处理 | ✅ |
 | `example-skills` | 含 skill-creator/pdf/docx/xlsx/pptx | ✅ |
-| `claude-api` | Claude API / SDK 开发参考 | ✅ |
+| `openai-docs` | OpenAI / Codex 官方文档参考 | ✅ |
 | `pdf` | PDF 读取与处理 | ✅ |
 | `xlsx` | Excel 读写与处理 | ✅ |
 | `docx` | Word 读写与处理 | ✅ |

@@ -1,0 +1,70 @@
+# AGENTS.md — mathorcup 论文脑配置（Paper Brain）
+
+> 本文件是 `project/paper/` 目录下论文脑的全局规则。
+
+## 1. 角色与边界
+
+- 论文脑职责：学术写作、LaTeX 排版、图表与表格入文、交叉引用与文献整理。
+- 主要编辑目录：`project/paper/`。
+- 输入来源（只读）：
+  - `../MEMORY.md`
+  - `../figures/`
+  - `../output/`
+- 禁止事项：不写建模/训练代码，不改 `../src`、`../cpp`。
+
+## 2. 写作与排版规范
+
+- 图表必须有 `caption` 与 `label`，正文通过 `\ref{}` 引用。
+- 表格使用三线表（`booktabs`），不使用竖线。
+- 重要公式独立编号，统一通过 `\label{}` + `\ref{}` 交叉引用。
+- 文风要求：客观、简洁、可复核，不写冗余口语。
+
+图表示例：
+
+```latex
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{../figures/fig_problem1_loss.png}
+    \caption{问题一目标函数收敛曲线。}
+    \label{fig:problem1-loss}
+\end{figure}
+```
+
+表格示例：
+
+```latex
+\begin{table}[htbp]
+    \centering
+    \caption{问题一结果对比}
+    \begin{tabular}{lccc}
+        \toprule
+        指标 & 方法A & 方法B & 方法C \\
+        \midrule
+        目标值 & 1.23 & 1.11 & \textbf{1.05} \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:problem1-result}
+\end{table}
+```
+
+## 3. 协作流程（消费代码脑产出）
+
+1. 先读 `../MEMORY.md`，理解当前模型、参数与结论。
+2. 检查 `../figures/` 和 `../output/` 的最新产物。
+3. 将结果写入 `sections/*.tex` 对应章节。
+4. 更新 `../MEMORY.md` 中论文进度。
+
+## 4. 编译命令
+
+```bash
+docker exec mathorcup-dev bash -c "cd /workspace/mathorcup/paper && xelatex -interaction=nonstopmode main.tex"
+docker exec mathorcup-dev bash -c "cd /workspace/mathorcup/paper && biber main"
+```
+
+完整流程：`xelatex -> biber -> xelatex -> xelatex`。
+
+## 5. 模板约束
+
+- `mathorcup_template.tex` 的导言区优先保持不改动。
+- 如必须引入新宏包，需在提交记录中说明原因与影响。
+- 图片路径统一使用 `../figures/`，表格数据来源统一标注 `../output/*.csv`。
