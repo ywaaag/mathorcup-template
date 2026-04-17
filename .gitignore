@@ -29,6 +29,23 @@ project/output/handoff/*
 !project/output/handoff/HANDOFF_TEMPLATE.md
 !project/figures/.gitkeep
 
+# Data files (keep structure, ignore contents)
+project/data/*
+!project/data/.gitkeep
+!project/data/problem/
+!project/data/raw/
+!project/data/processed/
+project/data/problem/*
+project/data/raw/*
+project/data/processed/*
+!project/data/problem/.gitkeep
+!project/data/raw/.gitkeep
+!project/data/processed/.gitkeep
+
+# Paper specs (keep structure, ignore contents)
+project/paper/spec/*
+!project/paper/spec/.gitkeep
+
 # OS
 .DS_Store
 Thumbs.db

@@ -40,7 +40,9 @@
 - Hard limit: `MEMORY.md` <= 120 lines.
 
 ## Execution Rules
-- Run competition code inside container only.
+- Hard rule: run all competition programs inside Docker container only.
+- Never run project Python/C++/LaTeX programs directly on host.
+- Host is only for orchestration (`git`, editing, `docker` commands).
 - Start code brain from repo root with `codex`.
 - Before major work, ensure docs pass:
   - `bash scripts/validate_agent_docs.sh`
