@@ -72,11 +72,14 @@
   - `latexmk 4.83`
   - `XeTeX (TeX Live 2023/Debian)`
   - `R 4.5.1`
+  - `biber`
+  - `fd`
+  - `tree`
+  - `yq`
 - GPU visibility:
   - NVIDIA runtime + `nvidia-smi` available when host GPU runtime is present
-- Known gap in the base image:
-  - `biber` is not guaranteed to be preinstalled
-  - run `bash scripts/install_deps.sh --target <instance_dir>` before paper build if it is missing
+- If any of the above is missing, treat it as reference-image drift and repair with:
+  - `bash scripts/install_deps.sh --target <instance_dir>`
 
 ## Runtime Rules
 

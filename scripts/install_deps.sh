@@ -74,13 +74,13 @@ fi
 
 if [[ "$SKIP_LATEX" == false ]]; then
     if docker exec "$CONTAINER_NAME" bash -lc 'command -v xelatex >/dev/null && command -v biber >/dev/null && command -v latexmk >/dev/null'; then
-        status_skip "LaTeX toolchain already present"
+        status_skip "LaTeX paper baseline already present"
     else
         if [[ "$FULL_LATEX" == true ]]; then
-            status_info "installing full LaTeX toolchain"
+            status_info "repairing LaTeX paper baseline with full toolchain"
             docker exec "$CONTAINER_NAME" bash -lc 'apt-get update >/dev/null && apt-get install -y texlive-full biber >/dev/null'
         else
-            status_info "installing compact LaTeX toolchain"
+            status_info "repairing LaTeX paper baseline with compact toolchain"
             docker exec "$CONTAINER_NAME" bash -lc 'apt-get update >/dev/null && apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-extra texlive-xetex texlive-bibtex-extra texlive-fonts-recommended fonts-wqy-microhei fonts-wqy-zenhei latexmk biber >/dev/null'
         fi
         status_ok "LaTeX toolchain ready"

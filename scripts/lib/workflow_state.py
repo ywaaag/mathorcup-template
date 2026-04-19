@@ -61,6 +61,7 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scripts/submit_feedback.sh",
     "scripts/reopen_task.sh",
     "scripts/cancel_task.sh",
+    "scripts/export_reference_image.sh",
 ]
 
 FEEDBACK_HEADINGS = [

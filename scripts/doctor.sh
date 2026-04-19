@@ -82,3 +82,44 @@ if command -v docker >/dev/null 2>&1; then
         status_warn "container does not exist"
     fi
 fi
+
+echo ""
+echo "== Container Tool Baseline =="
+if command -v docker >/dev/null 2>&1 && container_running; then
+    tool_report="$(docker exec "$CONTAINER_NAME" bash -lc '
+check() {
+    local cmd="$1"
+    if command -v "$cmd" >/dev/null 2>&1; then
+        printf "OK %s %s\n" "$cmd" "$(command -v "$cmd")"
+    else
+        printf "MISS %s\n" "$cmd"
+    fi
+}
+check biber
+check tree
+check yq
+if command -v fd >/dev/null 2>&1; then
+    printf "OK fd %s\n" "$(command -v fd)"
+elif command -v fdfind >/dev/null 2>&1; then
+    printf "WARN fd %s\n" "$(command -v fdfind)"
+else
+    printf "MISS fd\n"
+fi
+' 2>/dev/null || true)"
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        case "$line" in
+            "OK "*)
+                status_ok "${line#OK }"
+                ;;
+            "WARN "*)
+                status_warn "${line#WARN } (fdfind only; reference image should expose fd)"
+                ;;
+            "MISS "*)
+                status_warn "${line#MISS } missing"
+                ;;
+        esac
+    done <<< "$tool_report"
+else
+    status_warn "container baseline skipped"
+fi

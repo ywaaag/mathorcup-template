@@ -47,7 +47,8 @@
 - The reference image is expected to already provide:
   - `xelatex`
   - `latexmk`
-- `biber` may still need `bash scripts/install_deps.sh --target <instance_dir>`.
+  - `biber`
+- If `biber` is missing, treat it as reference-image drift and repair with `bash scripts/install_deps.sh --target <instance_dir>`.
 
 ## Known Drift Risks
 
