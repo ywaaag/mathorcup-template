@@ -40,6 +40,23 @@ REQUIRED_TASK_FIELDS = [
 
 TASK_STATUSES = {"todo", "ready", "in_progress", "review", "done", "blocked"}
 
+TEMPLATE_SOURCE_REQUIRED_FILES = [
+    "scaffold/AGENTS.md.template",
+    "scaffold/MEMORY.md.template",
+    "scaffold/project/paper/AGENTS.md.template",
+    "scaffold/project/spec/runtime_contract.md.template",
+    "scaffold/project/spec/multi_agent_workflow_contract.md.template",
+    "scaffold/project/spec/agent_roles.yaml.template",
+    "scaffold/project/runtime/task_registry.yaml.template",
+    "scaffold/project/runtime/work_queue.yaml.template",
+    "scaffold/project/paper/spec/paper_runtime_contract.md.template",
+    "scaffold/project/paper/runtime/paper.env.template",
+    "scripts/setup.sh",
+    "scripts/render_templates.sh",
+    "scripts/validate_agent_docs.sh",
+    "scripts/doctor.sh",
+]
+
 FEEDBACK_HEADINGS = [
     "## Task ID",
     "## Role",
@@ -128,6 +145,35 @@ def parse_kv_env(path: Path) -> Dict[str, str]:
         key, value = line.split("=", 1)
         values[key.strip()] = value.strip()
     return values
+
+
+def detect_root_kind(root: Path) -> str:
+    scaffold_dir = root / "scaffold"
+    scaffold_roles = root / "scaffold/project/spec/agent_roles.yaml.template"
+    scaffold_registry = root / "scaffold/project/runtime/task_registry.yaml.template"
+    scaffold_queue = root / "scaffold/project/runtime/work_queue.yaml.template"
+    live_roles = root / "project/spec/agent_roles.yaml"
+    live_registry = root / "project/runtime/task_registry.yaml"
+    live_queue = root / "project/runtime/work_queue.yaml"
+    if (
+        scaffold_dir.is_dir()
+        and scaffold_roles.is_file()
+        and scaffold_registry.is_file()
+        and scaffold_queue.is_file()
+        and not live_roles.is_file()
+        and not live_registry.is_file()
+        and not live_queue.is_file()
+    ):
+        return "template_source"
+    return "instance"
+
+
+def validate_template_source(root: Path) -> None:
+    if not (root / "scaffold").is_dir():
+        fail("missing directory: scaffold")
+    for rel in TEMPLATE_SOURCE_REQUIRED_FILES:
+        if not (root / rel).exists():
+            fail(f"missing template-source file: {rel}")
 
 
 def load_runtime_state(root: Path) -> Dict[str, Any]:
@@ -736,6 +782,18 @@ def close_task(root: Path, state: Dict[str, Any], task_id: str, next_status: str
 
 
 def run_validate(root: Path, mode: str) -> None:
+    root_kind = detect_root_kind(root)
+    if root_kind == "template_source":
+        if mode != "template_source":
+            fail(
+                "template-source repo detected; instance validation modes expect rendered files under project/. "
+                "Run `bash scripts/validate_agent_docs.sh --template-source-only`, or render a target via "
+                "`bash scripts/setup.sh demo --render-only --target <dir>` and validate that directory."
+            )
+        validate_template_source(root)
+        print("[validate_agent_docs] OK (template-source)")
+        return
+
     state = load_runtime_state(root)
     if mode in {"all", "memory"}:
         validate_memory(root)
@@ -778,8 +836,12 @@ def build_parser() -> argparse.ArgumentParser:
             "queue",
             "feedback",
             "retrospective",
+            "template_source",
         ],
     )
+
+    root_kind = subparsers.add_parser("root-kind")
+    root_kind.add_argument("--root", required=True)
 
     packet = subparsers.add_parser("task-packet")
     packet.add_argument("--root", required=True)
@@ -820,6 +882,10 @@ def main(argv: Sequence[str]) -> int:
 
     if args.command == "validate":
         run_validate(root, args.mode)
+        return 0
+
+    if args.command == "root-kind":
+        print(detect_root_kind(root))
         return 0
 
     state = load_runtime_state(root)

@@ -25,8 +25,19 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+ROOT_KIND="$(python3 "$SCRIPT_DIR/lib/workflow_state.py" root-kind --root "$TARGET_DIR")"
+
 load_root_env "$TARGET_DIR"
 load_paper_env "$TARGET_DIR"
+
+if [[ "$ROOT_KIND" == "template_source" ]]; then
+    echo "== Repo Mode =="
+    echo "template-source"
+    echo "- This root is the template source tree."
+    echo "- scaffold/ contains source-of-truth templates."
+    echo "- Rendered instance validation should target a generated directory, not this repo root."
+    echo ""
+fi
 
 echo "== Runtime Config =="
 echo "root:            $TARGET_DIR"
@@ -36,6 +47,9 @@ echo "host project:    $HOST_PROJECT_DIR"
 echo "paper entry:     $PAPER_ACTIVE_ENTRYPOINT"
 echo "paper build dir: ${PAPER_BUILD_DIR:-<same as paper dir>}"
 echo "accept pdf:      $PAPER_ACCEPT_PDF"
+if [[ "$ROOT_KIND" == "template_source" ]]; then
+    echo "note:            template-source preview values; render an instance for live runtime facts"
+fi
 
 echo ""
 echo "== Tooling =="
