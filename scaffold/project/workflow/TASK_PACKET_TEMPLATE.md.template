@@ -28,7 +28,13 @@
 
 ## Runtime Facts
 - Container: `{{CONTAINER_NAME}}`
+- Image: `{{IMAGE_NAME}}`
 - Active paper entrypoint source: `project/paper/runtime/paper.env`
+- Runtime/env baseline source:
+  - `project/spec/runtime_contract.md -> ## Current Host / Container Facts`
+  - `project/spec/runtime_contract.md -> ## Reference Image Environment Snapshot`
+- Expected baseline tools:
+  - `python3`, `pip`, `latexmk`, `xelatex`, `R`, `biber`, `fd`, `tree`, `yq`
 
 ## Acceptance
 - Validation command: `bash scripts/validate_agent_docs.sh`

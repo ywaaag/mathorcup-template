@@ -3,7 +3,11 @@
 ## Runtime Context
 - Competition: `{{COMPETITION_NAME}}`
 - Container: `{{CONTAINER_NAME}}`
+- Image: `{{IMAGE_NAME}}`
 - Workspace: `{{HOST_DIR}}`
+- Runtime baseline source:
+  - `project/spec/runtime_contract.md -> ## Current Host / Container Facts`
+  - `project/spec/runtime_contract.md -> ## Reference Image Environment Snapshot`
 
 ## Role Boundary
 - Repo-root session 默认扮演：主脑 或 代码脑。
@@ -46,6 +50,7 @@
 - Hard rule: run project Python/C++/LaTeX programs inside Docker container only.
 - Host is only for orchestration (`git`, editing, `docker`, prompt dispatch).
 - Do not guess runtime facts from chat memory; read `project/spec/runtime_contract.md` first.
+- Before major work, explicitly confirm container name, image, runtime, user, and tool baseline from `project/spec/runtime_contract.md`.
 - Before major work, run `bash scripts/validate_agent_docs.sh`.
 
 ## Failure Recovery

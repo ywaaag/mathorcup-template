@@ -30,6 +30,13 @@
 
 当前容器：
 - `{{CONTAINER_NAME}}`
+- 当前镜像：
+  - `{{IMAGE_NAME}}`
+- 容器环境基线入口：
+  - `project/spec/runtime_contract.md -> ## Current Host / Container Facts`
+  - `project/spec/runtime_contract.md -> ## Reference Image Environment Snapshot`
+- 预期基础工具：
+  - `python3`, `pip`, `latexmk`, `xelatex`, `R`, `biber`, `fd`, `tree`, `yq`
 
 若涉及论文：
 - active paper entrypoint 以 `project/paper/runtime/paper.env` 为准

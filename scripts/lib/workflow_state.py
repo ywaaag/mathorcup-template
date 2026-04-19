@@ -852,6 +852,19 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
     for idx, doc in enumerate(must_read, start=1):
         lines.append(f"{idx}. `{doc}`")
     lines.extend(["", "当前容器：", f"- `{env.get('CONTAINER_NAME', '')}`"])
+    lines.extend(
+        [
+            "- 当前镜像：`{}`".format(env.get("IMAGE_NAME", "")),
+            "- 当前 runtime：`{}`".format(env.get("CONTAINER_RUNTIME", "")),
+            "- 当前 GPU 请求：`{}`".format(env.get("CONTAINER_GPUS", "")),
+            "- privileged：`{}`".format(env.get("CONTAINER_PRIVILEGED", "")),
+            "- 容器用户：`{}`".format(env.get("CONTAINER_USER", "")),
+            "- GRANT_SUDO：`{}`".format(env.get("CONTAINER_GRANT_SUDO", "")),
+            "- 容器环境基线入口：`project/spec/runtime_contract.md -> ## Current Host / Container Facts`",
+            "- reference image baseline 入口：`project/spec/runtime_contract.md -> ## Reference Image Environment Snapshot`",
+            "- 预期基础工具：`python3`, `pip`, `latexmk`, `xelatex`, `R`, `biber`, `fd`, `tree`, `yq`",
+        ]
+    )
     if role_name == "code_brain":
         lines.extend(
             [

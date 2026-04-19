@@ -3,7 +3,11 @@
 ## Runtime Context
 - Competition: `{{COMPETITION_NAME}}`
 - Container: `{{CONTAINER_NAME}}`
+- Image: `{{IMAGE_NAME}}`
 - Workspace: `{{HOST_DIR}}`
+- Runtime baseline source:
+  - `../spec/runtime_contract.md -> ## Current Host / Container Facts`
+  - `../spec/runtime_contract.md -> ## Reference Image Environment Snapshot`
 
 ## Role Boundary
 - Role: paper brain only (LaTeX writing, structure, references, figure/table insertion).
@@ -40,6 +44,7 @@
 - Hard rule: run paper build tools inside Docker container only.
 - Never run project LaTeX toolchain directly on host.
 - Use `bash ../../scripts/paper.sh build` or an equivalent command derived from `project/paper/runtime/paper.env`.
+- Before writing or compiling, explicitly confirm container/image/runtime/user/tool baseline from `../spec/runtime_contract.md`.
 - Before writing or compiling, run `bash ../../scripts/validate_agent_docs.sh`.
 
 ## Failure Recovery
