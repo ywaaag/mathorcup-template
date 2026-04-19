@@ -1,5 +1,8 @@
 # Task Packet Template
 
+- This packet can be pasted into another session or fed directly to `codex exec` via stdin.
+- Main brain owns task dispatch, gate, and close/reopen/cancel; worker owns execution plus structured return.
+
 ## Role
 - main / code / paper / utility
 
@@ -43,6 +46,13 @@
 ## Feedback Gate
 - feedback path: [project/output/review/...]
 - retrospective path: [project/output/retrospectives/...]
+- do not bypass `check_worker_feedback.sh` / `check_retrospective.sh`
+- do not run `close_task.sh` yourself unless the task packet explicitly authorizes a main-brain action
+
+## Completion Rules
+- Fill the feedback file with verified facts, validation result, and remaining risks.
+- If main brain expects a `done`-level close, also fill the retrospective file.
+- Do not create new top-level tasks unless the packet explicitly allows it.
 
 ## Final Reply Format
 1. Files changed

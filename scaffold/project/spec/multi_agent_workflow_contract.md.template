@@ -80,6 +80,26 @@ All roles should read from these sources before acting:
   - `bash scripts/submit_feedback.sh --task <task_id>`
   - `bash scripts/close_task.sh` or `bash scripts/reopen_task.sh` / `bash scripts/cancel_task.sh`
 
+## Execution Modes
+
+### 1. Multi-Session Relay
+
+- 主脑 claim / dispatch 后，把生成的 packet 贴给另一个会话或终端。
+- worker 仍然只通过 feedback / retrospective / close gate 回传。
+
+### 2. Exec-Based Worker
+
+- 主脑可先探活：
+  - `bash scripts/exec_healthcheck.sh --target <dir>`
+- 若 `codex exec` 可用，可直接运行：
+  - `bash scripts/run_exec_worker.sh --task <task_id> --owner <owner> --target <dir>`
+- 这条路径只把 worker 执行步骤脚本化，不会自动 close task，也不会绕开 feedback / retrospective / validator gate。
+
+### 3. Sub-Agent Delegation
+
+- 如果环境支持 sub-agent delegation，也仍然应该复用同一份 task registry / work queue / packet / feedback / close 流程。
+- sub-agent 只是 worker backend，不应变成另一套平行状态系统。
+
 ## MEMORY Ownership
 
 - 主脑:
@@ -137,6 +157,7 @@ Use:
 ## Delegation Note
 
 - If the environment supports sub-agent delegation, 主脑 can still dispatch narrow-scope workers through the same task registry, packet, feedback, and close/reopen/cancel flow.
+- If the environment supports `codex exec`, 主脑 can also use `bash scripts/run_exec_worker.sh` as a non-interactive worker backend.
 - If the environment does not support delegation, the same dispatch packet can be pasted into separate sessions or terminals.
 - The hard dependency is not delegation itself; it is the shared contract set and structured return format.
 - Worker roles should not keep splitting new top-level tasks unless the 主脑 task packet explicitly allows it.

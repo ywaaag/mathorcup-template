@@ -68,6 +68,20 @@ for cmd in python3 docker codex; do
 done
 
 echo ""
+echo "== Exec Worker Mode =="
+if command -v codex >/dev/null 2>&1; then
+    if codex exec --help >/dev/null 2>&1; then
+        status_ok "codex exec CLI detected"
+        status_ok "exec wrapper available via bash scripts/run_exec_worker.sh"
+        status_info "run bash scripts/exec_healthcheck.sh --target $TARGET_DIR for a real non-interactive probe"
+    else
+        status_warn "codex exec subcommand unavailable"
+    fi
+else
+    status_warn "codex not found; exec worker mode unavailable"
+fi
+
+echo ""
 echo "== Validation =="
 bash "$SCRIPT_DIR/validate_agent_docs.sh" --root "$TARGET_DIR"
 

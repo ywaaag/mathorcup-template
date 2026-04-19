@@ -61,6 +61,8 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scripts/submit_feedback.sh",
     "scripts/reopen_task.sh",
     "scripts/cancel_task.sh",
+    "scripts/exec_healthcheck.sh",
+    "scripts/run_exec_worker.sh",
     "scripts/export_reference_image.sh",
 ]
 
@@ -296,6 +298,8 @@ def validate_contracts(root: Path) -> None:
     paper_agents = (root / "project/paper/AGENTS.md").read_text(encoding="utf-8")
     root_agents = (root / "AGENTS.md").read_text(encoding="utf-8")
     workflow_contract = (root / "project/spec/multi_agent_workflow_contract.md").read_text(encoding="utf-8")
+    prompt_library = (root / "project/workflow/prompt_template_library.md").read_text(encoding="utf-8")
+    task_packet_template = (root / "project/workflow/TASK_PACKET_TEMPLATE.md").read_text(encoding="utf-8")
     if "project/paper/runtime/paper.env" not in runtime_contract:
         fail("runtime_contract.md must reference project/paper/runtime/paper.env")
     if "project/spec/runtime_contract.md" not in root_agents or "project/spec/multi_agent_workflow_contract.md" not in root_agents:
@@ -306,6 +310,12 @@ def validate_contracts(root: Path) -> None:
         fail("workflow contract must reference worker feedback template")
     if "project/output/retrospectives/RETROSPECTIVE_TEMPLATE.md" not in workflow_contract:
         fail("workflow contract must reference retrospective template")
+    if "codex exec" not in workflow_contract or "scripts/run_exec_worker.sh" not in workflow_contract:
+        fail("workflow contract must describe codex exec worker mode via scripts/run_exec_worker.sh")
+    if "codex exec" not in prompt_library or "scripts/run_exec_worker.sh" not in prompt_library:
+        fail("prompt_template_library.md must reference codex exec and scripts/run_exec_worker.sh")
+    if "feedback path" not in task_packet_template or "close_task.sh" not in task_packet_template:
+        fail("TASK_PACKET_TEMPLATE.md must describe feedback path and close_task.sh gate")
 
 
 def validate_paper_config(root: Path) -> None:
@@ -741,6 +751,7 @@ def render_queue_board(root: Path, state: Dict[str, Any]) -> str:
         "- Source of truth: `project/runtime/task_registry.yaml` and `project/runtime/work_queue.yaml`.",
         "- Inspect ready pool via `bash scripts/list_open_tasks.sh --open-only`.",
         "- Dispatch a task via `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`.",
+        "- Run a non-interactive exec worker via `bash scripts/run_exec_worker.sh --task <task_id> --owner <owner> --target <dir>`.",
         "- Update task ownership or status via `scripts/claim_task.sh`, `scripts/close_task.sh`, `scripts/reopen_task.sh`, and `scripts/cancel_task.sh`.",
         "- `--open-only` only includes `todo/ready`; inspect blocked tasks explicitly with `bash scripts/list_open_tasks.sh --status blocked`.",
         "",
@@ -799,6 +810,32 @@ def choose_cwd(root: Path, role_name: str, task: Optional[Dict[str, Any]]) -> Pa
     return root
 
 
+def task_field_value(root: Path, state: Dict[str, Any], task_id: str, field: str) -> str:
+    task = task_from_id(state, task_id)
+    role = role_map(state)[task["role"]]
+    paper_env = parse_kv_env(root / "project/paper/runtime/paper.env")
+    values: Dict[str, Any] = {
+        "task_id": task["task_id"],
+        "role": task["role"],
+        "title": task["title"],
+        "status": task["status"],
+        "owner": task["owner"],
+        "feedback_path": task["feedback_path"],
+        "retrospective_path": task["retrospective_path"],
+        "cwd": str(choose_cwd(root, task["role"], task).relative_to(root) or "."),
+        "acceptance_artifacts": collect_acceptance_artifacts(root, role, task),
+        "paper_entrypoint": paper_env.get("PAPER_ACTIVE_ENTRYPOINT", ""),
+        "paper_accept_pdf": paper_env.get("PAPER_ACCEPT_PDF", ""),
+        "paper_accept_log": paper_env.get("PAPER_ACCEPT_LOG", ""),
+    }
+    if field not in values:
+        fail(f"unknown task field: {field}")
+    value = values[field]
+    if isinstance(value, list):
+        return json.dumps(value, ensure_ascii=True)
+    return str(value)
+
+
 def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id: Optional[str]) -> str:
     roles = role_map(state)
     if role_name not in roles:
@@ -824,21 +861,37 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
     lines = [
         f"你现在在 `{cwd}` 工作。",
         "",
+        "任务包用途：",
+        "- 这个 packet 可以直接贴给另一个会话，也可以作为 `codex exec` 的 stdin 输入。",
+        "- 主脑负责 claim / gate / close；worker 负责执行与结构化回传，不负责改状态机。",
+        "",
         "角色：",
         f"- {role_name}",
     ]
     if task:
-        lines.extend(["", "任务：", f"- `{task['task_id']}`: {task['title']}", f"- status: `{task['status']}`", f"- owner: `{task['owner'] or 'unassigned'}`"])
+        lines.extend(
+            [
+                "",
+                "任务：",
+                f"- `{task['task_id']}`: {task['title']}",
+                f"- status: `{task['status']}`",
+                f"- owner: `{task['owner'] or 'unassigned'}`",
+                f"- feedback_path: `{task['feedback_path']}`",
+                f"- retrospective_path: `{task['retrospective_path']}`",
+            ]
+        )
     lines.extend(
         [
             "",
             "本轮唯一目标：",
-            "- [在这里填写唯一任务]",
+            f"- {task['title']}" if task else "- [在这里填写唯一任务]",
             "",
             "本轮不是：",
             "- 不要越出 task registry 和 role matrix 规定的 scope",
             "- 不要覆盖其他角色正在占用的文件",
             "- 不要把静态规则写回 `MEMORY.md`",
+            "- 不要自行拆新的顶层 task_id，除非主脑在任务包里明确授权",
+            "- 不要绕开 `task_registry.yaml` / `work_queue.yaml` 的既有约束",
             "",
             "允许修改的文件范围：",
         ]
@@ -904,8 +957,16 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
                 "流程 gate：",
                 f"- 完成后补 `feedback`: `{task['feedback_path']}`",
                 f"- 若要 closed as done，再补 `retrospective`: `{task['retrospective_path']}`",
+                "- 不允许绕开 `check_*` / `close_task.sh` 流程；worker 只提交结果，不自行验收结案",
                 f"- 反馈检查：`bash scripts/check_worker_feedback.sh --task {task['task_id']}`",
                 f"- 复盘检查：`bash scripts/check_retrospective.sh --task {task['task_id']}`",
+                f"- 主脑结案：`bash scripts/close_task.sh --task {task['task_id']} --to review|done`",
+                f"- 如需打回或撤销，由主脑执行：`bash scripts/reopen_task.sh --task {task['task_id']} ...` / `bash scripts/cancel_task.sh --task {task['task_id']} ...`",
+                "",
+                "完成后必须做的事：",
+                f"- 把结构化结论写回 `{task['feedback_path']}`",
+                f"- 如主脑要求 done 级结案，再补 `{task['retrospective_path']}`",
+                "- 最终回复必须和 feedback 中的已验证事实 / 风险结论一致",
             ]
         )
     lines.extend(
@@ -1136,6 +1197,28 @@ def build_parser() -> argparse.ArgumentParser:
     packet.add_argument("--role")
     packet.add_argument("--task")
 
+    task_field = subparsers.add_parser("task-field")
+    task_field.add_argument("--root", required=True)
+    task_field.add_argument("--task", required=True)
+    task_field.add_argument(
+        "--field",
+        required=True,
+        choices=[
+            "task_id",
+            "role",
+            "title",
+            "status",
+            "owner",
+            "feedback_path",
+            "retrospective_path",
+            "cwd",
+            "acceptance_artifacts",
+            "paper_entrypoint",
+            "paper_accept_pdf",
+            "paper_accept_log",
+        ],
+    )
+
     list_tasks_parser = subparsers.add_parser("list-tasks")
     list_tasks_parser.add_argument("--root", required=True)
     list_tasks_parser.add_argument("--role", default="")
@@ -1218,6 +1301,10 @@ def main(argv: Sequence[str]) -> int:
         if not role_name:
             fail("task-packet requires --role or --task")
         sys.stdout.write(make_task_packet(root, state, role_name, args.task))
+        return 0
+
+    if args.command == "task-field":
+        print(task_field_value(root, state, args.task, args.field))
         return 0
 
     if args.command == "list-tasks":

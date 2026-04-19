@@ -7,6 +7,7 @@
   - `bash scripts/list_open_tasks.sh --open-only`
 - Dispatch work through:
   - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`
+  - `bash scripts/run_exec_worker.sh --task <task_id> --owner <owner> --target <dir>` for one-shot exec worker runs
 - Update task ownership/status through:
   - `bash scripts/claim_task.sh --task <task_id> --owner <owner>`
   - `bash scripts/close_task.sh --task <task_id> --to review|done`
