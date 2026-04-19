@@ -34,6 +34,33 @@ bash scripts/setup.sh --deps-only
 bash scripts/setup.sh --reset-state
 ```
 
+### 2.1 默认容器运行基线
+
+实例默认复用的镜像与权限配置以根目录 `.env` 为准，初始渲染值是：
+
+- `IMAGE_NAME={{IMAGE_NAME}}`
+- `CONTAINER_RUNTIME={{CONTAINER_RUNTIME}}`
+- `CONTAINER_GPUS={{CONTAINER_GPUS}}`
+- `CONTAINER_PRIVILEGED={{CONTAINER_PRIVILEGED}}`
+- `CONTAINER_USER={{CONTAINER_USER}}`
+- `CONTAINER_GRANT_SUDO={{CONTAINER_GRANT_SUDO}}`
+
+这意味着默认容器会以高权限模式启动，并把工程目录挂到 `/workspace/mathorcup`。
+
+当前 reference image 的已验证内部环境基线：
+
+- `Python 3.12.12`
+- `pip 24.1.2`
+- `latexmk 4.83`
+- `XeTeX (TeX Live 2023/Debian)`
+- `R 4.5.1`
+- `sudo` 免密可用
+
+已知注意事项：
+
+- `biber` 不保证在基础镜像中预装
+- 如果要跑论文编译，建议先执行 `bash scripts/install_deps.sh`
+
 ## 3. 关键文件分层
 
 - `MEMORY.md`

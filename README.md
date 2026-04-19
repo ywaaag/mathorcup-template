@@ -215,6 +215,57 @@ bash scripts/setup.sh --deps-only --target <实例目录>
 - 依赖修复不等于模板重渲染
 - Agent 和人都更敢重复执行
 
+### 5.6 默认 reference image 与权限基线
+
+当前模板默认复用的基础镜像是：
+
+- `mathorcup-runtime:latest`
+
+这个 tag 现在来自参考容器 `mathorcup_v1-dev` 的导出镜像，并保留了版本标签：
+
+- `mathorcup-runtime:20260419`
+
+初始化后的默认容器权限基线会写进实例 `.env`，并由 `bootstrap_container.sh` 读取：
+
+- `CONTAINER_RUNTIME=nvidia`
+- `CONTAINER_GPUS=all`
+- `CONTAINER_PRIVILEGED=true`
+- `CONTAINER_USER=root`
+- `CONTAINER_GRANT_SUDO=yes`
+
+也就是说，默认行为就是：
+
+- 以 `root` 用户启动
+- 以 `--privileged` 模式启动
+- 请求全部 GPU
+- 容器内保留 `GRANT_SUDO=yes`
+
+基于当前 reference image 的已验证内部环境：
+
+- `Python 3.12.12`
+- `pip 24.1.2`
+- `latexmk 4.83`
+- `XeTeX (TeX Live 2023/Debian)`
+- `R 4.5.1`
+- `sudo` 免密可用
+- `nvidia-smi` 可用（前提是宿主 Docker GPU runtime 可用）
+
+当前 base image 的已知缺口：
+
+- `biber` 不保证预装
+- 如果要稳定跑 paper build，仍建议执行：
+
+```bash
+bash scripts/install_deps.sh --target <实例目录>
+```
+
+如果后续你想用新的 reference container 刷新这套基础镜像，最直接的方式是：
+
+```bash
+docker commit -a "Codex" -m "Exported reference runtime from mathorcup_v1-dev on 2026-04-19" mathorcup_v1-dev mathorcup-runtime:20260419
+docker tag mathorcup-runtime:20260419 mathorcup-runtime:latest
+```
+
 ## 6. 实例仓库创建后，你会得到什么
 
 渲染后的实例仓库里，最重要的几个文件是：
