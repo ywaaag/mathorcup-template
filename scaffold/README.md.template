@@ -106,16 +106,25 @@ bash scripts/paper.sh build
 
 # 生成任务包骨架
 bash scripts/make_task_packet.sh paper
+
+# 检查 codex exec 是否可用
+bash scripts/exec_healthcheck.sh
+
+# 用 codex exec 跑一个非交互 worker
+bash scripts/run_exec_worker.sh --task TASK_REVIEW_CONSISTENCY --owner exec_review
 ```
 
 ## 5. 推荐协作顺序
 
 1. 主脑先读 `AGENTS.md`、`MEMORY.md`、runtime/workflow contracts。
 2. 主脑决定当前唯一目标，再派给代码脑 / 论文脑 / 杂务 Agent。
-3. 代码脑产出图表、CSV、handoff。
-4. 论文脑只消费已索引 handoff 和当前 active paper entrypoint。
-5. 编译/验收杂务 Agent 只做 compile 和 host-visible acceptance。
-6. 重要踩坑点写入 `project/output/retrospectives/`。
+3. 若走多会话 relay，就先 `dispatch_task.sh` 再把 packet 发给另一个会话。
+4. 若走 `codex exec`，就先 `exec_healthcheck.sh`，再用 `run_exec_worker.sh` 执行。
+5. 无论哪种 worker backend，回传都要落到 feedback / retrospective / close gate。
+6. 代码脑产出图表、CSV、handoff。
+7. 论文脑只消费已索引 handoff 和当前 active paper entrypoint。
+8. 编译/验收杂务 Agent 只做 compile 和 host-visible acceptance。
+9. 重要踩坑点写入 `project/output/retrospectives/`。
 
 ## 6. paper active entrypoint 怎么改
 
@@ -138,10 +147,16 @@ project/paper/runtime/paper.env
 bash scripts/validate_agent_docs.sh
 ```
 
-## 7. 没有 sub-agent 也怎么协作
+## 7. 协作模式怎么选
 
-- 用多个独立终端 / 多个会话扮演主脑、代码脑、论文脑、杂务 Agent。
-- 全部共享同一套文档和模板：
+- 多会话 relay：
+  - 主脑 dispatch packet，再手工贴给另一个会话
+- `codex exec` worker：
+  - 主脑用 `run_exec_worker.sh` 直接启动一个非交互 worker
+- sub-agent delegation：
+  - 如果环境支持，也仍然应该复用同一套 registry / packet / feedback / close 流程
+
+三种模式都共享同一套文档和模板：
   - `MEMORY.md`
   - runtime contract
   - workflow contract

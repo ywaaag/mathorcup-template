@@ -129,6 +129,10 @@
   - 列出当前可直接派发或按条件过滤的任务
 - `scripts/dispatch_task.sh`
   - 主脑一键完成 claim + packet 输出
+- `scripts/exec_healthcheck.sh`
+  - 对 `codex exec` 做一次最小真实探活
+- `scripts/run_exec_worker.sh`
+  - 用 `codex exec` 串起 claim + packet + feedback init + worker 执行
 - `scripts/submit_feedback.sh`
   - 为 worker 初始化 feedback / retrospective skeleton
 - `scripts/close_task.sh`
@@ -361,7 +365,7 @@ bash scripts/export_reference_image.sh \
 
 ### 7.3 没有 sub-agent 也能工作
 
-如果你的环境没有 vendor-specific delegation：
+如果你的环境没有 vendor-specific delegation，也暂时不想用 `codex exec`：
 
 - 仍然可以先看 dispatch pool
 - 再 dispatch task
@@ -388,7 +392,30 @@ bash scripts/export_reference_image.sh \
 - feedback gate
 - retrospective gate
 
-### 7.4 有 sub-agent 时怎么用
+### 7.4 `codex exec` worker 模式
+
+如果你的环境里 `codex exec` 比 sub-agent 更稳，那么它可以作为这套系统的一等公民执行后端。
+
+推荐顺序：
+
+1. `bash scripts/exec_healthcheck.sh --target <dir>`
+2. `bash scripts/run_exec_worker.sh --task <task_id> --owner <owner> --target <dir>`
+3. 主脑检查：
+   - `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
+   - 如本轮创建了 retrospective，再执行 `bash scripts/check_retrospective.sh --task <task_id> --target <dir>`
+4. 主脑再决定：
+   - `bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>`
+   - 或 `bash scripts/reopen_task.sh ...`
+   - 或 `bash scripts/cancel_task.sh ...`
+
+这条路径的边界要理解清楚：
+
+- `run_exec_worker.sh` 不是后台调度器
+- 它不会自动 close task
+- 它不会替主脑判定 feedback 是否合格
+- 它只是把“生成 packet、初始化回传骨架、调用 `codex exec`、保存最后一条消息”串成一条显式命令
+
+### 7.5 有 sub-agent 时怎么用
 
 如果环境支持 sub-agent delegation，也不要再维护一套独立状态系统。
 
@@ -403,6 +430,7 @@ bash scripts/export_reference_image.sh \
 
 - sub-agent 只是执行媒介
 - 不是另一套 workflow contract
+- 如果 `codex exec` 也可用，它和 sub-agent 只是两个不同的 worker backend
 - 不建议 worker 自己继续任意分裂新总任务，除非主脑任务包显式允许
 
 ## 8. paper 工作流的关键设计
@@ -580,7 +608,27 @@ bash scripts/dispatch_task.sh --task TASK_REVIEW_CONSISTENCY --owner bob --packe
 - `--open-only` 只看 `todo/ready` 且 `owner=""` 的任务
 - `blocked` 不在直接派发池里，想看它必须显式 `--status blocked`
 
-### 11.7 `scripts/claim_task.sh` / `scripts/close_task.sh`
+### 11.7 `scripts/exec_healthcheck.sh` / `scripts/run_exec_worker.sh`
+
+用途：把 `codex exec` 接成一个可选但正式的 worker backend。
+
+常见模式：
+
+```bash
+bash scripts/exec_healthcheck.sh --target <dir>
+bash scripts/exec_healthcheck.sh --target <dir> --model gpt-5.4
+bash scripts/run_exec_worker.sh --task TASK_REVIEW_CONSISTENCY --owner exec_review --target <dir>
+bash scripts/run_exec_worker.sh --task TASK_REVIEW_CONSISTENCY --owner exec_review --with-retrospective --goal "只做 review output，不改源码" --target <dir>
+```
+
+注意：
+
+- `exec_healthcheck.sh` 只做一次最小真实探活，不是后台 health monitor
+- `run_exec_worker.sh` 会串起 dispatch、feedback skeleton、`codex exec`、last-message 落盘
+- 它不会自动 `close_task.sh`
+- 如果 exec 失败，任务不会被自动取消，仍由主脑决定是 retry、cancel 还是 reopen
+
+### 11.8 `scripts/claim_task.sh` / `scripts/close_task.sh`
 
 用途：管理任务占用、状态推进和并发约束。
 
@@ -593,7 +641,7 @@ bash scripts/close_task.sh --task TASK_CODE_MODEL_SLOT --to review --target <dir
 bash scripts/close_task.sh --task TASK_REVIEW_CONSISTENCY --to done --accepted-by main_brain --target <dir>
 ```
 
-### 11.8 `scripts/submit_feedback.sh`
+### 11.9 `scripts/submit_feedback.sh`
 
 用途：为 worker 自动创建 feedback / retrospective skeleton，避免手抄路径。
 
@@ -604,7 +652,7 @@ bash scripts/submit_feedback.sh --task TASK_CODE_MODEL_SLOT --target <dir>
 bash scripts/submit_feedback.sh --task TASK_REVIEW_CONSISTENCY --with-retrospective --target <dir>
 ```
 
-### 11.9 `scripts/reopen_task.sh` / `scripts/cancel_task.sh`
+### 11.10 `scripts/reopen_task.sh` / `scripts/cancel_task.sh`
 
 用途：标准化处理“任务打回重做”“任务中止撤销”。
 
@@ -623,7 +671,7 @@ bash scripts/reopen_task.sh --task TASK_LAYOUT_ACCEPTANCE --to review --reason "
 - 如果要重开已验收任务，应先 `done -> review`
 - 然后再由主脑决定是否 `review -> ready` 或 `review -> in_progress`
 
-### 11.10 `scripts/check_worker_feedback.sh` / `scripts/check_retrospective.sh`
+### 11.11 `scripts/check_worker_feedback.sh` / `scripts/check_retrospective.sh`
 
 用途：在主脑验收前检查 worker 回传是否满足最小结构要求。
 
