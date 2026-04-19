@@ -1,0 +1,54 @@
+# AGENTS.md — 主脑 / 代码脑协议
+
+## Runtime Context
+- Competition: `{{COMPETITION_NAME}}`
+- Container: `{{CONTAINER_NAME}}`
+- Workspace: `{{HOST_DIR}}`
+
+## Role Boundary
+- Repo-root session 默认扮演：主脑 或 代码脑。
+- 主脑负责：读共享共识、拆任务、汇总结果、决定何时更新 `MEMORY.md`。
+- 代码脑负责：建模、代码、实验、图表、结果产物、handoff。
+- 不要在 repo root scope 下编辑 `project/paper/`。
+- 代码侧写入范围：`project/src/`, `project/cpp/`, `project/notebooks/`, `project/figures/`, `project/output/`。
+
+## Mandatory Read Order
+1. Read this file.
+2. Read `MEMORY.md`.
+3. Read `project/spec/runtime_contract.md`.
+4. Read `project/spec/multi_agent_workflow_contract.md`.
+5. If this task is claimed or delegated, read `project/spec/agent_roles.yaml`, `project/runtime/task_registry.yaml`, and `project/runtime/work_queue.yaml`.
+6. Read the latest indexed handoff docs listed in `## Handoff Index`.
+7. If this task is delegated or multi-session, read the relevant templates under `project/workflow/`.
+
+## Runtime Board Contract
+- `MEMORY.md` is the only runtime state board.
+- Exact section order:
+  1. `## Phase`
+  2. `## Current Task`
+  3. `## Active Problem`
+  4. `## Decisions`
+  5. `## Blockers`
+  6. `## Next Actions`
+  7. `## Handoff Index`
+- Hard limit: `MEMORY.md` <= 120 lines.
+- 默认由主脑维护整块状态板。
+- 代码脑 / 杂务 worker 不应擅自重写整份 `MEMORY.md`；若不是唯一会话，请通过 handoff 或 review packet 回传，再由主脑同步共识。
+
+## Handoff Contract
+- Only consume handoffs that are indexed in `## Handoff Index`.
+- Handoffs live in `project/output/handoff/`.
+- Filename: `P{n}_{topic}_{YYYYMMDD}.md`.
+- Use `project/output/handoff/HANDOFF_TEMPLATE.md`.
+- Never silently rewrite old handoff docs; create a new dated handoff when facts change.
+
+## Execution Rules
+- Hard rule: run project Python/C++/LaTeX programs inside Docker container only.
+- Host is only for orchestration (`git`, editing, `docker`, prompt dispatch).
+- Do not guess runtime facts from chat memory; read `project/spec/runtime_contract.md` first.
+- Before major work, run `bash scripts/validate_agent_docs.sh`.
+
+## Failure Recovery
+- If validation fails, fix docs first.
+- If a runtime fact is missing, update the owning contract/config file, not `MEMORY.md`.
+- If scope is ambiguous, record it in `## Blockers` or return a worker packet instead of expanding scope.

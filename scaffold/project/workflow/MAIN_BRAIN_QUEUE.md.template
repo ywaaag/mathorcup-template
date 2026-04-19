@@ -1,0 +1,14 @@
+# Main-Brain Queue
+
+- Source of truth:
+  - `project/runtime/task_registry.yaml`
+  - `project/runtime/work_queue.yaml`
+- Update task ownership through:
+  - `bash scripts/claim_task.sh --task <task_id> --owner <owner>`
+  - `bash scripts/close_task.sh --task <task_id> --to review|done`
+
+## Active Tasks
+- none
+
+## Task Summary
+- ready: review `project/runtime/task_registry.yaml`

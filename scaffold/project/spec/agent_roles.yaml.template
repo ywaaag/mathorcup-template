@@ -1,0 +1,354 @@
+{
+  "schema_version": 1,
+  "roles": {
+    "main_brain": {
+      "description": "Owns task decomposition, queue coordination, acceptance, and consensus sync.",
+      "read_roots": [
+        "."
+      ],
+      "write_roots": [
+        "MEMORY.md",
+        "project/spec",
+        "project/runtime",
+        "project/workflow/MAIN_BRAIN_QUEUE.md",
+        "project/output/review",
+        "project/output/retrospectives",
+        "project/output/handoff"
+      ],
+      "forbidden_roots": [],
+      "memory_permissions": {
+        "mode": "full_board",
+        "allowed_sections": []
+      },
+      "must_read_docs": [
+        "AGENTS.md",
+        "MEMORY.md",
+        "project/spec/runtime_contract.md",
+        "project/spec/multi_agent_workflow_contract.md",
+        "project/spec/agent_roles.yaml",
+        "project/runtime/task_registry.yaml",
+        "project/runtime/work_queue.yaml",
+        "project/workflow/MAIN_BRAIN_QUEUE.md"
+      ],
+      "default_acceptance_artifacts": [
+        "MEMORY.md",
+        "project/runtime/task_registry.yaml",
+        "project/runtime/work_queue.yaml",
+        "project/workflow/MAIN_BRAIN_QUEUE.md"
+      ],
+      "parallel_safe_with": [
+        "code_brain",
+        "paper_brain",
+        "layout_worker",
+        "review_worker",
+        "citation_worker",
+        "utility_worker"
+      ],
+      "parallel_forbidden_with": []
+    },
+    "code_brain": {
+      "description": "Owns modeling, scripts, experiments, figures, outputs, and handoff creation.",
+      "read_roots": [
+        "AGENTS.md",
+        "MEMORY.md",
+        "project/spec",
+        "project/runtime",
+        "project/data",
+        "project/src",
+        "project/cpp",
+        "project/notebooks",
+        "project/output",
+        "project/figures",
+        "project/workflow"
+      ],
+      "write_roots": [
+        "project/src",
+        "project/cpp",
+        "project/notebooks",
+        "project/figures",
+        "project/output",
+        "project/output/handoff"
+      ],
+      "forbidden_roots": [
+        "project/paper"
+      ],
+      "memory_permissions": {
+        "mode": "restricted",
+        "allowed_sections": [
+          "## Blockers",
+          "## Next Actions",
+          "## Handoff Index"
+        ]
+      },
+      "must_read_docs": [
+        "AGENTS.md",
+        "MEMORY.md",
+        "project/spec/runtime_contract.md",
+        "project/spec/multi_agent_workflow_contract.md",
+        "project/spec/agent_roles.yaml",
+        "project/runtime/task_registry.yaml",
+        "project/runtime/work_queue.yaml",
+        "project/output/handoff/HANDOFF_TEMPLATE.md"
+      ],
+      "default_acceptance_artifacts": [
+        "project/figures",
+        "project/output",
+        "project/output/handoff"
+      ],
+      "parallel_safe_with": [
+        "paper_brain",
+        "layout_worker",
+        "review_worker",
+        "citation_worker",
+        "utility_worker",
+        "main_brain"
+      ],
+      "parallel_forbidden_with": []
+    },
+    "paper_brain": {
+      "description": "Owns LaTeX drafting, paper-side integration, and section-level writing.",
+      "read_roots": [
+        "project/paper/AGENTS.md",
+        "MEMORY.md",
+        "project/spec",
+        "project/runtime",
+        "project/paper",
+        "project/output",
+        "project/figures",
+        "project/workflow"
+      ],
+      "write_roots": [
+        "project/paper"
+      ],
+      "forbidden_roots": [
+        "project/src",
+        "project/cpp",
+        "project/notebooks"
+      ],
+      "memory_permissions": {
+        "mode": "restricted",
+        "allowed_sections": [
+          "## Blockers",
+          "## Next Actions",
+          "## Handoff Index"
+        ]
+      },
+      "must_read_docs": [
+        "project/paper/AGENTS.md",
+        "MEMORY.md",
+        "project/spec/runtime_contract.md",
+        "project/spec/multi_agent_workflow_contract.md",
+        "project/spec/agent_roles.yaml",
+        "project/runtime/task_registry.yaml",
+        "project/runtime/work_queue.yaml",
+        "project/paper/spec/paper_runtime_contract.md",
+        "project/paper/runtime/paper.env"
+      ],
+      "default_acceptance_artifacts": [
+        "project/paper/runtime/paper.env#PAPER_ACCEPT_PDF",
+        "project/paper/runtime/paper.env#PAPER_ACCEPT_LOG",
+        "project/paper/runtime/paper.env#PAPER_ACCEPT_AUX"
+      ],
+      "parallel_safe_with": [
+        "code_brain",
+        "review_worker",
+        "main_brain"
+      ],
+      "parallel_forbidden_with": [
+        "layout_worker",
+        "citation_worker"
+      ]
+    },
+    "layout_worker": {
+      "description": "Owns compile-only, layout-only, TOC/page-style, and host-visible acceptance.",
+      "read_roots": [
+        "project/paper/AGENTS.md",
+        "MEMORY.md",
+        "project/spec",
+        "project/runtime",
+        "project/paper",
+        "project/output",
+        "project/figures"
+      ],
+      "write_roots": [
+        "project/paper"
+      ],
+      "forbidden_roots": [
+        "project/src",
+        "project/cpp",
+        "project/notebooks"
+      ],
+      "memory_permissions": {
+        "mode": "none_by_default",
+        "allowed_sections": []
+      },
+      "must_read_docs": [
+        "project/paper/AGENTS.md",
+        "MEMORY.md",
+        "project/spec/runtime_contract.md",
+        "project/spec/multi_agent_workflow_contract.md",
+        "project/spec/agent_roles.yaml",
+        "project/runtime/task_registry.yaml",
+        "project/runtime/work_queue.yaml",
+        "project/paper/spec/paper_runtime_contract.md",
+        "project/paper/runtime/paper.env"
+      ],
+      "default_acceptance_artifacts": [
+        "project/paper/runtime/paper.env#PAPER_ACCEPT_PDF",
+        "project/paper/runtime/paper.env#PAPER_ACCEPT_LOG",
+        "project/paper/runtime/paper.env#PAPER_ACCEPT_AUX"
+      ],
+      "parallel_safe_with": [
+        "code_brain",
+        "review_worker",
+        "main_brain"
+      ],
+      "parallel_forbidden_with": [
+        "paper_brain",
+        "citation_worker"
+      ]
+    },
+    "review_worker": {
+      "description": "Owns consistency review, acceptance review, and feedback synthesis.",
+      "read_roots": [
+        "AGENTS.md",
+        "project/paper/AGENTS.md",
+        "MEMORY.md",
+        "project/spec",
+        "project/runtime",
+        "project/paper",
+        "project/output",
+        "project/figures",
+        "project/output/review",
+        "project/output/retrospectives"
+      ],
+      "write_roots": [
+        "project/output/review",
+        "project/output/retrospectives"
+      ],
+      "forbidden_roots": [
+        "project/src",
+        "project/cpp"
+      ],
+      "memory_permissions": {
+        "mode": "none_by_default",
+        "allowed_sections": []
+      },
+      "must_read_docs": [
+        "AGENTS.md",
+        "MEMORY.md",
+        "project/spec/runtime_contract.md",
+        "project/spec/multi_agent_workflow_contract.md",
+        "project/spec/agent_roles.yaml",
+        "project/runtime/task_registry.yaml",
+        "project/runtime/work_queue.yaml",
+        "project/output/review/WORKER_FEEDBACK_TEMPLATE.md",
+        "project/output/retrospectives/RETROSPECTIVE_TEMPLATE.md"
+      ],
+      "default_acceptance_artifacts": [
+        "project/output/review",
+        "project/output/retrospectives"
+      ],
+      "parallel_safe_with": [
+        "main_brain",
+        "code_brain",
+        "paper_brain",
+        "layout_worker",
+        "citation_worker",
+        "utility_worker"
+      ],
+      "parallel_forbidden_with": []
+    },
+    "citation_worker": {
+      "description": "Owns citation audit, terminology alignment, and bounded paper-side reference fixes.",
+      "read_roots": [
+        "project/paper/AGENTS.md",
+        "MEMORY.md",
+        "project/spec",
+        "project/runtime",
+        "project/paper",
+        "project/output",
+        "project/figures"
+      ],
+      "write_roots": [
+        "project/paper"
+      ],
+      "forbidden_roots": [
+        "project/src",
+        "project/cpp",
+        "project/notebooks"
+      ],
+      "memory_permissions": {
+        "mode": "none_by_default",
+        "allowed_sections": []
+      },
+      "must_read_docs": [
+        "project/paper/AGENTS.md",
+        "MEMORY.md",
+        "project/spec/runtime_contract.md",
+        "project/spec/multi_agent_workflow_contract.md",
+        "project/spec/agent_roles.yaml",
+        "project/runtime/task_registry.yaml",
+        "project/runtime/work_queue.yaml",
+        "project/paper/spec/paper_runtime_contract.md",
+        "project/paper/runtime/paper.env"
+      ],
+      "default_acceptance_artifacts": [
+        "project/paper/runtime/paper.env#PAPER_ACCEPT_PDF",
+        "project/paper/runtime/paper.env#PAPER_ACCEPT_LOG"
+      ],
+      "parallel_safe_with": [
+        "code_brain",
+        "review_worker",
+        "main_brain"
+      ],
+      "parallel_forbidden_with": [
+        "paper_brain",
+        "layout_worker"
+      ]
+    },
+    "utility_worker": {
+      "description": "Owns bounded utility tasks such as compile-runner, queue maintenance, and support automation.",
+      "read_roots": [
+        "."
+      ],
+      "write_roots": [
+        "project/output/review",
+        "project/output/retrospectives",
+        "project/runtime"
+      ],
+      "forbidden_roots": [
+        "project/paper/sections",
+        "project/src"
+      ],
+      "memory_permissions": {
+        "mode": "none_by_default",
+        "allowed_sections": []
+      },
+      "must_read_docs": [
+        "AGENTS.md",
+        "MEMORY.md",
+        "project/spec/runtime_contract.md",
+        "project/spec/multi_agent_workflow_contract.md",
+        "project/spec/agent_roles.yaml",
+        "project/runtime/task_registry.yaml",
+        "project/runtime/work_queue.yaml"
+      ],
+      "default_acceptance_artifacts": [
+        "project/runtime/task_registry.yaml",
+        "project/runtime/work_queue.yaml",
+        "project/output/review",
+        "project/output/retrospectives"
+      ],
+      "parallel_safe_with": [
+        "main_brain",
+        "code_brain",
+        "paper_brain",
+        "layout_worker",
+        "review_worker",
+        "citation_worker"
+      ],
+      "parallel_forbidden_with": []
+    }
+  }
+}

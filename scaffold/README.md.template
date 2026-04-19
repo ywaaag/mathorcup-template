@@ -1,0 +1,133 @@
+# MathorCup 实例仓库（Human Guide）
+
+这是由 `mathorcup-template` 渲染出的实例仓库。
+
+## 1. 先看什么
+
+- `AGENTS.md`
+- `project/paper/AGENTS.md`
+- `MEMORY.md`
+- `project/spec/runtime_contract.md`
+- `project/spec/multi_agent_workflow_contract.md`
+- `project/workflow/prompt_template_library.md`
+
+说明：
+- `AGENTS / MEMORY / handoff / review / retrospective` 主要给 Agent 读写。
+- 本 README 主要给人类确认实例化、运行、协作和验收路径。
+
+## 2. 初始化一个新实例
+
+```bash
+bash scripts/setup.sh {{COMPETITION_NAME}}
+```
+
+常用变体：
+
+```bash
+# 只渲染合同与运行配置，不碰容器
+bash scripts/setup.sh {{COMPETITION_NAME}} --render-only
+
+# 容器已存在，只补依赖
+bash scripts/setup.sh --deps-only
+
+# 仅重置 runtime state，不改容器和协议文档
+bash scripts/setup.sh --reset-state
+```
+
+## 3. 关键文件分层
+
+- `MEMORY.md`
+  - 唯一 runtime state board
+- `project/spec/runtime_contract.md`
+  - 当前运行事实总入口
+- `project/paper/runtime/paper.env`
+  - paper active entrypoint/build target 的单一事实源
+- `project/spec/multi_agent_workflow_contract.md`
+  - 主脑 / 代码脑 / 论文脑 / 杂务 Agent 协作协议
+- `project/workflow/prompt_template_library.md`
+  - 任务包、预检查、compile-only、最小改动、复盘、验收模板
+- `project/output/handoff/`
+  - 代码脑向论文脑交接的索引化资产
+- `project/output/review/`
+  - worker 结构化回传记录
+- `project/output/retrospectives/`
+  - 经验复盘与 lesson learned
+
+## 4. 常用命令
+
+```bash
+# 渲染或刷新合同文档
+bash scripts/render_templates.sh
+
+# 创建/启动容器
+bash scripts/bootstrap_container.sh
+
+# 安装竞赛依赖
+bash scripts/install_deps.sh
+
+# 校验 agent 协议与 runtime config
+bash scripts/validate_agent_docs.sh
+
+# 环境诊断
+bash scripts/doctor.sh
+
+# 论文编译
+bash scripts/paper.sh build
+
+# 生成任务包骨架
+bash scripts/make_task_packet.sh paper
+```
+
+## 5. 推荐协作顺序
+
+1. 主脑先读 `AGENTS.md`、`MEMORY.md`、runtime/workflow contracts。
+2. 主脑决定当前唯一目标，再派给代码脑 / 论文脑 / 杂务 Agent。
+3. 代码脑产出图表、CSV、handoff。
+4. 论文脑只消费已索引 handoff 和当前 active paper entrypoint。
+5. 编译/验收杂务 Agent 只做 compile 和 host-visible acceptance。
+6. 重要踩坑点写入 `project/output/retrospectives/`。
+
+## 6. paper active entrypoint 怎么改
+
+只改一个文件：
+
+```bash
+project/paper/runtime/paper.env
+```
+
+最常改的字段：
+- `PAPER_ACTIVE_ENTRYPOINT`
+- `PAPER_BUILD_DIR`
+- `PAPER_TEXINPUTS`
+- `PAPER_ACCEPT_PDF`
+- `PAPER_ACCEPT_LOG`
+
+改完后执行：
+
+```bash
+bash scripts/validate_agent_docs.sh
+```
+
+## 7. 没有 sub-agent 也怎么协作
+
+- 用多个独立终端 / 多个会话扮演主脑、代码脑、论文脑、杂务 Agent。
+- 全部共享同一套文档和模板：
+  - `MEMORY.md`
+  - runtime contract
+  - workflow contract
+  - prompt-template library
+  - handoff / review / retrospective directories
+- 主脑仍然负责汇总共识；worker 只回传结构化结果。
+
+## 8. 最低限度验收
+
+```bash
+bash scripts/validate_agent_docs.sh
+bash scripts/doctor.sh
+```
+
+如果是 paper 任务，再补：
+
+```bash
+bash scripts/paper.sh build
+```

@@ -6,10 +6,12 @@ Filename must be: `P{n}_{topic}_{YYYYMMDD}.md`
 - P1
 
 ## Inputs
-- data source:
+- canonical inputs:
+- supporting files:
 
 ## Method
-- model:
+- model / script:
+- what was actually validated:
 
 ## Outputs
 - figures:
@@ -19,6 +21,7 @@ Filename must be: `P{n}_{topic}_{YYYYMMDD}.md`
 ## For Paper Brain
 - key claims:
 - variable definitions:
+- wording boundaries / caveats:
 
 ## Risks
 - assumption risk:

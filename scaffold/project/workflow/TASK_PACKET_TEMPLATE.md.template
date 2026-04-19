@@ -1,0 +1,48 @@
+# Task Packet Template
+
+## Role
+- main / code / paper / utility
+
+## Task ID
+- [task id from task_registry.yaml]
+
+## Goal
+- [one scoped objective]
+
+## Not This Round
+- [scope exclusions]
+
+## Allowed Files
+- [exact paths]
+
+## Forbidden Files
+- [exact paths]
+
+## Mandatory Read List
+1. `AGENTS.md` or `project/paper/AGENTS.md`
+2. `MEMORY.md`
+3. `project/spec/runtime_contract.md`
+4. `project/spec/multi_agent_workflow_contract.md`
+5. Indexed handoffs
+6. Task-specific files
+
+## Runtime Facts
+- Container: `{{CONTAINER_NAME}}`
+- Active paper entrypoint source: `project/paper/runtime/paper.env`
+
+## Acceptance
+- Validation command: `bash scripts/validate_agent_docs.sh`
+- Extra compile/acceptance step: [fill this if needed]
+
+## Feedback Gate
+- feedback path: [project/output/review/...]
+- retrospective path: [project/output/retrospectives/...]
+
+## Final Reply Format
+1. Files changed
+2. What was done
+3. Verified facts
+4. Validation / compile / acceptance result
+5. Remaining risks
+6. Lesson learned
+7. Missing context that should have been provided upfront

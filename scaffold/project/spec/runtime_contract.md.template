@@ -1,0 +1,75 @@
+# Runtime Contract
+
+## Purpose
+
+- Give every Agent one fixed entry for current runtime facts.
+- Keep runtime facts out of `AGENTS.md` and out of `MEMORY.md`.
+- Separate machine-owned config from task-state and workflow rules.
+
+## Read Order
+
+1. `AGENTS.md`
+2. `MEMORY.md`
+3. `project/spec/runtime_contract.md`
+4. `project/spec/multi_agent_workflow_contract.md`
+5. Indexed handoffs
+6. Task-specific workflow templates if needed
+
+## Source Of Truth Layers
+
+- Runtime state board:
+  - `MEMORY.md`
+- Container/image/host-path facts:
+  - `.env`
+- Paper active entrypoint/build facts:
+  - `project/paper/runtime/paper.env`
+- Role permission matrix:
+  - `project/spec/agent_roles.yaml`
+- Task registry and live file locks:
+  - `project/runtime/task_registry.yaml`
+  - `project/runtime/work_queue.yaml`
+- Multi-Agent workflow and ownership:
+  - `project/spec/multi_agent_workflow_contract.md`
+- Prompt/task packet templates:
+  - `project/workflow/`
+
+## Current Host / Container Facts
+
+- Workspace host root:
+  - `{{HOST_DIR}}`
+- Project host root:
+  - `{{HOST_DIR}}/project`
+- Container name:
+  - `{{CONTAINER_NAME}}`
+- Expected container project root:
+  - `/workspace/mathorcup`
+- Jupyter port:
+  - `{{JUPYTER_PORT}}`
+- RStudio port:
+  - `{{RSTUDIO_PORT}}`
+
+## Runtime Rules
+
+- Do not guess runtime facts from old chat context.
+- If `.env` or `project/paper/runtime/paper.env` conflicts with assumptions, the config file wins.
+- If a runtime fact changes, update the owning config file first, then validate.
+- If task ownership or file occupancy changes, update `task_registry.yaml` / `work_queue.yaml`, not `MEMORY.md`.
+- `MEMORY.md` is for live task state only; do not copy runtime config into it.
+
+## Handoff And Acceptance Rules
+
+- Only consume handoffs listed in `MEMORY.md -> ## Handoff Index`.
+- Code-side accepted outputs should live under:
+  - `project/output/`
+  - `project/figures/`
+- Paper-side accepted outputs are defined by:
+  - `project/paper/runtime/paper.env`
+
+## Known Drift Risks To Guard Against
+
+1. Editing the wrong directory because role boundaries were not read first.
+2. Compiling the wrong paper entrypoint because a script default was assumed.
+3. Trusting a disk file that is not indexed in `## Handoff Index`.
+4. Treating container existence as proof that paths, mounts, or outputs are correct.
+5. Writing static workflow or runtime facts into `MEMORY.md` and causing drift.
+6. Letting two workers touch overlapping files without claiming task ownership first.

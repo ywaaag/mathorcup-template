@@ -1,0 +1,137 @@
+# Prompt Template Library
+
+## Purpose
+
+- Provide reusable task packets for multi-Agent work.
+- Standardize pre-checks, minimal-fix tasks, compile-only tasks, worker feedback, and retrospectives.
+- Keep prompt structure stable across 主脑 / 代码脑 / 论文脑 / 杂务 Agent collaboration.
+
+## Template 1: 通用任务包
+
+```text
+你现在在 `{{HOST_DIR}}` 工作。
+
+本轮唯一目标：
+- [写清本轮唯一任务]
+
+本轮不是：
+- [明确禁止扩 scope 的内容]
+
+允许修改的文件范围：
+- [精确列路径]
+
+必须按顺序读取：
+1. `AGENTS.md` 或 `project/paper/AGENTS.md`
+2. `MEMORY.md`
+3. `project/spec/runtime_contract.md`
+4. `project/spec/multi_agent_workflow_contract.md`
+5. 当前已索引的 handoff
+6. [补充本轮特定文件]
+
+当前容器：
+- `{{CONTAINER_NAME}}`
+
+若涉及论文：
+- active paper entrypoint 以 `project/paper/runtime/paper.env` 为准
+- role / task enforcement 以 `project/spec/agent_roles.yaml` 和 `project/runtime/task_registry.yaml` 为准
+
+开始前先执行：
+- `bash scripts/validate_agent_docs.sh`
+
+最终回复格式：
+1. 改了哪些文件
+2. 做了什么
+3. 哪些结论是已验证的
+4. 验证/编译/验收结果
+5. 剩余风险
+6. 本轮踩坑点
+7. 下次主脑最该提前告诉你的信息
+```
+
+## Template 2: 开工前预检查
+
+```text
+先不要修改文件，也不要执行编译。
+
+请先给我一份预检查风险清单，按下面格式回答：
+1. 已验证事实
+2. 高风险猜测
+3. 必须我补充的信息
+4. 如果我不补充，你准备如何验证
+5. 最可能浪费时间的地方（3~5 条）
+
+要求：
+- 每条都标注“已验证”或“推测”
+- 优先检查：入口文件、容器、挂载、编译命令、产物路径、验收标准
+```
+
+## Template 3: 最小改动 Worker
+
+```text
+本轮只处理一个很小的问题，不要扩 scope。
+
+唯一目标：
+- [填入最小修改目标]
+
+硬约束：
+- 不要顺手改别的问题
+- 不要越界改目录
+- 如果 live 结果已满足要求，就明确回答“无需修改”
+
+允许修改：
+- [精确列出 1~4 个文件]
+
+改完后必须：
+- `bash scripts/validate_agent_docs.sh`
+- 若涉及 paper，再执行 `bash scripts/paper.sh build`
+```
+
+## Template 4: Compile-Only Worker
+
+```text
+本轮只做 compile 和 acceptance，不改正文、不改建模、不扩 scope。
+
+执行步骤：
+1. `bash scripts/validate_agent_docs.sh`
+2. 读取 `project/paper/runtime/paper.env`
+3. `bash scripts/paper.sh build`
+4. 只认 `project/paper/runtime/paper.env` 中定义的 acceptance artifacts
+
+最终回复：
+1. 是否编译成功
+2. host-visible 产物路径
+3. log 中还有哪些错误/警告
+4. 有没有新的异常现象
+5. 本轮踩坑点
+```
+
+## Template 5: 复盘 Prompt
+
+```text
+请只写真实发生过的复盘，不要泛泛而谈。
+
+按下面格式回答：
+1. 真实现象
+2. 排查过程
+3. 最终确认事实
+4. 旧判断 -> 新结论
+5. 如果主脑提前告诉我什么，就能避免返工
+6. 下次任务包该增加哪条约束
+```
+
+## Template 6: Worker 结构化回传
+
+See:
+
+- `project/output/review/WORKER_FEEDBACK_TEMPLATE.md`
+
+## Template 7: 主脑验收模板
+
+See:
+
+- `project/workflow/MAIN_BRAIN_ACCEPTANCE_TEMPLATE.md`
+
+## Generator
+
+- 推荐主脑不要手写任务包，而是先运行：
+  - `bash scripts/make_task_packet.sh --role <role> --task <task_id>`

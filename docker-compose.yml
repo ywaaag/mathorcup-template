@@ -6,7 +6,7 @@
 #   或使用版本标签：math-modeling-competition:20260403
 #
 # 用法：
-#   cp .env.template .env          # 编辑比赛名称等参数
+#   bash scripts/setup.sh <competition_name> --render-only
 #   docker-compose up -d           # 启动容器
 #   docker-compose exec dev bash   # 进入容器
 #   docker-compose down             # 停止并删除容器

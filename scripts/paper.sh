@@ -1,68 +1,117 @@
 #!/bin/bash
-# ============================================================
-# MathorCup 数模模板 — LaTeX 编译脚本
-#
-# 用法:
-#   bash scripts/paper.sh                            # 默认容器 + build
-#   bash scripts/paper.sh mathorcup-dev build        # 完整编译 main.tex（xelatex + biber + xelatex x2）
-#   bash scripts/paper.sh mathorcup-dev biber        # 仅编译参考文献
-#   bash scripts/paper.sh mathorcup-dev clean        # 清理辅助文件
-#   bash scripts/paper.sh mathorcup-dev open         # 打开 PDF
-# ============================================================
-CONTAINER_NAME="${1:-mathorcup-dev}"
-COMMAND="${2:-build}"
+set -euo pipefail
 
-PAPER_DIR="/workspace/mathorcup/paper"
-HOST_PAPER_DIR="${HOST_DIR:-$(cd "$(dirname "$0")/.." && pwd)}/project/paper"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/common.sh"
+
+CONTAINER_OVERRIDE=""
+COMMAND="build"
+TARGET_DIR="$ROOT_DIR"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --target)
+            TARGET_DIR="$(abs_path "$2")"
+            shift 2
+            ;;
+        build|biber|clean|open|print-config)
+            COMMAND="$1"
+            shift
+            break
+            ;;
+        *)
+            CONTAINER_OVERRIDE="$1"
+            shift
+            if [[ $# -gt 0 ]]; then
+                COMMAND="$1"
+                shift
+            fi
+            break
+            ;;
+    esac
+done
+
+load_root_env "$TARGET_DIR"
+load_paper_env "$TARGET_DIR"
+[[ -n "$CONTAINER_OVERRIDE" ]] && CONTAINER_NAME="$CONTAINER_OVERRIDE"
+
+stem="$(paper_entry_stem)"
+container_build_dir="$(paper_container_build_dir)"
+host_build_dir="$(paper_host_build_dir)"
+entry_path="$PAPER_CONTAINER_DIR/$PAPER_ACTIVE_ENTRYPOINT"
+out_flag=()
+[[ -n "$PAPER_BUILD_DIR" ]] && out_flag+=("-output-directory=$PAPER_BUILD_DIR")
+
+run_latex_pass() {
+    docker exec "$CONTAINER_NAME" bash -lc "
+        cd '$PAPER_CONTAINER_DIR'
+        if [ -n '$PAPER_TEXINPUTS' ]; then
+            export TEXINPUTS='$PAPER_TEXINPUTS'
+        fi
+        '$PAPER_LATEX_ENGINE' -interaction=nonstopmode -halt-on-error -file-line-error ${out_flag[*]} '$PAPER_ACTIVE_ENTRYPOINT'
+    "
+}
+
+run_biber_pass() {
+    docker exec "$CONTAINER_NAME" bash -lc "
+        cd '$container_build_dir'
+        biber '$stem'
+    "
+}
 
 case "$COMMAND" in
     build)
-        echo "→ 编译论文: $PAPER_DIR/main.tex"
-        docker exec "$CONTAINER_NAME" bash -c "
-            cd $PAPER_DIR && \
-            echo '=== 第1次 xelatex ===' && \
-            xelatex -interaction=nonstopmode main.tex 2>&1 | tail -20 && \
-            echo '=== biber 编译参考文献 ===' && \
-            biber main 2>&1 | tail -10 && \
-            echo '=== 第2次 xelatex ===' && \
-            xelatex -interaction=nonstopmode main.tex 2>&1 | tail -20 && \
-            echo '=== 第3次 xelatex ===' && \
-            xelatex -interaction=nonstopmode main.tex 2>&1 | tail -10 && \
-            echo '=== 编译完成 ===' && \
-            ls -lh main.pdf 2>/dev/null || echo '警告: main.pdf 未生成'
-        "
-        echo "→ PDF 输出位置: $HOST_PAPER_DIR/main.pdf"
+        echo "→ active entrypoint: $PAPER_ACTIVE_ENTRYPOINT"
+        echo "→ acceptance pdf:   $HOST_DIR/$PAPER_ACCEPT_PDF"
+        run_latex_pass
+        if [[ "$PAPER_RUN_BIBER" == "1" ]]; then
+            run_biber_pass
+        fi
+        passes="$PAPER_BUILD_PASSES"
+        while (( passes > 0 )); do
+            run_latex_pass
+            passes=$((passes - 1))
+        done
+        echo "→ host-visible pdf: $HOST_DIR/$PAPER_ACCEPT_PDF"
         ;;
-
     biber)
-        echo "→ 编译参考文献..."
-        docker exec "$CONTAINER_NAME" bash -c "cd $PAPER_DIR && biber main" 2>&1 | tail -20
+        run_biber_pass
         ;;
-
     clean)
-        echo "→ 清理辅助文件..."
-        docker exec "$CONTAINER_NAME" bash -c "
-            cd $PAPER_DIR && \
-            rm -f main.aux main.bbl main.blg main.log main.out main.run.xml \
-                  *.bcf *.synctex.gz backup/ 2>/dev/null; \
-            echo '清理完成'
+        docker exec "$CONTAINER_NAME" bash -lc "
+            cd '$container_build_dir'
+            rm -f '$stem'.aux '$stem'.bbl '$stem'.bcf '$stem'.blg '$stem'.log '$stem'.out '$stem'.run.xml '$stem'.synctex.gz '$stem'.toc '$stem'.lof '$stem'.lot
         "
         ;;
-
     open)
-        echo "→ 打开 PDF（宿主机）..."
+        pdf_path="$HOST_DIR/$PAPER_ACCEPT_PDF"
         if [[ "$OSTYPE" == "darwin"* ]]; then
-            open "$HOST_PAPER_DIR/main.pdf" 2>/dev/null
+            open "$pdf_path" 2>/dev/null
         elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-            xdg-open "$HOST_PAPER_DIR/main.pdf" 2>/dev/null || echo "请手动打开: $HOST_PAPER_DIR/main.pdf"
+            xdg-open "$pdf_path" 2>/dev/null || echo "请手动打开: $pdf_path"
+        else
+            echo "$pdf_path"
         fi
         ;;
-
+    print-config)
+        cat <<EOF
+container=$CONTAINER_NAME
+paper_dir=$PAPER_CONTAINER_DIR
+entrypoint=$PAPER_ACTIVE_ENTRYPOINT
+build_dir=${PAPER_BUILD_DIR:-<same as paper dir>}
+latex_engine=$PAPER_LATEX_ENGINE
+run_biber=$PAPER_RUN_BIBER
+post_biber_passes=$PAPER_BUILD_PASSES
+texinputs=${PAPER_TEXINPUTS:-<empty>}
+accept_pdf=$PAPER_ACCEPT_PDF
+accept_log=$PAPER_ACCEPT_LOG
+accept_aux=$PAPER_ACCEPT_AUX
+EOF
+        ;;
     *)
-        echo "用法: $0 [容器名] [build|biber|clean|open]"
-        echo "  build   — 完整编译（默认）"
-        echo "  biber   — 仅编译参考文献"
-        echo "  clean   — 清理辅助文件"
-        echo "  open    — 打开生成的 PDF"
+        die "unknown paper command: $COMMAND"
         ;;
 esac

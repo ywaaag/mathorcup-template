@@ -1,0 +1,237 @@
+{
+  "schema_version": 1,
+  "tasks": [
+    {
+      "task_id": "TASK_MAIN_SYNC",
+      "role": "main_brain",
+      "title": "Maintain runtime board, queue, and consensus sync",
+      "status": "ready",
+      "owner": "",
+      "allowed_paths": [
+        "MEMORY.md",
+        "project/runtime",
+        "project/workflow/MAIN_BRAIN_QUEUE.md",
+        "project/output/review",
+        "project/output/retrospectives"
+      ],
+      "forbidden_paths": [
+        "project/paper/sections"
+      ],
+      "parallel_ok": true,
+      "input_refs": [
+        "AGENTS.md",
+        "MEMORY.md",
+        "project/spec/runtime_contract.md",
+        "project/spec/multi_agent_workflow_contract.md",
+        "project/spec/agent_roles.yaml",
+        "project/runtime/task_registry.yaml",
+        "project/runtime/work_queue.yaml"
+      ],
+      "output_refs": [
+        "MEMORY.md",
+        "project/runtime/task_registry.yaml",
+        "project/runtime/work_queue.yaml",
+        "project/workflow/MAIN_BRAIN_QUEUE.md"
+      ],
+      "feedback_path": "project/output/review/TASK_MAIN_SYNC_feedback.md",
+      "retrospective_path": "project/output/retrospectives/TASK_MAIN_SYNC_retrospective.md",
+      "accepted_by_main_brain": false
+    },
+    {
+      "task_id": "TASK_CODE_MODEL_SLOT",
+      "role": "code_brain",
+      "title": "Produce code-side outputs and indexed handoff",
+      "status": "ready",
+      "owner": "",
+      "allowed_paths": [
+        "project/src",
+        "project/cpp",
+        "project/notebooks",
+        "project/figures",
+        "project/output",
+        "project/output/handoff"
+      ],
+      "forbidden_paths": [
+        "project/paper"
+      ],
+      "parallel_ok": true,
+      "input_refs": [
+        "AGENTS.md",
+        "MEMORY.md",
+        "project/spec/runtime_contract.md",
+        "project/spec/multi_agent_workflow_contract.md",
+        "project/spec/agent_roles.yaml",
+        "project/runtime/task_registry.yaml",
+        "project/output/handoff/HANDOFF_TEMPLATE.md"
+      ],
+      "output_refs": [
+        "project/figures",
+        "project/output",
+        "project/output/handoff"
+      ],
+      "feedback_path": "project/output/review/TASK_CODE_MODEL_SLOT_feedback.md",
+      "retrospective_path": "project/output/retrospectives/TASK_CODE_MODEL_SLOT_retrospective.md",
+      "accepted_by_main_brain": false
+    },
+    {
+      "task_id": "TASK_PAPER_DRAFT_SLOT",
+      "role": "paper_brain",
+      "title": "Draft or update paper sections from indexed upstream assets",
+      "status": "ready",
+      "owner": "",
+      "allowed_paths": [
+        "project/paper"
+      ],
+      "forbidden_paths": [
+        "project/src",
+        "project/cpp",
+        "project/notebooks"
+      ],
+      "parallel_ok": false,
+      "input_refs": [
+        "project/paper/AGENTS.md",
+        "MEMORY.md",
+        "project/spec/runtime_contract.md",
+        "project/spec/multi_agent_workflow_contract.md",
+        "project/spec/agent_roles.yaml",
+        "project/runtime/task_registry.yaml",
+        "project/paper/spec/paper_runtime_contract.md",
+        "project/paper/runtime/paper.env"
+      ],
+      "output_refs": [
+        "project/paper/runtime/paper.env#PAPER_ACCEPT_PDF",
+        "project/paper/runtime/paper.env#PAPER_ACCEPT_LOG"
+      ],
+      "feedback_path": "project/output/review/TASK_PAPER_DRAFT_SLOT_feedback.md",
+      "retrospective_path": "project/output/retrospectives/TASK_PAPER_DRAFT_SLOT_retrospective.md",
+      "accepted_by_main_brain": false
+    },
+    {
+      "task_id": "TASK_LAYOUT_ACCEPTANCE",
+      "role": "layout_worker",
+      "title": "Compile and validate host-visible paper acceptance artifacts",
+      "status": "ready",
+      "owner": "",
+      "allowed_paths": [
+        "project/paper"
+      ],
+      "forbidden_paths": [
+        "project/src",
+        "project/cpp"
+      ],
+      "parallel_ok": false,
+      "input_refs": [
+        "project/paper/AGENTS.md",
+        "project/paper/spec/paper_runtime_contract.md",
+        "project/paper/runtime/paper.env",
+        "project/runtime/task_registry.yaml",
+        "project/runtime/work_queue.yaml"
+      ],
+      "output_refs": [
+        "project/paper/runtime/paper.env#PAPER_ACCEPT_PDF",
+        "project/paper/runtime/paper.env#PAPER_ACCEPT_LOG",
+        "project/paper/runtime/paper.env#PAPER_ACCEPT_AUX"
+      ],
+      "feedback_path": "project/output/review/TASK_LAYOUT_ACCEPTANCE_feedback.md",
+      "retrospective_path": "project/output/retrospectives/TASK_LAYOUT_ACCEPTANCE_retrospective.md",
+      "accepted_by_main_brain": false
+    },
+    {
+      "task_id": "TASK_REVIEW_CONSISTENCY",
+      "role": "review_worker",
+      "title": "Review consistency, acceptance, and reusable lessons",
+      "status": "ready",
+      "owner": "",
+      "allowed_paths": [
+        "project/output/review",
+        "project/output/retrospectives"
+      ],
+      "forbidden_paths": [
+        "project/src",
+        "project/cpp"
+      ],
+      "parallel_ok": true,
+      "input_refs": [
+        "AGENTS.md",
+        "MEMORY.md",
+        "project/spec/runtime_contract.md",
+        "project/spec/multi_agent_workflow_contract.md",
+        "project/runtime/task_registry.yaml",
+        "project/runtime/work_queue.yaml",
+        "project/output/review/WORKER_FEEDBACK_TEMPLATE.md",
+        "project/output/retrospectives/RETROSPECTIVE_TEMPLATE.md"
+      ],
+      "output_refs": [
+        "project/output/review",
+        "project/output/retrospectives"
+      ],
+      "feedback_path": "project/output/review/TASK_REVIEW_CONSISTENCY_feedback.md",
+      "retrospective_path": "project/output/retrospectives/TASK_REVIEW_CONSISTENCY_retrospective.md",
+      "accepted_by_main_brain": false
+    },
+    {
+      "task_id": "TASK_CITATION_AUDIT",
+      "role": "citation_worker",
+      "title": "Audit and fix citations/terminology within paper scope",
+      "status": "ready",
+      "owner": "",
+      "allowed_paths": [
+        "project/paper"
+      ],
+      "forbidden_paths": [
+        "project/src",
+        "project/cpp",
+        "project/notebooks"
+      ],
+      "parallel_ok": false,
+      "input_refs": [
+        "project/paper/AGENTS.md",
+        "project/spec/runtime_contract.md",
+        "project/spec/multi_agent_workflow_contract.md",
+        "project/spec/agent_roles.yaml",
+        "project/runtime/task_registry.yaml",
+        "project/paper/spec/paper_runtime_contract.md",
+        "project/paper/runtime/paper.env"
+      ],
+      "output_refs": [
+        "project/paper/runtime/paper.env#PAPER_ACCEPT_PDF",
+        "project/paper/runtime/paper.env#PAPER_ACCEPT_LOG"
+      ],
+      "feedback_path": "project/output/review/TASK_CITATION_AUDIT_feedback.md",
+      "retrospective_path": "project/output/retrospectives/TASK_CITATION_AUDIT_retrospective.md",
+      "accepted_by_main_brain": false
+    },
+    {
+      "task_id": "TASK_UTILITY_SUPPORT",
+      "role": "utility_worker",
+      "title": "Handle bounded support automation without touching model or paper sections",
+      "status": "ready",
+      "owner": "",
+      "allowed_paths": [
+        "project/runtime",
+        "project/output/review",
+        "project/output/retrospectives"
+      ],
+      "forbidden_paths": [
+        "project/src",
+        "project/paper/sections"
+      ],
+      "parallel_ok": true,
+      "input_refs": [
+        "AGENTS.md",
+        "project/spec/runtime_contract.md",
+        "project/spec/multi_agent_workflow_contract.md",
+        "project/spec/agent_roles.yaml",
+        "project/runtime/task_registry.yaml",
+        "project/runtime/work_queue.yaml"
+      ],
+      "output_refs": [
+        "project/runtime/task_registry.yaml",
+        "project/runtime/work_queue.yaml"
+      ],
+      "feedback_path": "project/output/review/TASK_UTILITY_SUPPORT_feedback.md",
+      "retrospective_path": "project/output/retrospectives/TASK_UTILITY_SUPPORT_retrospective.md",
+      "accepted_by_main_brain": false
+    }
+  ]
+}

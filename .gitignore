@@ -24,10 +24,18 @@ project/output/*
 project/figures/*
 !project/output/.gitkeep
 !project/output/handoff/
+!project/output/review/
+!project/output/retrospectives/
 project/output/handoff/*
+project/output/review/*
+project/output/retrospectives/*
 !project/output/handoff/.gitkeep
 !project/output/handoff/HANDOFF_TEMPLATE.md
 !project/figures/.gitkeep
+!project/output/review/.gitkeep
+!project/output/review/WORKER_FEEDBACK_TEMPLATE.md
+!project/output/retrospectives/.gitkeep
+!project/output/retrospectives/RETROSPECTIVE_TEMPLATE.md
 
 # Data files (keep structure, ignore contents)
 project/data/*
@@ -42,9 +50,17 @@ project/data/processed/*
 !project/data/raw/.gitkeep
 !project/data/processed/.gitkeep
 
-# Paper specs (keep structure, ignore contents)
-project/paper/spec/*
-!project/paper/spec/.gitkeep
+# Generated paper build artifacts
+project/paper/*.pdf
+project/paper/*.aux
+project/paper/*.bbl
+project/paper/*.bcf
+project/paper/*.blg
+project/paper/*.log
+project/paper/*.out
+project/paper/*.run.xml
+project/paper/*.synctex.gz
+project/paper/build/
 
 # OS
 .DS_Store

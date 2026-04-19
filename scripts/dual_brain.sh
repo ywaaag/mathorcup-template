@@ -1,138 +1,126 @@
 #!/bin/bash
-# ============================================================
-# MathorCup 数模模板 — 双脑协作启动脚本
-#
-# 同时启动代码脑和论文脑两个 Codex 实例
-# 代码脑: 根目录
-# 论文脑: paper/ 目录
-#
-# 用法:
-#   bash scripts/dual_brain.sh                     # 交互式选择
-#   bash scripts/dual_brain.sh code                # 仅启动代码脑
-#   bash scripts/dual_brain.sh paper               # 仅启动论文脑
-# ============================================================
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-ENV_FILE="$PROJECT_DIR/.env"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# 优先级：显式环境变量 > .env 配置 > 默认值
-if [[ -z "${CONTAINER_NAME:-}" && -f "$ENV_FILE" ]]; then
-    set -a
-    # shellcheck disable=SC1090
-    source "$ENV_FILE"
-    set +a
-fi
-CONTAINER_NAME="${CONTAINER_NAME:-mathorcup-dev}"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/common.sh"
 
-echo "============================================"
-echo "  MathorCup 双脑协作系统"
-echo "============================================"
-echo "  项目目录: $PROJECT_DIR"
-echo "  容器:     $CONTAINER_NAME"
-echo "============================================"
-echo ""
+ROLE="${1:-menu}"
+TARGET_DIR="$ROOT_DIR"
 
-check_container() {
-    if ! docker ps --filter "name=$CONTAINER_NAME" | grep -q "$CONTAINER_NAME"; then
-        echo "❌ 容器 $CONTAINER_NAME 未运行"
-        echo "   请先: docker start $CONTAINER_NAME"
-        exit 1
-    fi
-}
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        main|code|paper|utility|both|menu)
+            ROLE="$1"
+            shift
+            ;;
+        --target)
+            TARGET_DIR="$(abs_path "$2")"
+            shift 2
+            ;;
+        -h|--help)
+            echo "Usage: bash scripts/dual_brain.sh [main|code|paper|utility|both]"
+            exit 0
+            ;;
+        *)
+            die "unknown option: $1"
+            ;;
+    esac
+done
+
+load_root_env "$TARGET_DIR"
+load_paper_env "$TARGET_DIR"
 
 check_codex() {
-    if ! command -v codex >/dev/null 2>&1; then
-        echo "❌ 未检测到 codex 命令"
-        echo "   请先安装 Codex CLI，并确保 'codex' 在 PATH 中"
-        exit 1
-    fi
+    require_cmd codex
 }
 
-check_agent_docs() {
-    if ! bash "$SCRIPT_DIR/validate_agent_docs.sh"; then
-        echo "❌ Agent 协议校验失败，已阻止启动"
-        echo "   请先修复 MEMORY.md 或 handoff 文档格式"
-        exit 1
-    fi
+check_instance_ready() {
+    [[ -f "$TARGET_DIR/AGENTS.md" ]] || die "instance files not rendered yet; run: bash scripts/setup.sh --render-only"
+    [[ -f "$TARGET_DIR/MEMORY.md" ]] || die "MEMORY.md missing; run: bash scripts/setup.sh --render-only"
+    [[ -f "$TARGET_DIR/project/paper/AGENTS.md" ]] || die "paper AGENTS missing; run: bash scripts/setup.sh --render-only"
 }
 
-start_code_brain() {
-    echo "→ 启动代码脑..."
-    echo ""
-    echo "  【代码脑】将在以下目录运行:"
-    echo "    $PROJECT_DIR"
-    echo ""
-    echo "  常用指令:"
-    echo "    • 建模分析: '帮我分析 data/ 下的赛题'"
-    echo "    • 生成结果: '求解问题一，图表存到 figures/'"
-    echo "    • 更新记忆: '将问题一的核心公式记录到 MEMORY.md'"
-    echo ""
-    echo "  按 Enter 在当前终端启动代码脑..."
-    read
-    cd "$PROJECT_DIR" && codex
+check_docs() {
+    bash "$SCRIPT_DIR/validate_agent_docs.sh" --root "$TARGET_DIR" >/dev/null
 }
 
-start_paper_brain() {
-    echo "→ 启动论文脑..."
-    echo ""
-    echo "  【论文脑】将在以下目录运行:"
-    echo "    $PROJECT_DIR/project/paper"
-    echo ""
-    echo "  常用指令:"
-    echo "    • 读取进度: '去 MEMORY.md 读取问题一的建模结果'"
-    echo "    • 写章节:   '根据 figures/problem1.png 写问题一的求解章节'"
-    echo "    • 转表格:   '将 output/result1.csv 转为 LaTeX 三线表'"
-    echo "    • 编译检查: '运行 xelatex 检查编译错误'"
-    echo ""
-    echo "  按 Enter 在当前终端启动论文脑..."
-    read
-    cd "$PROJECT_DIR/project/paper" && codex
+print_runtime_banner() {
+    echo "============================================"
+    echo "  MathorCup Multi-Agent Launcher"
+    echo "============================================"
+    echo "  root:            $TARGET_DIR"
+    echo "  container:       $CONTAINER_NAME"
+    echo "  paper entry:     $PAPER_ACTIVE_ENTRYPOINT"
+    echo "  paper accept pdf: $PAPER_ACCEPT_PDF"
+    echo "============================================"
 }
 
-case "${1:-menu}" in
+start_session() {
+    local role="$1"
+    local cwd="$2"
+    print_runtime_banner
+    echo "role: $role"
+    echo "cwd:  $cwd"
+    echo "task packet helper: bash scripts/make_task_packet.sh $role"
+    echo "press Enter to launch codex"
+    read -r
+    cd "$cwd"
+    exec codex
+}
+
+check_instance_ready
+check_docs
+check_codex
+
+case "$ROLE" in
+    main)
+        start_session "main" "$TARGET_DIR"
+        ;;
     code)
-        check_agent_docs
-        check_container
-        check_codex
-        start_code_brain
+        start_session "code" "$TARGET_DIR"
         ;;
     paper)
-        check_agent_docs
-        check_container
-        check_codex
-        start_paper_brain
+        start_session "paper" "$TARGET_DIR/project/paper"
+        ;;
+    utility)
+        start_session "utility" "$TARGET_DIR"
         ;;
     both)
-        check_agent_docs
-        check_container
-        check_codex
-        echo "⚠️  双脑需要两个终端窗口，请执行以下操作:"
-        echo ""
-        echo "  【终端 A - 代码脑】"
-        echo "    cd $PROJECT_DIR"
-        echo "    codex"
-        echo ""
-        echo "  【终端 B - 论文脑】"
-        echo "    cd $PROJECT_DIR/project/paper"
-        echo "    codex"
-        echo ""
-        read -p "按 Enter 启动代码脑（论文脑请手动开另一个终端）..."
-        start_code_brain
+        print_runtime_banner
+        cat <<EOF
+Open two terminals:
+
+Terminal A (代码脑)
+  cd $TARGET_DIR
+  codex
+
+Terminal B (论文脑)
+  cd $TARGET_DIR/project/paper
+  codex
+
+Useful helper:
+  bash scripts/make_task_packet.sh code
+  bash scripts/make_task_packet.sh paper
+EOF
         ;;
     menu|*)
-        echo "请选择:"
-        echo "  1) 同时启动双脑（需两个终端）"
-        echo "  2) 仅启动代码脑（建模 + 代码）"
-        echo "  3) 仅启动论文脑（LaTeX + 写作）"
-        echo ""
-        read -p "请输入 (1/2/3): " choice
+        print_runtime_banner
+        echo "1) 主脑"
+        echo "2) 代码脑"
+        echo "3) 论文脑"
+        echo "4) 杂务 Agent"
+        echo "5) 代码脑 + 论文脑"
+        read -r -p "请选择 (1/2/3/4/5): " choice
         case "$choice" in
-            1) bash "$0" both ;;
-            2) check_agent_docs && check_container && check_codex && start_code_brain ;;
-            3) check_agent_docs && check_container && check_codex && start_paper_brain ;;
-            *) echo "无效选择" ;;
+            1) start_session "main" "$TARGET_DIR" ;;
+            2) start_session "code" "$TARGET_DIR" ;;
+            3) start_session "paper" "$TARGET_DIR/project/paper" ;;
+            4) start_session "utility" "$TARGET_DIR" ;;
+            5) ROLE="both"; print_runtime_banner; exec bash "$0" both --target "$TARGET_DIR" ;;
+            *) die "invalid choice" ;;
         esac
         ;;
 esac

@@ -1,0 +1,135 @@
+# Multi-Agent Workflow Contract
+
+## Purpose
+
+- Define how 主脑, 代码脑, 论文脑, and 杂务 Agent collaborate without sharing hidden chat memory.
+- Keep shared consensus in files, not in one session’s context window.
+- Work both with vendor-provided sub-agent delegation and with plain multi-session coordination.
+
+## Shared Consensus Sources
+
+All roles should read from these sources before acting:
+
+1. `AGENTS.md` or `project/paper/AGENTS.md`
+2. `MEMORY.md`
+3. `project/spec/runtime_contract.md`
+4. `project/spec/agent_roles.yaml`
+5. `project/runtime/task_registry.yaml`
+6. `project/runtime/work_queue.yaml`
+7. Indexed handoffs in `project/output/handoff/`
+8. `project/workflow/`
+9. `project/output/review/` and `project/output/retrospectives/` when relevant
+
+## Role Split
+
+### 1. 主脑 Agent
+
+- Owns task decomposition, scope control, acceptance, and consensus sync.
+- Owns full-board edits to `MEMORY.md`.
+- Decides which facts become project consensus and which remain local observations.
+
+### 2. 代码脑 Agent
+
+- Owns modeling, scripts, experiments, figures, CSV outputs, and handoff creation.
+- Writes only under code-side directories plus its assigned output files.
+- Does not edit `project/paper/`.
+
+### 3. 论文脑 Agent
+
+- Owns LaTeX writing, section structure, references, figure/table insertion, and paper-side integration.
+- Reads shared state from `../../MEMORY.md`.
+- Uses `project/paper/runtime/paper.env` as the active paper entrypoint source.
+
+### 4. 排版 / 编译杂务 Agent
+
+- Owns compile-only, layout-only, TOC/page-style, Overfull/Undefined checks, and host-visible acceptance.
+- Should avoid rewriting modeling logic or paper arguments.
+
+### 5. 术语 / 引用 / 审校杂务 Agent
+
+- Owns terminology alignment, citation audit, polish, consistency review, and retrospective extraction.
+- Prefer read-mostly tasks or tightly bounded edits.
+
+## Directory Ownership
+
+- 主脑:
+  - full read access
+  - consensus docs and acceptance decisions
+- 代码脑:
+  - `project/src/`, `project/cpp/`, `project/notebooks/`, `project/figures/`, `project/output/`
+- 论文脑:
+  - `project/paper/`
+- 编译杂务:
+  - usually `project/paper/` plus acceptance artifacts
+- 审校杂务:
+  - `project/paper/`, `project/output/review/`, `project/output/retrospectives/`
+
+## Machine-Readable Enforcement
+
+- Role permissions are defined in `project/spec/agent_roles.yaml`.
+- Task ownership and file occupancy are defined in:
+  - `project/runtime/task_registry.yaml`
+  - `project/runtime/work_queue.yaml`
+- Human-readable queue board is:
+  - `project/workflow/MAIN_BRAIN_QUEUE.md`
+- Main brain should claim tasks before dispatch and close them through workflow scripts rather than freehand status edits.
+
+## MEMORY Ownership
+
+- 主脑:
+  - full ownership
+- 代码脑 / 论文脑 / 杂务 Agent:
+  - default behavior is to return structured feedback instead of rewriting `MEMORY.md`
+  - may update `## Blockers`, `## Next Actions`, `## Handoff Index` only when explicitly assigned or when acting as the only active session
+
+## Parallelism Rules
+
+Safe to parallelize:
+
+- 代码脑 on `project/src/` while 论文脑 writes `project/paper/`
+- Compile-only workers that do not edit source
+- Read-only audit tasks against already generated outputs
+- Separate workers with disjoint write scopes
+
+Do not parallelize:
+
+- Two writers editing the same `sections/*.tex`
+- Two workers rewriting the same canonical table or figure source
+- Two sessions making overlapping `MEMORY.md` edits
+- Scope-expanding review tasks mixed with minimal-fix tasks on the same files
+- Any two claimed tasks whose `locked_paths` overlap in `work_queue.yaml`
+
+## Worker Return Contract
+
+Every worker should return, at minimum:
+
+1. Files changed
+2. What was actually done
+3. Which facts were verified
+4. Validation / compile / acceptance result
+5. Remaining risks
+6. Lesson learned
+7. What the main brain should have provided earlier
+
+Use:
+
+- `project/output/review/WORKER_FEEDBACK_TEMPLATE.md`
+- `project/output/retrospectives/RETROSPECTIVE_TEMPLATE.md`
+
+## Review And Retrospective Storage
+
+- Structured worker review notes:
+  - `project/output/review/`
+- Reusable lessons learned:
+  - `project/output/retrospectives/`
+- Important new consensus should be absorbed by the 主脑 into the correct owner file:
+  - `MEMORY.md`
+  - runtime contract
+  - workflow contract
+  - paper runtime config
+
+## Delegation Note
+
+- If the environment supports sub-agent delegation, 主脑 can dispatch narrow-scope workers directly.
+- If the environment does not support delegation, the same task packet templates can be pasted into separate sessions or terminals.
+- The hard dependency is not delegation itself; it is the shared contract set and structured return format.

@@ -1,53 +1,41 @@
-# AGENTS.md — Code Brain Protocol
+# AGENTS.md — Template Repo Maintenance Protocol
 
-## Role Boundary
-- Role: code brain only (modeling, implementation, experiments, outputs).
-- Never edit `project/paper/`.
-- Write scope: `project/src/`, `project/cpp/`, `project/notebooks/`, `project/figures/`, `project/output/`, `MEMORY.md`.
+## Scope
+
+- This root `AGENTS.md` governs the template repository itself.
+- Source of truth for future instance files now lives under `scaffold/`.
+- The live `project/` tree at repo root is a render target placeholder, not the primary template source.
 
 ## Mandatory Read Order
+
 1. Read this file.
-2. Read `MEMORY.md`.
-3. Read latest handoff docs in `project/output/handoff/` if present.
+2. Read `scaffold/`.
+3. Read `scripts/setup.sh`, `scripts/render_templates.sh`, `scripts/validate_agent_docs.sh`.
+4. If changing workflow design, read the scaffold contracts under:
+   - `scaffold/project/spec/`
+   - `scaffold/project/workflow/`
+   - `scaffold/project/paper/spec/`
 
-## Output Contract
-- Figures: `project/figures/*.png` (ASCII filenames).
-- Data: `project/output/*.csv`.
-- Handoff: one file per problem in `project/output/handoff/`.
+## Editing Rules
 
-## Handoff Contract
-- Filename: `P{n}_{topic}_{YYYYMMDD}.md`.
-- Required sections in order:
-  - `## Problem`
-  - `## Inputs`
-  - `## Method`
-  - `## Outputs`
-  - `## For Paper Brain`
-  - `## Risks`
-- Max 5 non-empty lines per section.
-- Never rewrite old handoff docs.
+- If a future instance file should change, edit the `scaffold/` source, not only a rendered target.
+- Keep the boundary clear:
+  - `scaffold/` = template source of truth
+  - rendered files in an instance = runtime/live artifacts
+  - `MEMORY.md` is instance runtime state and should not be committed as a live root file in this template repo
+- Preserve stable entrypoint names unless there is a strong reason not to:
+  - `scripts/setup.sh`
+  - `scripts/dual_brain.sh`
+  - `scripts/validate_agent_docs.sh`
 
-## Runtime State Contract
-- `MEMORY.md` is the only runtime state board.
-- Required section order (exact):
-  1. `## Phase`
-  2. `## Current Task`
-  3. `## Active Problem`
-  4. `## Decisions`
-  5. `## Blockers`
-  6. `## Next Actions`
-  7. `## Handoff Index`
-- Hard limit: `MEMORY.md` <= 120 lines.
+## Verification Rules
 
-## Execution Rules
-- Hard rule: run all competition programs inside Docker container only.
-- Never run project Python/C++/LaTeX programs directly on host.
-- Host is only for orchestration (`git`, editing, `docker` commands).
-- Start code brain from repo root with `codex`.
-- Before major work, ensure docs pass:
-  - `bash scripts/validate_agent_docs.sh`
+- Before finishing, run at least:
+  - `bash scripts/setup.sh --render-only --target <temp_dir>`
+  - `bash scripts/validate_agent_docs.sh --root <temp_dir>`
+- Use `git diff` and `git status` checkpoints while refactoring.
 
 ## Failure Recovery
-- If validation fails, fix docs first.
-- If protocol conflict occurs, follow this file > `MEMORY.md` > previous outputs.
-- If uncertain about scope, do not expand scope; log ambiguity in `## Blockers`.
+
+- If a change only updates rendered outputs but not `scaffold/`, treat it as incomplete.
+- If a script starts mixing render/bootstrap/reset concerns again, split the responsibility instead of adding flags indefinitely.

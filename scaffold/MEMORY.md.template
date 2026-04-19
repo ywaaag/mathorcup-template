@@ -1,0 +1,30 @@
+# MEMORY.md — Runtime State Board
+
+## Phase
+- init
+
+## Current Task
+- instantiate the scaffold and confirm runtime/workflow contracts
+
+## Active Problem
+- P0
+
+## Decisions
+- use this file as the single runtime state board
+- use `project/spec/runtime_contract.md` as the fixed entry for runtime facts
+- use `project/paper/runtime/paper.env` as the single source for paper active entrypoint/build facts
+- use indexed handoffs only; filesystem presence alone is not enough
+- use `project/workflow/` and `project/output/review/` templates for multi-agent packets
+- keep static protocol, workflow, and runtime-fact documents outside `MEMORY.md`
+
+## Blockers
+- none
+
+## Next Actions
+- load official problem statement into `project/data/problem/`
+- update `project/paper/runtime/paper.env` if the active paper entrypoint is not `main.tex`
+- create the first indexed handoff after the first validated problem result
+
+## Handoff Index
+- latest: none
+- files:

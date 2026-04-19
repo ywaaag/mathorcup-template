@@ -1,0 +1,51 @@
+# Paper Runtime Contract
+
+## Purpose
+
+- Keep paper-side runtime facts out of `project/paper/AGENTS.md`.
+- Give every paper-side Agent one place to confirm the active entrypoint, build target, and acceptance artifacts.
+- Ensure scripts and prompts use the same active paper profile.
+
+## Mandatory Read Order
+
+1. `project/paper/AGENTS.md`
+2. `../../MEMORY.md`
+3. `../spec/runtime_contract.md`
+4. This file
+5. Indexed handoffs
+
+## Single Source Of Truth
+
+- Active paper build facts live in:
+  - `project/paper/runtime/paper.env`
+- If the active entrypoint or build target changes, update that file first.
+- `scripts/paper.sh`, `scripts/dual_brain.sh`, validator, and prompt templates should all read from the same file.
+
+## Default Rendered Facts
+
+- Host paper dir:
+  - `{{HOST_DIR}}/project/paper`
+- Container paper dir:
+  - `{{PAPER_CONTAINER_DIR}}`
+- Active entrypoint key:
+  - `PAPER_ACTIVE_ENTRYPOINT`
+- Build directory key:
+  - `PAPER_BUILD_DIR`
+- Acceptance artifact keys:
+  - `PAPER_ACCEPT_PDF`
+  - `PAPER_ACCEPT_LOG`
+  - `PAPER_ACCEPT_AUX`
+
+## Usage Rule
+
+- Preferred entrypoint command:
+  - `bash scripts/paper.sh build`
+- If a task packet writes a direct compile command, it must still be derived from `project/paper/runtime/paper.env`.
+- Do not assume `main.tex`; read the config file.
+
+## Known Drift Risks
+
+1. The active paper entrypoint moved, but the build command still points to the old file.
+2. The output directory changed, but acceptance still checks the old PDF path.
+3. A paper-side worker patched TeX files without first reading the current build profile.
+4. Someone copied runtime facts into `MEMORY.md`, creating a second source of truth.
