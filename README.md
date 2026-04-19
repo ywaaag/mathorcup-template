@@ -109,6 +109,8 @@
   - 只负责从 `scaffold/` 渲染实例文件
 - `scripts/bootstrap_container.sh`
   - 只负责容器创建 / 启动
+- `scripts/export_reference_image.sh`
+  - 检测并导出厚镜像 reference runtime
 - `scripts/install_deps.sh`
   - 只负责容器内依赖安装
 - `scripts/reset_state.sh`
@@ -249,22 +251,33 @@ bash scripts/setup.sh --deps-only --target <实例目录>
 - `R 4.5.1`
 - `sudo` 免密可用
 - `nvidia-smi` 可用（前提是宿主 Docker GPU runtime 可用）
+- `biber`
+- `fd`
+- `tree`
+- `yq`
 
-当前 base image 的已知缺口：
-
-- `biber` 不保证预装
-- 如果要稳定跑 paper build，仍建议执行：
+如果你用的不是这份已导出的 reference image，或者容器内部 baseline 有漂移，再执行：
 
 ```bash
 bash scripts/install_deps.sh --target <实例目录>
 ```
 
-如果后续你想用新的 reference container 刷新这套基础镜像，最直接的方式是：
+如果后续你想用新的 reference container 刷新这套厚镜像，优先使用：
 
 ```bash
-docker commit -a "Codex" -m "Exported reference runtime from mathorcup_v1-dev on 2026-04-19" mathorcup_v1-dev mathorcup-runtime:20260419
-docker tag mathorcup-runtime:20260419 mathorcup-runtime:latest
+bash scripts/export_reference_image.sh \
+  --container mathorcup_v1-dev \
+  --image mathorcup-runtime:20260419 \
+  --tag-latest
 ```
+
+这个脚本会：
+
+- 检测厚镜像 baseline
+- 如果 reference container 的 Ubuntu 主仓 codename 与容器真实 OS 不一致，先自动归一化
+- 自动补装 `biber / fd-find / tree / yq`
+- 在只有 `fdfind` 时补出 `fd` 命令
+- 再执行 `docker commit` 导出 reference image
 
 ## 6. 实例仓库创建后，你会得到什么
 
@@ -480,6 +493,17 @@ bash scripts/setup.sh --bootstrap-only --target <dir>
 bash scripts/setup.sh --deps-only --target <dir>
 bash scripts/setup.sh --doctor-only --target <dir>
 bash scripts/setup.sh --reset-state --target <dir>
+```
+
+### 11.1.1 `scripts/export_reference_image.sh`
+
+用途：以参考容器为母体，补齐厚镜像 baseline 后导出 reference image。
+
+常见模式：
+
+```bash
+bash scripts/export_reference_image.sh --check-only
+bash scripts/export_reference_image.sh --container mathorcup_v1-dev --image mathorcup-runtime:20260419 --tag-latest
 ```
 
 ### 11.2 `scripts/validate_agent_docs.sh`

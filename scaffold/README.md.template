@@ -55,11 +55,14 @@ bash scripts/setup.sh --reset-state
 - `XeTeX (TeX Live 2023/Debian)`
 - `R 4.5.1`
 - `sudo` 免密可用
+- `biber`
+- `fd`
+- `tree`
+- `yq`
 
 已知注意事项：
 
-- `biber` 不保证在基础镜像中预装
-- 如果要跑论文编译，建议先执行 `bash scripts/install_deps.sh`
+- 如果不是从 reference image 启动，或镜像内部 baseline 漂移，再执行 `bash scripts/install_deps.sh`
 
 ## 3. 关键文件分层
 
