@@ -123,8 +123,18 @@
   - 从角色 / task registry 生成任务包
 - `scripts/claim_task.sh`
   - 认领任务并锁定路径
+- `scripts/list_open_tasks.sh`
+  - 列出当前可直接派发或按条件过滤的任务
+- `scripts/dispatch_task.sh`
+  - 主脑一键完成 claim + packet 输出
+- `scripts/submit_feedback.sh`
+  - 为 worker 初始化 feedback / retrospective skeleton
 - `scripts/close_task.sh`
   - 把任务从 `in_progress` 推进到 `review` 或 `done`
+- `scripts/reopen_task.sh`
+  - 把 `blocked/review/done` 任务按规则重新放回工作流
+- `scripts/cancel_task.sh`
+  - 中止当前 active task，并释放 path lock
 - `scripts/check_worker_feedback.sh`
   - 检查 worker feedback 是否达标
 - `scripts/check_retrospective.sh`
@@ -276,23 +286,35 @@ bash scripts/setup.sh --deps-only --target <实例目录>
 - 让 Agent 先 claim task，再开始改文件
 - 验收 feedback 和 retrospective
 
+这套系统当前不是全自动 pipeline orchestration。  
+它的定位是：
+
+- 人工 / 主脑驱动
+- machine-readable state 托底
+- 用脚本把多步手工操作串成半自动 workflow
+
+也就是说，它不会后台自动派发任务、不会轮询队列、不会自动把任务发到别的会话；但主脑可以用现成脚本把“派工、回填、打回、撤销”这些动作标准化。
+
 ### 7.3 没有 sub-agent 也能工作
 
 如果你的环境没有 vendor-specific delegation：
 
-- 仍然可以先 `claim_task`
-- 再 `make_task_packet`
+- 仍然可以先看 dispatch pool
+- 再 dispatch task
 - 然后把生成的任务包贴给另一个终端 / 另一个会话里的 Agent
 
 典型顺序通常是：
 
-1. `bash scripts/claim_task.sh --task <task_id> --owner <owner> --target <dir>`
-2. `bash scripts/make_task_packet.sh --task <task_id> --target <dir>`
+1. `bash scripts/list_open_tasks.sh --open-only --target <dir>`
+2. `bash scripts/dispatch_task.sh --task <task_id> --owner <owner> --target <dir>`
 3. 把任务包发给某个 Agent 会话
-4. Agent 完成后补 feedback / retrospective
-5. `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
-6. `bash scripts/check_retrospective.sh --task <task_id> --target <dir>`
-7. `bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>`
+4. `bash scripts/submit_feedback.sh --task <task_id> --target <dir>`
+5. Agent 完成后填写 feedback / retrospective
+6. `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
+7. 视情况执行：
+   - `bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>`
+   - `bash scripts/reopen_task.sh --task <task_id> --to ready|review|in_progress --reason <reason> --target <dir>`
+   - `bash scripts/cancel_task.sh --task <task_id> --reason <reason> --target <dir>`
 
 这套模板依赖的是“文件化机制”，不是某个产品按钮：
 
@@ -301,6 +323,23 @@ bash scripts/setup.sh --deps-only --target <实例目录>
 - work queue
 - feedback gate
 - retrospective gate
+
+### 7.4 有 sub-agent 时怎么用
+
+如果环境支持 sub-agent delegation，也不要再维护一套独立状态系统。
+
+推荐做法仍然是：
+
+1. 主脑看 `task_registry.yaml` / `MAIN_BRAIN_QUEUE.md`
+2. 主脑用 `dispatch_task.sh` 领取并生成 packet
+3. 把 packet 发给 sub-agent
+4. sub-agent 按同一套 feedback / retrospective / close / reopen / cancel 机制回传
+
+也就是说：
+
+- sub-agent 只是执行媒介
+- 不是另一套 workflow contract
+- 不建议 worker 自己继续任意分裂新总任务，除非主脑任务包显式允许
 
 ## 8. paper 工作流的关键设计
 
@@ -447,7 +486,26 @@ bash scripts/make_task_packet.sh --role code_brain --target <dir>
 bash scripts/make_task_packet.sh --task TASK_PAPER_DRAFT_SLOT --target <dir>
 ```
 
-### 11.6 `scripts/claim_task.sh` / `scripts/close_task.sh`
+### 11.6 `scripts/list_open_tasks.sh` / `scripts/dispatch_task.sh`
+
+用途：让主脑先看 dispatch pool，再一键派单。
+
+常见模式：
+
+```bash
+bash scripts/list_open_tasks.sh --target <dir>
+bash scripts/list_open_tasks.sh --open-only --target <dir>
+bash scripts/list_open_tasks.sh --status blocked --target <dir>
+bash scripts/dispatch_task.sh --task TASK_PAPER_DRAFT_SLOT --owner alice --target <dir>
+bash scripts/dispatch_task.sh --task TASK_REVIEW_CONSISTENCY --owner bob --packet-out /tmp/review_packet.md --target <dir>
+```
+
+注意：
+
+- `--open-only` 只看 `todo/ready` 且 `owner=""` 的任务
+- `blocked` 不在直接派发池里，想看它必须显式 `--status blocked`
+
+### 11.7 `scripts/claim_task.sh` / `scripts/close_task.sh`
 
 用途：管理任务占用、状态推进和并发约束。
 
@@ -460,7 +518,37 @@ bash scripts/close_task.sh --task TASK_CODE_MODEL_SLOT --to review --target <dir
 bash scripts/close_task.sh --task TASK_REVIEW_CONSISTENCY --to done --accepted-by main_brain --target <dir>
 ```
 
-### 11.7 `scripts/check_worker_feedback.sh` / `scripts/check_retrospective.sh`
+### 11.8 `scripts/submit_feedback.sh`
+
+用途：为 worker 自动创建 feedback / retrospective skeleton，避免手抄路径。
+
+常见模式：
+
+```bash
+bash scripts/submit_feedback.sh --task TASK_CODE_MODEL_SLOT --target <dir>
+bash scripts/submit_feedback.sh --task TASK_REVIEW_CONSISTENCY --with-retrospective --target <dir>
+```
+
+### 11.9 `scripts/reopen_task.sh` / `scripts/cancel_task.sh`
+
+用途：标准化处理“任务打回重做”“任务中止撤销”。
+
+常见模式：
+
+```bash
+bash scripts/cancel_task.sh --task TASK_PAPER_DRAFT_SLOT --reason "manual stop" --target <dir>
+bash scripts/reopen_task.sh --task TASK_PAPER_DRAFT_SLOT --to ready --reason "retry later" --target <dir>
+bash scripts/reopen_task.sh --task TASK_PAPER_DRAFT_SLOT --to in_progress --owner alice --reason "resume now" --target <dir>
+bash scripts/reopen_task.sh --task TASK_LAYOUT_ACCEPTANCE --to review --reason "acceptance needs recheck" --target <dir>
+```
+
+状态机上要注意：
+
+- `done` 不能直接跳回 `ready` 或 `in_progress`
+- 如果要重开已验收任务，应先 `done -> review`
+- 然后再由主脑决定是否 `review -> ready` 或 `review -> in_progress`
+
+### 11.10 `scripts/check_worker_feedback.sh` / `scripts/check_retrospective.sh`
 
 用途：在主脑验收前检查 worker 回传是否满足最小结构要求。
 

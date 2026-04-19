@@ -5,6 +5,7 @@
 - Define how 主脑, 代码脑, 论文脑, and 杂务 Agent collaborate without sharing hidden chat memory.
 - Keep shared consensus in files, not in one session’s context window.
 - Work both with vendor-provided sub-agent delegation and with plain multi-session coordination.
+- This is not a full pipeline orchestrator; it is a 主脑-driven semi-automated workflow built on machine-readable state and script gates.
 
 ## Shared Consensus Sources
 
@@ -72,7 +73,12 @@ All roles should read from these sources before acting:
   - `project/runtime/work_queue.yaml`
 - Human-readable queue board is:
   - `project/workflow/MAIN_BRAIN_QUEUE.md`
-- Main brain should claim tasks before dispatch and close them through workflow scripts rather than freehand status edits.
+- Main brain should inspect, dispatch, reopen, cancel, and close tasks through workflow scripts rather than freehand status edits.
+- Recommended semi-automatic dispatch path:
+  - `bash scripts/list_open_tasks.sh --open-only`
+  - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`
+  - `bash scripts/submit_feedback.sh --task <task_id>`
+  - `bash scripts/close_task.sh` or `bash scripts/reopen_task.sh` / `bash scripts/cancel_task.sh`
 
 ## MEMORY Ownership
 
@@ -130,6 +136,7 @@ Use:
 
 ## Delegation Note
 
-- If the environment supports sub-agent delegation, 主脑 can dispatch narrow-scope workers directly.
-- If the environment does not support delegation, the same task packet templates can be pasted into separate sessions or terminals.
+- If the environment supports sub-agent delegation, 主脑 can still dispatch narrow-scope workers through the same task registry, packet, feedback, and close/reopen/cancel flow.
+- If the environment does not support delegation, the same dispatch packet can be pasted into separate sessions or terminals.
 - The hard dependency is not delegation itself; it is the shared contract set and structured return format.
+- Worker roles should not keep splitting new top-level tasks unless the 主脑 task packet explicitly allows it.
