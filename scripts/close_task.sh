@@ -8,9 +8,10 @@ TARGET_DIR="$ROOT_DIR"
 TASK_ID=""
 NEXT_STATUS=""
 ACCEPTED_BY=""
+ACTOR=""
 
 usage() {
-    echo "Usage: bash scripts/close_task.sh --task <task_id> --to <review|done> [--accepted-by <main_brain>] [--target <dir>]" >&2
+    echo "Usage: bash scripts/close_task.sh --task <task_id> --to <review|done> [--accepted-by <main_brain>] [--actor <actor>] [--target <dir>]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -25,6 +26,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --accepted-by)
             ACCEPTED_BY="$2"
+            shift 2
+            ;;
+        --actor)
+            ACTOR="$2"
             shift 2
             ;;
         --target)
@@ -47,5 +52,6 @@ done
 
 args=(close-task --root "$TARGET_DIR" --task "$TASK_ID" --to "$NEXT_STATUS")
 [[ -n "$ACCEPTED_BY" ]] && args+=(--accepted-by "$ACCEPTED_BY")
+[[ -n "$ACTOR" ]] && args+=(--actor "$ACTOR")
 
 python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}"

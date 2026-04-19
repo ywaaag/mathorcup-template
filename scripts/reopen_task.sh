@@ -6,18 +6,28 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 TARGET_DIR="$ROOT_DIR"
 TASK_ID=""
+NEXT_STATUS=""
+REASON=""
 OWNER=""
-ACTOR=""
+ACTOR="main_brain"
 LOCK_ARGS=()
 
 usage() {
-    echo "Usage: bash scripts/claim_task.sh --task <task_id> --owner <owner> [--actor <actor>] [--lock <path>]... [--target <dir>]" >&2
+    echo "Usage: bash scripts/reopen_task.sh --task <task_id> --to <ready|review|in_progress> --reason <text> [--owner <owner>] [--actor <actor>] [--lock <path>]... [--target <dir>]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --task)
             TASK_ID="$2"
+            shift 2
+            ;;
+        --to)
+            NEXT_STATUS="$2"
+            shift 2
+            ;;
+        --reason)
+            REASON="$2"
             shift 2
             ;;
         --owner)
@@ -48,10 +58,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ -n "$TASK_ID" && -n "$OWNER" ]] || { usage; exit 2; }
+[[ -n "$TASK_ID" && -n "$NEXT_STATUS" && -n "$REASON" ]] || { usage; exit 2; }
 
-args=(claim-task --root "$TARGET_DIR" --task "$TASK_ID" --owner "$OWNER")
-[[ -n "$ACTOR" ]] && args+=(--actor "$ACTOR")
+args=(reopen-task --root "$TARGET_DIR" --task "$TASK_ID" --to "$NEXT_STATUS" --reason "$REASON" --actor "$ACTOR")
+[[ -n "$OWNER" ]] && args+=(--owner "$OWNER")
 args+=("${LOCK_ARGS[@]}")
 
 python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}"

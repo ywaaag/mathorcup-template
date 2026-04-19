@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -55,6 +56,11 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scripts/render_templates.sh",
     "scripts/validate_agent_docs.sh",
     "scripts/doctor.sh",
+    "scripts/list_open_tasks.sh",
+    "scripts/dispatch_task.sh",
+    "scripts/submit_feedback.sh",
+    "scripts/reopen_task.sh",
+    "scripts/cancel_task.sh",
 ]
 
 FEEDBACK_HEADINGS = [
@@ -456,6 +462,216 @@ def task_from_id(state: Dict[str, Any], task_id: str) -> Dict[str, Any]:
     return tasks[task_id]
 
 
+def current_timestamp() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def append_history(
+    state: Dict[str, Any],
+    *,
+    task_id: str,
+    action: str,
+    from_status: str,
+    to_status: str,
+    owner: str,
+    actor: str,
+    reason: str = "",
+    extra: Optional[Dict[str, Any]] = None,
+) -> None:
+    entry: Dict[str, Any] = {
+        "timestamp": current_timestamp(),
+        "task_id": task_id,
+        "action": action,
+        "from_status": from_status,
+        "to_status": to_status,
+        "owner": owner,
+        "actor": actor,
+        "reason": reason,
+    }
+    if extra:
+        for key, value in extra.items():
+            if value not in ("", None, [], {}):
+                entry[key] = value
+    state["queue"].setdefault("history", []).append(entry)
+
+
+def active_task_ids(state: Dict[str, Any]) -> set[str]:
+    return {item["task_id"] for item in queue_items(state)}
+
+
+def claim_task_impl(
+    root: Path,
+    state: Dict[str, Any],
+    task_id: str,
+    owner: str,
+    locks: Sequence[str],
+    *,
+    actor: str,
+    allowed_from_statuses: Sequence[str],
+    history_action: str,
+    reason: str = "",
+) -> None:
+    task = task_from_id(state, task_id)
+    roles = role_map(state)
+    role = roles[task["role"]]
+    from_status = task["status"]
+    if from_status not in allowed_from_statuses:
+        fail(
+            f"task {task_id} cannot be claimed from status '{from_status}'; "
+            f"allowed: {', '.join(allowed_from_statuses)}"
+        )
+    existing = find_active_queue_item(state, task_id)
+    if existing:
+        fail(f"task {task_id} is already in progress by {existing['owner']}")
+    locked_paths = list(locks) if locks else list(task["allowed_paths"])
+    for locked in locked_paths:
+        if not any_path_matches(task["allowed_paths"], locked):
+            fail(f"locked path '{locked}' is outside task allowed_paths")
+        if not any_path_matches(role["write_roots"], locked):
+            fail(f"locked path '{locked}' is outside role write_roots")
+    for other in queue_items(state):
+        other_task = task_from_id(state, other["task_id"])
+        other_role = roles[other["role"]]
+        role_conflict = (
+            other["role"] in role["parallel_forbidden_with"]
+            or task["role"] in other_role["parallel_forbidden_with"]
+        )
+        if role_conflict:
+            fail(f"task {task_id} conflicts with active task {other['task_id']} by role matrix")
+        if (not task["parallel_ok"]) or (not other_task["parallel_ok"]):
+            fail(f"task {task_id} cannot run in parallel with active task {other['task_id']}")
+        if any(paths_overlap(left, right) for left in locked_paths for right in other["locked_paths"]):
+            fail(f"task {task_id} locked paths conflict with active task {other['task_id']}")
+    task["status"] = "in_progress"
+    task["owner"] = owner
+    task["accepted_by_main_brain"] = False
+    state["queue"].setdefault("active_items", []).append(
+        {
+            "task_id": task_id,
+            "role": task["role"],
+            "owner": owner,
+            "status": "in_progress",
+            "locked_paths": locked_paths,
+        }
+    )
+    append_history(
+        state,
+        task_id=task_id,
+        action=history_action,
+        from_status=from_status,
+        to_status="in_progress",
+        owner=owner,
+        actor=actor or owner,
+        reason=reason,
+        extra={"locked_paths": locked_paths},
+    )
+    save_structured(state["registry_path"], state["registry"])
+    save_structured(state["queue_path"], state["queue"])
+    write_queue_board(root, state)
+
+
+def prefill_template(template_text: str, replacements: Dict[str, str]) -> str:
+    lines = template_text.splitlines()
+    for index, line in enumerate(lines[:-1]):
+        if line in replacements and lines[index + 1].lstrip().startswith("-"):
+            lines[index + 1] = replacements[line]
+    return "\n".join(lines) + "\n"
+
+
+def init_feedback_files(
+    root: Path,
+    state: Dict[str, Any],
+    task_id: str,
+    *,
+    create_feedback: bool,
+    create_retrospective: bool,
+) -> List[str]:
+    task = task_from_id(state, task_id)
+    created: List[str] = []
+    items: List[Tuple[bool, str, str, Dict[str, str]]] = []
+    if create_feedback:
+        items.append(
+            (
+                True,
+                "project/output/review/WORKER_FEEDBACK_TEMPLATE.md",
+                task["feedback_path"],
+                {
+                    "## Task ID": f"- {task_id}",
+                    "## Role": f"- {task['role']}",
+                },
+            )
+        )
+    if create_retrospective:
+        items.append(
+            (
+                False,
+                "project/output/retrospectives/RETROSPECTIVE_TEMPLATE.md",
+                task["retrospective_path"],
+                {
+                    "## Task ID": f"- {task_id}",
+                    "## Trigger": f"- task `{task_id}`: {task['title']}",
+                    "## Next Consumer": "- main_brain",
+                },
+            )
+        )
+    for is_feedback, template_ref, output_ref, replacements in items:
+        output_path = root / output_ref
+        if output_path.exists():
+            created.append(f"exists:{output_ref}")
+            continue
+        template_path = root / template_ref
+        template_text = template_path.read_text(encoding="utf-8")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(prefill_template(template_text, replacements), encoding="utf-8")
+        kind = "feedback" if is_feedback else "retrospective"
+        created.append(f"created:{kind}:{output_ref}")
+    return created
+
+
+def list_tasks(
+    state: Dict[str, Any],
+    *,
+    role: str = "",
+    status: str = "",
+    open_only: bool = False,
+) -> str:
+    tasks = state["registry"].get("tasks", [])
+    active_ids = active_task_ids(state)
+    rows: List[Tuple[str, str, str, str, str, str, str]] = []
+    for task in tasks:
+        claimed = "yes" if task["task_id"] in active_ids else "no"
+        if role and task["role"] != role:
+            continue
+        if status and task["status"] != status:
+            continue
+        if open_only and not (task["owner"] == "" and task["status"] in {"todo", "ready"}):
+            continue
+        rows.append(
+            (
+                task["task_id"],
+                task["role"],
+                task["status"],
+                task["owner"] or "-",
+                "yes" if task["parallel_ok"] else "no",
+                claimed,
+                ",".join(task["allowed_paths"]),
+            )
+        )
+    headers = ("TASK_ID", "ROLE", "STATUS", "OWNER", "PAR", "CLAIMED", "ALLOWED_PATHS")
+    widths = [len(header) for header in headers]
+    for row in rows:
+        for idx, value in enumerate(row):
+            widths[idx] = max(widths[idx], len(value))
+    line_fmt = "  ".join(f"{{:{width}}}" for width in widths)
+    lines = [line_fmt.format(*headers), line_fmt.format(*["-" * width for width in widths])]
+    if not rows:
+        lines.append("(no matching tasks)")
+    else:
+        for row in rows:
+            lines.append(line_fmt.format(*row))
+    return "\n".join(lines) + "\n"
+
+
 def check_feedback(root: Path, state: Dict[str, Any], *, task_id: Optional[str], file_path: Optional[str], require_exists: bool) -> Path:
     if task_id:
         task = task_from_id(state, task_id)
@@ -522,7 +738,10 @@ def render_queue_board(root: Path, state: Dict[str, Any]) -> str:
         "# Main-Brain Queue",
         "",
         "- Source of truth: `project/runtime/task_registry.yaml` and `project/runtime/work_queue.yaml`.",
-        "- Update task ownership via `scripts/claim_task.sh` and `scripts/close_task.sh`.",
+        "- Inspect ready pool via `bash scripts/list_open_tasks.sh --open-only`.",
+        "- Dispatch a task via `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`.",
+        "- Update task ownership or status via `scripts/claim_task.sh`, `scripts/close_task.sh`, `scripts/reopen_task.sh`, and `scripts/cancel_task.sh`.",
+        "- `--open-only` only includes `todo/ready`; inspect blocked tasks explicitly with `bash scripts/list_open_tasks.sh --status blocked`.",
         "",
         "## Active Tasks",
     ]
@@ -594,7 +813,7 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
     paper_env = parse_kv_env(root / "project/paper/runtime/paper.env")
     cwd = choose_cwd(root, role_name, task)
     agent_file = "project/paper/AGENTS.md" if cwd == root / "project/paper" else "AGENTS.md"
-    must_read = role["must_read_docs"]
+    must_read = list(role["must_read_docs"])
     if task:
         for item in task["input_refs"]:
             if item not in must_read:
@@ -698,66 +917,28 @@ def find_active_queue_item(state: Dict[str, Any], task_id: str) -> Optional[Dict
     return None
 
 
-def claim_task(root: Path, state: Dict[str, Any], task_id: str, owner: str, locks: Sequence[str]) -> None:
-    task = task_from_id(state, task_id)
-    roles = role_map(state)
-    role = roles[task["role"]]
-    if task["status"] == "done":
-        fail(f"task {task_id} is already done")
-    existing = find_active_queue_item(state, task_id)
-    if existing:
-        fail(f"task {task_id} is already in progress by {existing['owner']}")
-    locked_paths = list(locks) if locks else list(task["allowed_paths"])
-    for locked in locked_paths:
-        if not any_path_matches(task["allowed_paths"], locked):
-            fail(f"locked path '{locked}' is outside task allowed_paths")
-        if not any_path_matches(role["write_roots"], locked):
-            fail(f"locked path '{locked}' is outside role write_roots")
-    for other in queue_items(state):
-        other_task = task_from_id(state, other["task_id"])
-        other_role = roles[other["role"]]
-        role_conflict = (
-            other["role"] in role["parallel_forbidden_with"]
-            or task["role"] in other_role["parallel_forbidden_with"]
-        )
-        if role_conflict:
-            fail(f"task {task_id} conflicts with active task {other['task_id']} by role matrix")
-        if (not task["parallel_ok"]) or (not other_task["parallel_ok"]):
-            fail(f"task {task_id} cannot run in parallel with active task {other['task_id']}")
-        if any(paths_overlap(left, right) for left in locked_paths for right in other["locked_paths"]):
-            fail(f"task {task_id} locked paths conflict with active task {other['task_id']}")
-    task["status"] = "in_progress"
-    task["owner"] = owner
-    task["accepted_by_main_brain"] = False
-    state["queue"].setdefault("active_items", []).append(
-        {
-            "task_id": task_id,
-            "role": task["role"],
-            "owner": owner,
-            "status": "in_progress",
-            "locked_paths": locked_paths,
-        }
+def claim_task(root: Path, state: Dict[str, Any], task_id: str, owner: str, locks: Sequence[str], actor: str) -> None:
+    claim_task_impl(
+        root,
+        state,
+        task_id,
+        owner,
+        locks,
+        actor=actor or owner,
+        allowed_from_statuses=("todo", "ready"),
+        history_action="claim",
     )
-    state["queue"].setdefault("history", []).append(
-        {
-            "action": "claim",
-            "task_id": task_id,
-            "owner": owner,
-            "locked_paths": locked_paths,
-        }
-    )
-    save_structured(state["registry_path"], state["registry"])
-    save_structured(state["queue_path"], state["queue"])
-    write_queue_board(root, state)
 
 
-def close_task(root: Path, state: Dict[str, Any], task_id: str, next_status: str, accepted_by: str) -> None:
+def close_task(root: Path, state: Dict[str, Any], task_id: str, next_status: str, accepted_by: str, actor: str) -> None:
     if next_status not in {"review", "done"}:
         fail("--to must be review or done")
     task = task_from_id(state, task_id)
     active = find_active_queue_item(state, task_id)
     if not active:
         fail(f"task {task_id} is not currently claimed")
+    from_status = task["status"]
+    owner = task["owner"]
     check_feedback(root, state, task_id=task_id, file_path=None, require_exists=True)
     if next_status == "done":
         check_retrospective(root, state, task_id=task_id, file_path=None, require_exists=True)
@@ -768,13 +949,106 @@ def close_task(root: Path, state: Dict[str, Any], task_id: str, next_status: str
         task["accepted_by_main_brain"] = False
     task["status"] = next_status
     state["queue"]["active_items"] = [item for item in queue_items(state) if item["task_id"] != task_id]
-    state["queue"].setdefault("history", []).append(
-        {
-            "action": "close",
-            "task_id": task_id,
-            "status": next_status,
-            "accepted_by": accepted_by,
-        }
+    append_history(
+        state,
+        task_id=task_id,
+        action="close",
+        from_status=from_status,
+        to_status=next_status,
+        owner=owner,
+        actor=actor or accepted_by or owner,
+        extra={"accepted_by": accepted_by},
+    )
+    save_structured(state["registry_path"], state["registry"])
+    save_structured(state["queue_path"], state["queue"])
+    write_queue_board(root, state)
+
+
+def cancel_task(root: Path, state: Dict[str, Any], task_id: str, to_status: str, reason: str, actor: str) -> None:
+    if to_status not in {"blocked", "ready"}:
+        fail("--to must be blocked or ready")
+    task = task_from_id(state, task_id)
+    active = find_active_queue_item(state, task_id)
+    if not active:
+        fail(f"task {task_id} is not currently claimed")
+    from_status = task["status"]
+    if from_status != "in_progress":
+        fail(f"task {task_id} cannot be cancelled from status '{from_status}'")
+    owner = task["owner"]
+    task["status"] = to_status
+    task["owner"] = ""
+    task["accepted_by_main_brain"] = False
+    state["queue"]["active_items"] = [item for item in queue_items(state) if item["task_id"] != task_id]
+    append_history(
+        state,
+        task_id=task_id,
+        action="cancel",
+        from_status=from_status,
+        to_status=to_status,
+        owner=owner,
+        actor=actor,
+        reason=reason,
+        extra={"locked_paths": active.get("locked_paths", [])},
+    )
+    save_structured(state["registry_path"], state["registry"])
+    save_structured(state["queue_path"], state["queue"])
+    write_queue_board(root, state)
+
+
+def reopen_task(
+    root: Path,
+    state: Dict[str, Any],
+    task_id: str,
+    to_status: str,
+    reason: str,
+    actor: str,
+    owner: str,
+    locks: Sequence[str],
+) -> None:
+    task = task_from_id(state, task_id)
+    from_status = task["status"]
+    allowed_transitions = {
+        ("blocked", "ready"),
+        ("blocked", "in_progress"),
+        ("review", "ready"),
+        ("review", "in_progress"),
+        ("done", "review"),
+    }
+    if (from_status, to_status) not in allowed_transitions:
+        fail(f"task {task_id} cannot transition from '{from_status}' to '{to_status}' via reopen")
+    if to_status == "in_progress":
+        if not owner:
+            fail("--owner is required when reopening a task to in_progress")
+        claim_task_impl(
+            root,
+            state,
+            task_id,
+            owner,
+            locks,
+            actor=actor,
+            allowed_from_statuses=(from_status,),
+            history_action="reopen",
+            reason=reason,
+        )
+        return
+    active = find_active_queue_item(state, task_id)
+    if active:
+        fail(f"task {task_id} is still claimed by {active['owner']}; cancel or close it first")
+    current_owner = task["owner"]
+    task["status"] = to_status
+    if to_status == "ready":
+        task["owner"] = ""
+    if from_status == "done":
+        task["accepted_by_main_brain"] = False
+    append_history(
+        state,
+        task_id=task_id,
+        action="reopen",
+        from_status=from_status,
+        to_status=to_status,
+        owner=current_owner,
+        actor=actor,
+        reason=reason,
     )
     save_structured(state["registry_path"], state["registry"])
     save_structured(state["queue_path"], state["queue"])
@@ -848,17 +1122,41 @@ def build_parser() -> argparse.ArgumentParser:
     packet.add_argument("--role")
     packet.add_argument("--task")
 
+    list_tasks_parser = subparsers.add_parser("list-tasks")
+    list_tasks_parser.add_argument("--root", required=True)
+    list_tasks_parser.add_argument("--role", default="")
+    list_tasks_parser.add_argument("--status", default="", choices=[""] + sorted(TASK_STATUSES))
+    list_tasks_parser.add_argument("--open-only", action="store_true")
+
     claim = subparsers.add_parser("claim-task")
     claim.add_argument("--root", required=True)
     claim.add_argument("--task", required=True)
     claim.add_argument("--owner", required=True)
     claim.add_argument("--lock", action="append", default=[])
+    claim.add_argument("--actor", default="")
 
     close = subparsers.add_parser("close-task")
     close.add_argument("--root", required=True)
     close.add_argument("--task", required=True)
     close.add_argument("--to", required=True)
     close.add_argument("--accepted-by", default="")
+    close.add_argument("--actor", default="main_brain")
+
+    cancel = subparsers.add_parser("cancel-task")
+    cancel.add_argument("--root", required=True)
+    cancel.add_argument("--task", required=True)
+    cancel.add_argument("--reason", required=True)
+    cancel.add_argument("--actor", default="main_brain")
+    cancel.add_argument("--to", default="blocked", choices=["blocked", "ready"])
+
+    reopen = subparsers.add_parser("reopen-task")
+    reopen.add_argument("--root", required=True)
+    reopen.add_argument("--task", required=True)
+    reopen.add_argument("--to", required=True, choices=["ready", "review", "in_progress"])
+    reopen.add_argument("--reason", required=True)
+    reopen.add_argument("--actor", default="main_brain")
+    reopen.add_argument("--owner", default="")
+    reopen.add_argument("--lock", action="append", default=[])
 
     check_feedback_parser = subparsers.add_parser("check-feedback")
     check_feedback_parser.add_argument("--root", required=True)
@@ -872,6 +1170,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     render_queue = subparsers.add_parser("render-queue")
     render_queue.add_argument("--root", required=True)
+
+    init_feedback_parser = subparsers.add_parser("init-feedback")
+    init_feedback_parser.add_argument("--root", required=True)
+    init_feedback_parser.add_argument("--task", required=True)
+    init_feedback_parser.add_argument("--feedback-only", action="store_true")
+    init_feedback_parser.add_argument("--with-retrospective", action="store_true")
     return parser
 
 
@@ -902,14 +1206,35 @@ def main(argv: Sequence[str]) -> int:
         sys.stdout.write(make_task_packet(root, state, role_name, args.task))
         return 0
 
+    if args.command == "list-tasks":
+        sys.stdout.write(
+            list_tasks(
+                state,
+                role=args.role,
+                status=args.status,
+                open_only=args.open_only,
+            )
+        )
+        return 0
+
     if args.command == "claim-task":
-        claim_task(root, state, args.task, args.owner, args.lock)
+        claim_task(root, state, args.task, args.owner, args.lock, args.actor)
         print(f"[workflow] claimed task {args.task}")
         return 0
 
     if args.command == "close-task":
-        close_task(root, state, args.task, args.to, args.accepted_by)
+        close_task(root, state, args.task, args.to, args.accepted_by, args.actor)
         print(f"[workflow] closed task {args.task} -> {args.to}")
+        return 0
+
+    if args.command == "cancel-task":
+        cancel_task(root, state, args.task, args.to, args.reason, args.actor)
+        print(f"[workflow] cancelled task {args.task} -> {args.to}")
+        return 0
+
+    if args.command == "reopen-task":
+        reopen_task(root, state, args.task, args.to, args.reason, args.actor, args.owner, args.lock)
+        print(f"[workflow] reopened task {args.task} -> {args.to}")
         return 0
 
     if args.command == "check-feedback":
@@ -925,6 +1250,22 @@ def main(argv: Sequence[str]) -> int:
     if args.command == "render-queue":
         write_queue_board(root, state)
         print("[workflow] queue board refreshed")
+        return 0
+
+    if args.command == "init-feedback":
+        if args.feedback_only and args.with_retrospective:
+            fail("--feedback-only and --with-retrospective cannot be used together")
+        create_feedback = True
+        create_retrospective = args.with_retrospective
+        results = init_feedback_files(
+            root,
+            state,
+            args.task,
+            create_feedback=create_feedback,
+            create_retrospective=create_retrospective,
+        )
+        for line in results:
+            print(f"[workflow] {line}")
         return 0
 
     parser.error(f"unknown command: {args.command}")
