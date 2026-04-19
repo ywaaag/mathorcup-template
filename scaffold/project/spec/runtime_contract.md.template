@@ -43,10 +43,40 @@
   - `{{CONTAINER_NAME}}`
 - Expected container project root:
   - `/workspace/mathorcup`
+- Reference image:
+  - `{{IMAGE_NAME}}`
+- Container runtime:
+  - `{{CONTAINER_RUNTIME}}`
+- GPU request:
+  - `{{CONTAINER_GPUS}}`
+- Privileged mode:
+  - `{{CONTAINER_PRIVILEGED}}`
+- Container user:
+  - `{{CONTAINER_USER}}`
+- `GRANT_SUDO`:
+  - `{{CONTAINER_GRANT_SUDO}}`
 - Jupyter port:
   - `{{JUPYTER_PORT}}`
 - RStudio port:
   - `{{RSTUDIO_PORT}}`
+
+## Reference Image Environment Snapshot
+
+- Validated from the exported reference container behind `{{IMAGE_NAME}}`.
+- Expected default shell/user:
+  - `root`
+  - `sudo` available with `NOPASSWD`
+- Confirmed baseline tools:
+  - `Python 3.12.12`
+  - `pip 24.1.2`
+  - `latexmk 4.83`
+  - `XeTeX (TeX Live 2023/Debian)`
+  - `R 4.5.1`
+- GPU visibility:
+  - NVIDIA runtime + `nvidia-smi` available when host GPU runtime is present
+- Known gap in the base image:
+  - `biber` is not guaranteed to be preinstalled
+  - run `bash scripts/install_deps.sh --target <instance_dir>` before paper build if it is missing
 
 ## Runtime Rules
 

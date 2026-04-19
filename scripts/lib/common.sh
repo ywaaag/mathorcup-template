@@ -57,17 +57,24 @@ load_root_env() {
     load_kv_env_if_unset "$root_dir/.env"
 
     : "${HOST_DIR:=$root_dir}"
-    : "${IMAGE_NAME:=math-modeling-competition:latest}"
+    : "${IMAGE_NAME:=mathorcup-runtime:latest}"
     : "${COMPETITION_NAME:=mathorcup}"
     : "${CONTAINER_NAME:=${COMPETITION_NAME}-dev}"
     : "${JUPYTER_PORT:=8888}"
     : "${RSTUDIO_PORT:=8787}"
     : "${JUPYTER_TOKEN:=mathorcup}"
+    : "${CONTAINER_RUNTIME:=nvidia}"
+    : "${CONTAINER_GPUS:=all}"
+    : "${CONTAINER_PRIVILEGED:=true}"
+    : "${CONTAINER_USER:=root}"
+    : "${CONTAINER_GRANT_SUDO:=yes}"
     : "${PROJECT_CONTAINER_DIR:=/workspace/mathorcup}"
     : "${HOST_PROJECT_DIR:=$HOST_DIR/project}"
 
     export HOST_DIR IMAGE_NAME COMPETITION_NAME CONTAINER_NAME
     export JUPYTER_PORT RSTUDIO_PORT JUPYTER_TOKEN
+    export CONTAINER_RUNTIME CONTAINER_GPUS CONTAINER_PRIVILEGED
+    export CONTAINER_USER CONTAINER_GRANT_SUDO
     export PROJECT_CONTAINER_DIR HOST_PROJECT_DIR
 }
 

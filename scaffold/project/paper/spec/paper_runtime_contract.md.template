@@ -27,6 +27,8 @@
   - `{{HOST_DIR}}/project/paper`
 - Container paper dir:
   - `{{PAPER_CONTAINER_DIR}}`
+- Reference image:
+  - `{{IMAGE_NAME}}`
 - Active entrypoint key:
   - `PAPER_ACTIVE_ENTRYPOINT`
 - Build directory key:
@@ -42,6 +44,10 @@
   - `bash scripts/paper.sh build`
 - If a task packet writes a direct compile command, it must still be derived from `project/paper/runtime/paper.env`.
 - Do not assume `main.tex`; read the config file.
+- The reference image is expected to already provide:
+  - `xelatex`
+  - `latexmk`
+- `biber` may still need `bash scripts/install_deps.sh --target <instance_dir>`.
 
 ## Known Drift Risks
 
