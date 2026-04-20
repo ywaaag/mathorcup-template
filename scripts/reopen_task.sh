@@ -4,6 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/common.sh"
+
 TARGET_DIR="$ROOT_DIR"
 TASK_ID=""
 NEXT_STATUS=""
@@ -43,7 +46,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --target)
-            TARGET_DIR="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$2")"
+            TARGET_DIR="$(abs_path "$2")"
             shift 2
             ;;
         -h|--help)
@@ -60,8 +63,25 @@ done
 
 [[ -n "$TASK_ID" && -n "$NEXT_STATUS" && -n "$REASON" ]] || { usage; exit 2; }
 
+FROM_STATUS="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" status)"
+PREV_OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
+
 args=(reopen-task --root "$TARGET_DIR" --task "$TASK_ID" --to "$NEXT_STATUS" --reason "$REASON" --actor "$ACTOR")
 [[ -n "$OWNER" ]] && args+=(--owner "$OWNER")
 args+=("${LOCK_ARGS[@]}")
 
 python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}"
+
+CURRENT_OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
+event_owner="$CURRENT_OWNER"
+[[ -z "$event_owner" ]] && event_owner="$PREV_OWNER"
+event_args=(
+    --event-type task.reopened
+    --task "$TASK_ID"
+    --actor "$ACTOR"
+    --owner "$event_owner"
+    --from-status "$FROM_STATUS"
+    --to-status "$NEXT_STATUS"
+    --note "$REASON"
+)
+emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${event_args[@]}" >/dev/null

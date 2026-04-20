@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "hooks": [
+    {
+      "name": "queue_refresh_on_state_change",
+      "enabled": true,
+      "on": [
+        "task.claimed",
+        "task.closed",
+        "task.reopened",
+        "task.cancelled"
+      ],
+      "when": {},
+      "actions": [
+        {
+          "type": "render_main_brain_queue"
+        },
+        {
+          "type": "write_run_summary"
+        }
+      ]
+    },
+    {
+      "name": "dispatch_feedback_guard",
+      "enabled": true,
+      "on": [
+        "task.dispatched",
+        "task.packet_generated"
+      ],
+      "when": {},
+      "actions": [
+        {
+          "type": "ensure_feedback_skeleton"
+        },
+        {
+          "type": "emit_next_action_hint",
+          "hint": "Dispatch completed. Either relay the packet to another session or launch bash scripts/run_exec_worker.sh."
+        },
+        {
+          "type": "write_run_summary"
+        }
+      ]
+    },
+    {
+      "name": "worker_start_trace",
+      "enabled": true,
+      "on": [
+        "worker.started"
+      ],
+      "when": {},
+      "actions": [
+        {
+          "type": "write_run_summary"
+        },
+        {
+          "type": "emit_next_action_hint",
+          "hint": "Worker is now running. Wait for worker.completed or worker.failed before adjudicating the task."
+        }
+      ]
+    },
+    {
+      "name": "worker_completion_review_hint",
+      "enabled": true,
+      "on": [
+        "worker.completed"
+      ],
+      "when": {},
+      "actions": [
+        {
+          "type": "write_run_summary"
+        },
+        {
+          "type": "suggest_close_review"
+        }
+      ]
+    },
+    {
+      "name": "worker_completion_retrospective_guard",
+      "enabled": true,
+      "on": [
+        "worker.completed"
+      ],
+      "when": {
+        "metadata_equals": {
+          "with_retrospective": true
+        }
+      },
+      "actions": [
+        {
+          "type": "ensure_retrospective_skeleton"
+        }
+      ]
+    },
+    {
+      "name": "worker_failure_hint",
+      "enabled": true,
+      "on": [
+        "worker.failed"
+      ],
+      "when": {},
+      "actions": [
+        {
+          "type": "mark_worker_failure_note"
+        },
+        {
+          "type": "suggest_cancel"
+        },
+        {
+          "type": "write_run_summary"
+        }
+      ]
+    },
+    {
+      "name": "feedback_gate_trace",
+      "enabled": true,
+      "on": [
+        "feedback.initialized",
+        "review.checked",
+        "retrospective.checked"
+      ],
+      "when": {},
+      "actions": [
+        {
+          "type": "write_run_summary"
+        },
+        {
+          "type": "emit_next_action_hint"
+        }
+      ]
+    }
+  ]
+}

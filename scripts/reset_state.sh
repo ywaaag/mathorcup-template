@@ -50,9 +50,10 @@ bash "$SCRIPT_DIR/render_templates.sh" \
     --include-state \
     --only project/runtime/task_registry.yaml.template \
     --only project/runtime/work_queue.yaml.template \
+    --only project/runtime/event_log.jsonl.template \
     --only project/workflow/MAIN_BRAIN_QUEUE.md.template >/dev/null
 bash "$SCRIPT_DIR/render_task_registry.sh" --target "$TARGET_DIR" >/dev/null
-status_ok "task registry and queue board reset"
+status_ok "task registry, event log, and queue board reset"
 
 if [[ -d "$TARGET_DIR/project/output/handoff" ]]; then
     find "$TARGET_DIR/project/output/handoff" -maxdepth 1 -type f -name 'P*.md' -delete
@@ -61,6 +62,7 @@ fi
 
 if [[ "$CLEAR_REVIEW" == true && -d "$TARGET_DIR/project/output/review" ]]; then
     find "$TARGET_DIR/project/output/review" -maxdepth 1 -type f -name '*.md' ! -name 'WORKER_FEEDBACK_TEMPLATE.md' -delete
+    rm -rf "$TARGET_DIR/project/output/review/callback_runs" "$TARGET_DIR/project/output/review/exec_runs"
     status_ok "cleared review notes"
 fi
 

@@ -4,6 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/common.sh"
+
 TARGET_DIR="$ROOT_DIR"
 TASK_ID=""
 FEEDBACK_ONLY=false
@@ -28,7 +31,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --target)
-            TARGET_DIR="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$2")"
+            TARGET_DIR="$(abs_path "$2")"
             shift 2
             ;;
         -h|--help)
@@ -52,4 +55,22 @@ elif [[ "$FEEDBACK_ONLY" == true ]]; then
     args+=(--feedback-only)
 fi
 
-python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}"
+output="$(python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}")"
+printf '%s\n' "$output"
+
+OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
+feedback_path="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" feedback_path)"
+retro_path="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" retrospective_path)"
+
+event_args=(
+    --event-type feedback.initialized
+    --task "$TASK_ID"
+    --actor main_brain
+    --owner "$OWNER"
+    --artifact "$feedback_path"
+    --metadata "with_retrospective=$WITH_RETROSPECTIVE"
+)
+if [[ "$WITH_RETROSPECTIVE" == true ]]; then
+    event_args+=(--artifact "$retro_path")
+fi
+emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${event_args[@]}" >/dev/null

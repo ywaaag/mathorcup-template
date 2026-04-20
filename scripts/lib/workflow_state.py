@@ -48,8 +48,10 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scaffold/project/spec/runtime_contract.md.template",
     "scaffold/project/spec/multi_agent_workflow_contract.md.template",
     "scaffold/project/spec/agent_roles.yaml.template",
+    "scaffold/project/spec/callback_hooks.yaml.template",
     "scaffold/project/runtime/task_registry.yaml.template",
     "scaffold/project/runtime/work_queue.yaml.template",
+    "scaffold/project/runtime/event_log.jsonl.template",
     "scaffold/project/paper/spec/paper_runtime_contract.md.template",
     "scaffold/project/paper/runtime/paper.env.template",
     "scripts/setup.sh",
@@ -63,6 +65,8 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scripts/cancel_task.sh",
     "scripts/exec_healthcheck.sh",
     "scripts/run_exec_worker.sh",
+    "scripts/process_callbacks.sh",
+    "scripts/run_exec_batch.sh",
     "scripts/export_reference_image.sh",
 ]
 
@@ -284,6 +288,7 @@ def validate_contracts(root: Path) -> None:
         "project/paper/AGENTS.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
+        "project/spec/callback_hooks.yaml",
         "project/workflow/prompt_template_library.md",
         "project/workflow/TASK_PACKET_TEMPLATE.md",
         "project/workflow/MAIN_BRAIN_ACCEPTANCE_TEMPLATE.md",
@@ -300,8 +305,8 @@ def validate_contracts(root: Path) -> None:
     workflow_contract = (root / "project/spec/multi_agent_workflow_contract.md").read_text(encoding="utf-8")
     prompt_library = (root / "project/workflow/prompt_template_library.md").read_text(encoding="utf-8")
     task_packet_template = (root / "project/workflow/TASK_PACKET_TEMPLATE.md").read_text(encoding="utf-8")
-    if "project/paper/runtime/paper.env" not in runtime_contract:
-        fail("runtime_contract.md must reference project/paper/runtime/paper.env")
+    if "project/paper/runtime/paper.env" not in runtime_contract or "project/runtime/event_log.jsonl" not in runtime_contract:
+        fail("runtime_contract.md must reference project/paper/runtime/paper.env and project/runtime/event_log.jsonl")
     if "project/spec/runtime_contract.md" not in root_agents or "project/spec/multi_agent_workflow_contract.md" not in root_agents:
         fail("AGENTS.md must route to runtime/workflow docs")
     if "spec/paper_runtime_contract.md" not in paper_agents:
@@ -310,12 +315,20 @@ def validate_contracts(root: Path) -> None:
         fail("workflow contract must reference worker feedback template")
     if "project/output/retrospectives/RETROSPECTIVE_TEMPLATE.md" not in workflow_contract:
         fail("workflow contract must reference retrospective template")
+    if "project/runtime/event_log.jsonl" not in workflow_contract or "project/spec/callback_hooks.yaml" not in workflow_contract:
+        fail("workflow contract must reference event_log.jsonl and callback_hooks.yaml")
+    if "scripts/process_callbacks.sh" not in workflow_contract or "scripts/run_exec_batch.sh" not in workflow_contract:
+        fail("workflow contract must reference process_callbacks.sh and run_exec_batch.sh")
     if "codex exec" not in workflow_contract or "scripts/run_exec_worker.sh" not in workflow_contract:
         fail("workflow contract must describe codex exec worker mode via scripts/run_exec_worker.sh")
     if "codex exec" not in prompt_library or "scripts/run_exec_worker.sh" not in prompt_library:
         fail("prompt_template_library.md must reference codex exec and scripts/run_exec_worker.sh")
+    if "process_callbacks.sh" not in prompt_library or "event_log.jsonl" not in prompt_library:
+        fail("prompt_template_library.md must reference process_callbacks.sh and event_log.jsonl")
     if "feedback path" not in task_packet_template or "close_task.sh" not in task_packet_template:
         fail("TASK_PACKET_TEMPLATE.md must describe feedback path and close_task.sh gate")
+    if "event_log.jsonl" not in task_packet_template or "callback_hooks.yaml" not in task_packet_template:
+        fail("TASK_PACKET_TEMPLATE.md must reference event_log.jsonl and callback_hooks.yaml")
 
 
 def validate_paper_config(root: Path) -> None:
@@ -820,6 +833,8 @@ def task_field_value(root: Path, state: Dict[str, Any], task_id: str, field: str
         "title": task["title"],
         "status": task["status"],
         "owner": task["owner"],
+        "allowed_paths": task["allowed_paths"],
+        "parallel_ok": task["parallel_ok"],
         "feedback_path": task["feedback_path"],
         "retrospective_path": task["retrospective_path"],
         "cwd": str(choose_cwd(root, task["role"], task).relative_to(root) or "."),
@@ -833,7 +848,129 @@ def task_field_value(root: Path, state: Dict[str, Any], task_id: str, field: str
     value = values[field]
     if isinstance(value, list):
         return json.dumps(value, ensure_ascii=True)
+    if isinstance(value, bool):
+        return json.dumps(value)
     return str(value)
+
+
+def parse_task_locks(entries: Sequence[str]) -> Dict[str, List[str]]:
+    mapping: Dict[str, List[str]] = {}
+    for entry in entries:
+        if ":" not in entry:
+            fail(f"invalid --lock entry for batch-check: {entry}")
+        task_id, path = entry.split(":", 1)
+        task_id = task_id.strip()
+        path = path.strip()
+        if not task_id or not path:
+            fail(f"invalid --lock entry for batch-check: {entry}")
+        mapping.setdefault(task_id, []).append(path)
+    return mapping
+
+
+def batch_check(root: Path, state: Dict[str, Any], task_ids: Sequence[str], lock_overrides: Dict[str, List[str]]) -> Dict[str, Any]:
+    if not task_ids:
+        fail("batch-check requires at least one --task")
+    if len(set(task_ids)) != len(task_ids):
+        fail("batch-check received duplicate task ids")
+
+    tasks = [task_from_id(state, task_id) for task_id in task_ids]
+    roles = role_map(state)
+    active_items = queue_items(state)
+    conflicts: List[Dict[str, Any]] = []
+    effective_locks: Dict[str, List[str]] = {}
+
+    for task in tasks:
+        active = find_active_queue_item(state, task["task_id"])
+        if active:
+            conflicts.append(
+                {
+                    "type": "already_claimed",
+                    "task_id": task["task_id"],
+                    "owner": active["owner"],
+                }
+            )
+        if task["status"] not in {"todo", "ready"}:
+            conflicts.append(
+                {
+                    "type": "status_not_dispatchable",
+                    "task_id": task["task_id"],
+                    "status": task["status"],
+                }
+            )
+        effective_locks[task["task_id"]] = list(lock_overrides.get(task["task_id"], task["allowed_paths"]))
+        for path in effective_locks[task["task_id"]]:
+            if not any_path_matches(task["allowed_paths"], path):
+                conflicts.append(
+                    {
+                        "type": "lock_outside_allowed_paths",
+                        "task_id": task["task_id"],
+                        "path": path,
+                    }
+                )
+
+    for idx, left in enumerate(tasks):
+        left_role = roles[left["role"]]
+        for right in tasks[idx + 1 :]:
+            right_role = roles[right["role"]]
+            reasons: List[str] = []
+            if (not left["parallel_ok"]) or (not right["parallel_ok"]):
+                reasons.append("parallel_ok=false")
+            if right["role"] in left_role["parallel_forbidden_with"] or left["role"] in right_role["parallel_forbidden_with"]:
+                reasons.append("role_matrix_forbidden")
+            if any(
+                paths_overlap(left_path, right_path)
+                for left_path in effective_locks[left["task_id"]]
+                for right_path in effective_locks[right["task_id"]]
+            ):
+                reasons.append("locked_paths_overlap")
+            if reasons:
+                conflicts.append(
+                    {
+                        "type": "batch_conflict",
+                        "left": left["task_id"],
+                        "right": right["task_id"],
+                        "reasons": reasons,
+                    }
+                )
+
+    for task in tasks:
+        task_role = roles[task["role"]]
+        for active in active_items:
+            active_task = task_from_id(state, active["task_id"])
+            active_role = roles[active["role"]]
+            reasons: List[str] = []
+            if (not task["parallel_ok"]) or (not active_task["parallel_ok"]):
+                reasons.append("parallel_ok=false_against_active")
+            if active["role"] in task_role["parallel_forbidden_with"] or task["role"] in active_role["parallel_forbidden_with"]:
+                reasons.append("role_matrix_forbidden_against_active")
+            if any(paths_overlap(left_path, right_path) for left_path in effective_locks[task["task_id"]] for right_path in active["locked_paths"]):
+                reasons.append("locked_paths_overlap_against_active")
+            if reasons:
+                conflicts.append(
+                    {
+                        "type": "active_conflict",
+                        "task_id": task["task_id"],
+                        "active_task_id": active["task_id"],
+                        "reasons": reasons,
+                    }
+                )
+
+    summary = {
+        "ok": not conflicts,
+        "tasks": [
+            {
+                "task_id": task["task_id"],
+                "role": task["role"],
+                "status": task["status"],
+                "locked_paths": effective_locks[task["task_id"]],
+            }
+            for task in tasks
+        ],
+        "conflicts": conflicts,
+    }
+    if conflicts:
+        fail(json.dumps(summary, ensure_ascii=True, indent=2))
+    return summary
 
 
 def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id: Optional[str]) -> str:
@@ -1209,6 +1346,8 @@ def build_parser() -> argparse.ArgumentParser:
             "title",
             "status",
             "owner",
+            "allowed_paths",
+            "parallel_ok",
             "feedback_path",
             "retrospective_path",
             "cwd",
@@ -1224,6 +1363,11 @@ def build_parser() -> argparse.ArgumentParser:
     list_tasks_parser.add_argument("--role", default="")
     list_tasks_parser.add_argument("--status", default="", choices=[""] + sorted(TASK_STATUSES))
     list_tasks_parser.add_argument("--open-only", action="store_true")
+
+    batch_check_parser = subparsers.add_parser("batch-check")
+    batch_check_parser.add_argument("--root", required=True)
+    batch_check_parser.add_argument("--task", action="append", default=[])
+    batch_check_parser.add_argument("--lock", action="append", default=[])
 
     claim = subparsers.add_parser("claim-task")
     claim.add_argument("--root", required=True)
@@ -1316,6 +1460,10 @@ def main(argv: Sequence[str]) -> int:
                 open_only=args.open_only,
             )
         )
+        return 0
+
+    if args.command == "batch-check":
+        print(json.dumps(batch_check(root, state, args.task, parse_task_locks(args.lock)), ensure_ascii=True, indent=2))
         return 0
 
     if args.command == "claim-task":

@@ -15,11 +15,13 @@ All roles should read from these sources before acting:
 2. `MEMORY.md`
 3. `project/spec/runtime_contract.md`
 4. `project/spec/agent_roles.yaml`
-5. `project/runtime/task_registry.yaml`
-6. `project/runtime/work_queue.yaml`
-7. Indexed handoffs in `project/output/handoff/`
-8. `project/workflow/`
-9. `project/output/review/` and `project/output/retrospectives/` when relevant
+5. `project/spec/callback_hooks.yaml`
+6. `project/runtime/event_log.jsonl`
+7. `project/runtime/task_registry.yaml`
+8. `project/runtime/work_queue.yaml`
+9. Indexed handoffs in `project/output/handoff/`
+10. `project/workflow/`
+11. `project/output/review/` and `project/output/retrospectives/` when relevant
 
 ## Role Split
 
@@ -71,9 +73,14 @@ All roles should read from these sources before acting:
 - Task ownership and file occupancy are defined in:
   - `project/runtime/task_registry.yaml`
   - `project/runtime/work_queue.yaml`
+- Event-driven harness sources are:
+  - `project/runtime/event_log.jsonl`
+  - `project/spec/callback_hooks.yaml`
 - Human-readable queue board is:
   - `project/workflow/MAIN_BRAIN_QUEUE.md`
 - Main brain should inspect, dispatch, reopen, cancel, and close tasks through workflow scripts rather than freehand status edits.
+- Key scripts emit events and then run:
+  - `bash scripts/process_callbacks.sh`
 - Recommended semi-automatic dispatch path:
   - `bash scripts/list_open_tasks.sh --open-only`
   - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`
@@ -93,6 +100,11 @@ All roles should read from these sources before acting:
   - `bash scripts/exec_healthcheck.sh --target <dir>`
 - 若 `codex exec` 可用，可直接运行：
   - `bash scripts/run_exec_worker.sh --task <task_id> --owner <owner> --target <dir>`
+- 若要并行启动多个 write-scope 不冲突的 exec workers，可运行：
+  - `bash scripts/run_exec_batch.sh --tasks <task1,task2,...> --owner-prefix exec --target <dir>`
+- 如果某些 task slot 的默认 allowed_paths 太宽，可额外使用：
+  - `--lock <task_id:path>`
+  - 把 batch 预检和 claim scope 收紧到真正需要的路径
 - 这条路径只把 worker 执行步骤脚本化，不会自动 close task，也不会绕开 feedback / retrospective / validator gate。
 
 ### 3. Sub-Agent Delegation
@@ -148,11 +160,41 @@ Use:
   - `project/output/review/`
 - Reusable lessons learned:
   - `project/output/retrospectives/`
+- Callback processor derived artifacts:
+  - `project/output/review/callback_runs/`
+- Exec worker run artifacts:
+  - `project/output/review/exec_runs/`
 - Important new consensus should be absorbed by the 主脑 into the correct owner file:
   - `MEMORY.md`
   - runtime contract
   - workflow contract
   - paper runtime config
+
+## Event-Driven Harness
+
+- This template now includes a foreground event-driven orchestration harness:
+  - append-only event stream: `project/runtime/event_log.jsonl`
+  - machine-readable hook routing: `project/spec/callback_hooks.yaml`
+  - callback processor: `bash scripts/process_callbacks.sh`
+- “callback” in this template means:
+  - event-driven state hook
+  - restricted built-in action
+  - auditable derived artifact
+- It does not mean:
+  - arbitrary shell callback
+  - background listener
+  - automatic promotion into `done`
+- Recommended communication path between workers is not free chat. The stable path is:
+  - structured task packet
+  - structured feedback / retrospective
+  - event log + callback artifacts
+  - main-brain mediation
+  - follow-up review/utility/citation tasks when a second opinion is needed
+- Human review remains responsible for:
+  - acceptance
+  - canonical result release
+  - conflict adjudication
+  - reopen / cancel / consensus promotion decisions
 
 ## Delegation Note
 

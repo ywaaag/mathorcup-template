@@ -8,11 +8,14 @@
 - Dispatch work through:
   - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`
   - `bash scripts/run_exec_worker.sh --task <task_id> --owner <owner> --target <dir>` for one-shot exec worker runs
+  - `bash scripts/run_exec_batch.sh --tasks <task1,task2,...> --owner-prefix exec --target <dir>` for disjoint exec batches
 - Update task ownership/status through:
   - `bash scripts/claim_task.sh --task <task_id> --owner <owner>`
   - `bash scripts/close_task.sh --task <task_id> --to review|done`
   - `bash scripts/reopen_task.sh --task <task_id> --to ready|review|in_progress --reason <reason>`
   - `bash scripts/cancel_task.sh --task <task_id> --reason <reason>`
+- Callback replay/debug:
+  - `bash scripts/process_callbacks.sh --latest --target <dir>`
 
 ## Active Tasks
 - none

@@ -32,6 +32,25 @@ require_cmd() {
     command -v "$1" >/dev/null 2>&1 || die "missing command: $1"
 }
 
+workflow_task_field() {
+    local scripts_dir="$1"
+    local target_dir="$2"
+    local task_id="$3"
+    local field="$4"
+    python3 "$scripts_dir/lib/workflow_state.py" task-field --root "$target_dir" --task "$task_id" --field "$field"
+}
+
+emit_workflow_event() {
+    local scripts_dir="$1"
+    local target_dir="$2"
+    shift 2
+
+    local event_id
+    event_id="$(python3 "$scripts_dir/lib/workflow_events.py" emit --root "$target_dir" "$@")"
+    bash "$scripts_dir/process_callbacks.sh" --target "$target_dir" --event-id "$event_id" >/dev/null
+    printf '%s\n' "$event_id"
+}
+
 load_kv_env_if_unset() {
     local file="$1"
     [[ -f "$file" ]] || return 0

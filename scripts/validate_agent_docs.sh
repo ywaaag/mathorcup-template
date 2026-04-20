@@ -8,7 +8,7 @@ MODE="all"
 TARGET_ROOT="$ROOT_DIR"
 
 usage() {
-    echo "Usage: $0 [--root <dir>] [--memory-only|--handoff-only|--contracts-only|--paper-config-only|--roles-only|--tasks-only|--queue-only|--feedback-only|--retrospective-only|--template-source-only]" >&2
+    echo "Usage: $0 [--root <dir>] [--memory-only|--handoff-only|--contracts-only|--paper-config-only|--roles-only|--tasks-only|--queue-only|--feedback-only|--retrospective-only|--events-only|--callbacks-only|--harness-only|--template-source-only]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -53,6 +53,18 @@ while [[ $# -gt 0 ]]; do
             MODE="retrospective"
             shift
             ;;
+        --events-only)
+            MODE="events"
+            shift
+            ;;
+        --callbacks-only)
+            MODE="callbacks"
+            shift
+            ;;
+        --harness-only)
+            MODE="harness"
+            shift
+            ;;
         --template-source-only|--source-only)
             MODE="template_source"
             shift
@@ -87,4 +99,49 @@ EOF
     exit 0
 fi
 
-python3 "$SCRIPT_DIR/lib/workflow_state.py" validate --root "$TARGET_ROOT" --mode "$MODE"
+run_workflow_validation() {
+    python3 "$SCRIPT_DIR/lib/workflow_state.py" validate --root "$TARGET_ROOT" --mode "$1"
+}
+
+run_events_validation() {
+    python3 "$SCRIPT_DIR/lib/workflow_events.py" validate-events --root "$TARGET_ROOT"
+}
+
+run_callbacks_validation() {
+    python3 "$SCRIPT_DIR/lib/workflow_events.py" validate-callbacks --root "$TARGET_ROOT"
+}
+
+run_harness_validation() {
+    [[ -f "$SCRIPT_DIR/process_callbacks.sh" ]] || { echo "missing script: $SCRIPT_DIR/process_callbacks.sh" >&2; exit 1; }
+    [[ -f "$SCRIPT_DIR/run_exec_batch.sh" ]] || { echo "missing script: $SCRIPT_DIR/run_exec_batch.sh" >&2; exit 1; }
+    run_events_validation
+    run_callbacks_validation
+    echo "[validate_agent_docs] OK (harness)"
+}
+
+case "$MODE" in
+    all)
+        run_workflow_validation all
+        run_events_validation
+        run_callbacks_validation
+        ;;
+    memory|handoff|contracts|paper|roles|tasks|queue|feedback|retrospective)
+        run_workflow_validation "$MODE"
+        ;;
+    events)
+        run_events_validation
+        ;;
+    callbacks)
+        run_callbacks_validation
+        ;;
+    harness)
+        run_harness_validation
+        ;;
+    template_source)
+        run_workflow_validation template_source
+        ;;
+    *)
+        echo "[validate_agent_docs] ERROR: unknown mode $MODE" >&2
+        exit 2
+        ;;
+esac

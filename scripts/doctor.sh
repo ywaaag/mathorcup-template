@@ -82,6 +82,41 @@ else
 fi
 
 echo ""
+echo "== Event Harness =="
+if [[ "$ROOT_KIND" == "template_source" ]]; then
+    [[ -f "$TARGET_DIR/scaffold/project/runtime/event_log.jsonl.template" ]] && status_ok "template event log scaffold detected"
+    [[ -f "$TARGET_DIR/scaffold/project/spec/callback_hooks.yaml.template" ]] && status_ok "template callback hooks scaffold detected"
+else
+    if [[ -f "$TARGET_DIR/project/runtime/event_log.jsonl" ]]; then
+        event_count="$(python3 - <<'PY' "$TARGET_DIR/project/runtime/event_log.jsonl"
+from pathlib import Path
+import sys
+count = sum(1 for line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines() if line.strip())
+print(count)
+PY
+)"
+        status_ok "event log detected (${event_count} event(s))"
+    else
+        status_warn "event log missing"
+    fi
+    if [[ -f "$TARGET_DIR/project/spec/callback_hooks.yaml" ]]; then
+        status_ok "callback hooks detected"
+    else
+        status_warn "callback hooks missing"
+    fi
+fi
+if [[ -f "$SCRIPT_DIR/process_callbacks.sh" ]]; then
+    status_ok "callback processor available via bash scripts/process_callbacks.sh"
+else
+    status_warn "callback processor script missing"
+fi
+if [[ -f "$SCRIPT_DIR/run_exec_batch.sh" ]]; then
+    status_ok "batch supervisor available via bash scripts/run_exec_batch.sh"
+else
+    status_warn "batch supervisor script missing"
+fi
+
+echo ""
 echo "== Validation =="
 bash "$SCRIPT_DIR/validate_agent_docs.sh" --root "$TARGET_DIR"
 

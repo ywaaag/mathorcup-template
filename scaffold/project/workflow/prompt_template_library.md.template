@@ -41,12 +41,15 @@
 若涉及论文：
 - active paper entrypoint 以 `project/paper/runtime/paper.env` 为准
 - role / task enforcement 以 `project/spec/agent_roles.yaml` 和 `project/runtime/task_registry.yaml` 为准
+- orchestration event stream 在 `project/runtime/event_log.jsonl`
+- callback hook 路由在 `project/spec/callback_hooks.yaml`
 
 开始前先执行：
 - `bash scripts/validate_agent_docs.sh`
 
 完成后必须：
 - 回填 task 对应的 feedback / retrospective 文件
+- 不要把 event log 当聊天记录；它是主脑推进状态机的 machine-readable artifact
 - 不要自行执行 `close_task.sh`；把 gate 交给主脑
 - 不要自行拆新的顶层 task
 
@@ -152,13 +155,20 @@ See:
   - `bash scripts/list_open_tasks.sh --open-only`
   - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`
   - `bash scripts/submit_feedback.sh --task <task_id>`
+  - `bash scripts/process_callbacks.sh --latest`
   - `bash scripts/check_worker_feedback.sh --task <task_id>`
   - `bash scripts/close_task.sh --task <task_id> --to review|done`
 - 如果要走 exec worker 路径，建议顺序是：
   - `bash scripts/exec_healthcheck.sh --target <dir>`
   - `bash scripts/run_exec_worker.sh --task <task_id> --owner <owner> --target <dir>`
+  - `bash scripts/process_callbacks.sh --latest --target <dir>` if you need to replay the newest callback deterministically
   - `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
   - `bash scripts/check_retrospective.sh --task <task_id> --target <dir>` if the run initialized a retrospective
   - `bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>`
+- 如果要一次并行跑多个 write-scope 不冲突的 exec workers，可运行：
+  - `bash scripts/run_exec_batch.sh --tasks <task1,task2,...> --owner-prefix exec --target <dir>`
+- 如果默认 task slot 太宽、batch 预检会冲突，可给 batch 增加：
+  - `--lock <task_id:path>`
 - `scripts/run_exec_worker.sh` 只负责 claim/packet/feedback init/`codex exec`/last-message 落盘，不会自动 close task。
+- `scripts/process_callbacks.sh` 只执行受控 built-in actions，不会把任务自动推进到 `done`。
 - 这套脚本是半自动 orchestration convenience layer，不是后台自动调度器。

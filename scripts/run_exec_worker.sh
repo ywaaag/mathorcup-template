@@ -112,23 +112,25 @@ fi
 
 stamp="$(date +%Y%m%d_%H%M%S)"
 review_dir="$TARGET_DIR/project/output/review"
+exec_run_dir="$review_dir/exec_runs"
 mkdir -p "$review_dir"
+mkdir -p "$exec_run_dir"
 
 if [[ ! -e "$TARGET_DIR/scripts" ]]; then
     ln -s "$ROOT_DIR/scripts" "$TARGET_DIR/scripts"
 fi
 
 if [[ -z "$PACKET_OUT" ]]; then
-    PACKET_OUT="$review_dir/${TASK_ID}_${stamp}_exec_packet.md"
+    PACKET_OUT="$exec_run_dir/${TASK_ID}_${stamp}_exec_packet.md"
 fi
 if [[ -z "$LAST_MESSAGE_OUT" ]]; then
-    LAST_MESSAGE_OUT="$review_dir/${TASK_ID}_${stamp}_exec_last_message.md"
+    LAST_MESSAGE_OUT="$exec_run_dir/${TASK_ID}_${stamp}_exec_last_message.md"
 fi
 
 mkdir -p "$(dirname "$PACKET_OUT")" "$(dirname "$LAST_MESSAGE_OUT")"
-dispatch_log="$review_dir/${TASK_ID}_${stamp}_dispatch.log"
-submit_log="$review_dir/${TASK_ID}_${stamp}_feedback_init.log"
-exec_log="$review_dir/${TASK_ID}_${stamp}_exec.log"
+dispatch_log="$exec_run_dir/${TASK_ID}_${stamp}_dispatch.log"
+submit_log="$exec_run_dir/${TASK_ID}_${stamp}_feedback_init.log"
+exec_log="$exec_run_dir/${TASK_ID}_${stamp}_exec.log"
 
 dispatch_args=(--task "$TASK_ID" --target "$TARGET_DIR" --packet-out "$PACKET_OUT")
 if [[ "$NO_CLAIM" == true ]]; then
@@ -146,11 +148,11 @@ if [[ "$WITH_RETROSPECTIVE" == true ]]; then
 fi
 bash "$SCRIPT_DIR/submit_feedback.sh" "${submit_args[@]}" > "$submit_log"
 
-role_name="$(python3 "$SCRIPT_DIR/lib/workflow_state.py" task-field --root "$TARGET_DIR" --task "$TASK_ID" --field role)"
-task_title="$(python3 "$SCRIPT_DIR/lib/workflow_state.py" task-field --root "$TARGET_DIR" --task "$TASK_ID" --field title)"
-feedback_path_rel="$(python3 "$SCRIPT_DIR/lib/workflow_state.py" task-field --root "$TARGET_DIR" --task "$TASK_ID" --field feedback_path)"
-retrospective_path_rel="$(python3 "$SCRIPT_DIR/lib/workflow_state.py" task-field --root "$TARGET_DIR" --task "$TASK_ID" --field retrospective_path)"
-current_owner="$(python3 "$SCRIPT_DIR/lib/workflow_state.py" task-field --root "$TARGET_DIR" --task "$TASK_ID" --field owner)"
+role_name="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" role)"
+task_title="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" title)"
+feedback_path_rel="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" feedback_path)"
+retrospective_path_rel="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" retrospective_path)"
+current_owner="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
 
 if [[ -z "$OWNER" ]]; then
     OWNER="$current_owner"
@@ -176,12 +178,46 @@ exec_args=(exec --skip-git-repo-check -C "$TARGET_DIR" -o "$LAST_MESSAGE_OUT")
 [[ -n "$MODEL" ]] && exec_args+=(-m "$MODEL")
 exec_args+=(-)
 
+worker_start_args=(
+    --event-type worker.started
+    --task "$TASK_ID"
+    --actor "$OWNER"
+    --owner "$OWNER"
+    --artifact "$PACKET_OUT"
+    --artifact "$feedback_path_rel"
+    --metadata "backend=codex_exec"
+    --metadata "with_retrospective=$WITH_RETROSPECTIVE"
+)
+if [[ "$WITH_RETROSPECTIVE" == true ]]; then
+    worker_start_args+=(--artifact "$retrospective_path_rel")
+fi
+if [[ -n "$MODEL" ]]; then
+    worker_start_args+=(--metadata "model=$MODEL")
+fi
+emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${worker_start_args[@]}" >/dev/null
+
 set +e
 codex "${exec_args[@]}" < "$PACKET_OUT" > "$exec_log" 2>&1
 exit_code=$?
 set -e
 
 if [[ $exit_code -ne 0 ]]; then
+    worker_fail_args=(
+        --event-type worker.failed
+        --task "$TASK_ID"
+        --actor "$OWNER"
+        --owner "$OWNER"
+        --artifact "$PACKET_OUT"
+        --artifact "$exec_log"
+        --note "codex exec exited with code $exit_code"
+        --metadata "backend=codex_exec"
+        --metadata "exit_code=$exit_code"
+        --metadata "with_retrospective=$WITH_RETROSPECTIVE"
+    )
+    if [[ -f "$LAST_MESSAGE_OUT" ]]; then
+        worker_fail_args+=(--artifact "$LAST_MESSAGE_OUT")
+    fi
+    emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${worker_fail_args[@]}" >/dev/null
     echo "[run_exec_worker] FAIL"
     echo "task_id: $TASK_ID"
     echo "role: $role_name"
@@ -199,6 +235,16 @@ if [[ $exit_code -ne 0 ]]; then
 fi
 
 if [[ ! -f "$LAST_MESSAGE_OUT" ]]; then
+    emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" \
+        --event-type worker.failed \
+        --task "$TASK_ID" \
+        --actor "$OWNER" \
+        --owner "$OWNER" \
+        --artifact "$PACKET_OUT" \
+        --artifact "$exec_log" \
+        --note "codex exec finished without writing the last-message file" \
+        --metadata "backend=codex_exec" \
+        --metadata "with_retrospective=$WITH_RETROSPECTIVE" >/dev/null
     echo "[run_exec_worker] FAIL"
     echo "task_id: $TASK_ID"
     echo "reason: codex exec finished without writing the last-message file"
@@ -206,6 +252,25 @@ if [[ ! -f "$LAST_MESSAGE_OUT" ]]; then
     echo "exec_log: $exec_log"
     exit 1
 fi
+
+worker_complete_args=(
+    --event-type worker.completed
+    --task "$TASK_ID"
+    --actor "$OWNER"
+    --owner "$OWNER"
+    --artifact "$PACKET_OUT"
+    --artifact "$LAST_MESSAGE_OUT"
+    --artifact "$feedback_path_rel"
+    --metadata "backend=codex_exec"
+    --metadata "with_retrospective=$WITH_RETROSPECTIVE"
+)
+if [[ "$WITH_RETROSPECTIVE" == true ]]; then
+    worker_complete_args+=(--artifact "$retrospective_path_rel")
+fi
+if [[ -n "$MODEL" ]]; then
+    worker_complete_args+=(--metadata "model=$MODEL")
+fi
+emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${worker_complete_args[@]}" >/dev/null
 
 rm -f "$dispatch_log" "$submit_log" "$exec_log"
 

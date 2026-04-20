@@ -33,6 +33,8 @@
 - Container: `{{CONTAINER_NAME}}`
 - Image: `{{IMAGE_NAME}}`
 - Active paper entrypoint source: `project/paper/runtime/paper.env`
+- Event stream: `project/runtime/event_log.jsonl`
+- Callback routing: `project/spec/callback_hooks.yaml`
 - Runtime/env baseline source:
   - `project/spec/runtime_contract.md -> ## Current Host / Container Facts`
   - `project/spec/runtime_contract.md -> ## Reference Image Environment Snapshot`
@@ -46,12 +48,15 @@
 ## Feedback Gate
 - feedback path: [project/output/review/...]
 - retrospective path: [project/output/retrospectives/...]
+- event log entrypoint: `project/runtime/event_log.jsonl`
+- callback artifacts: `project/output/review/callback_runs/`
 - do not bypass `check_worker_feedback.sh` / `check_retrospective.sh`
 - do not run `close_task.sh` yourself unless the task packet explicitly authorizes a main-brain action
 
 ## Completion Rules
 - Fill the feedback file with verified facts, validation result, and remaining risks.
 - If main brain expects a `done`-level close, also fill the retrospective file.
+- Assume the harness may emit hints after your run, but human review still decides whether the task closes, reopens, or cancels.
 - Do not create new top-level tasks unless the packet explicitly allows it.
 
 ## Final Reply Format

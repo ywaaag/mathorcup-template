@@ -4,6 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/common.sh"
+
 TARGET_DIR="$ROOT_DIR"
 TASK_ID=""
 NEXT_STATUS="blocked"
@@ -33,7 +36,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --target)
-            TARGET_DIR="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$2")"
+            TARGET_DIR="$(abs_path "$2")"
             shift 2
             ;;
         -h|--help)
@@ -50,4 +53,16 @@ done
 
 [[ -n "$TASK_ID" && -n "$REASON" ]] || { usage; exit 2; }
 
+FROM_STATUS="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" status)"
+OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
+
 python3 "$SCRIPT_DIR/lib/workflow_state.py" cancel-task --root "$TARGET_DIR" --task "$TASK_ID" --reason "$REASON" --actor "$ACTOR" --to "$NEXT_STATUS"
+
+emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" \
+    --event-type task.cancelled \
+    --task "$TASK_ID" \
+    --actor "$ACTOR" \
+    --owner "$OWNER" \
+    --from-status "$FROM_STATUS" \
+    --to-status "$NEXT_STATUS" \
+    --note "$REASON" >/dev/null

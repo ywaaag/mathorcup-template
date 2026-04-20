@@ -25,9 +25,13 @@
   - `project/paper/runtime/paper.env`
 - Role permission matrix:
   - `project/spec/agent_roles.yaml`
+- Callback routing rules:
+  - `project/spec/callback_hooks.yaml`
 - Task registry and live file locks:
   - `project/runtime/task_registry.yaml`
   - `project/runtime/work_queue.yaml`
+- Orchestration event stream:
+  - `project/runtime/event_log.jsonl`
 - Multi-Agent workflow and ownership:
   - `project/spec/multi_agent_workflow_contract.md`
 - Prompt/task packet templates:
@@ -87,6 +91,7 @@
 - If `.env` or `project/paper/runtime/paper.env` conflicts with assumptions, the config file wins.
 - If a runtime fact changes, update the owning config file first, then validate.
 - If task ownership or file occupancy changes, update `task_registry.yaml` / `work_queue.yaml`, not `MEMORY.md`.
+- If you need to replay or inspect orchestration state changes, read `project/runtime/event_log.jsonl` instead of reverse-engineering chat history.
 - `MEMORY.md` is for live task state only; do not copy runtime config into it.
 
 ## Handoff And Acceptance Rules

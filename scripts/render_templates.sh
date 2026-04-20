@@ -105,6 +105,7 @@ stateful_templates = {
     "MEMORY.md.template",
     "project/runtime/task_registry.yaml.template",
     "project/runtime/work_queue.yaml.template",
+    "project/runtime/event_log.jsonl.template",
     "project/workflow/MAIN_BRAIN_QUEUE.md.template",
 }
 config_templates = {".env.template", "project/paper/runtime/paper.env.template"}
