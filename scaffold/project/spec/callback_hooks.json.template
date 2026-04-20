@@ -24,8 +24,7 @@
       "name": "dispatch_feedback_guard",
       "enabled": true,
       "on": [
-        "task.dispatched",
-        "task.packet_generated"
+        "task.dispatched"
       ],
       "when": {},
       "actions": [

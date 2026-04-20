@@ -47,10 +47,10 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scaffold/project/paper/AGENTS.md.template",
     "scaffold/project/spec/runtime_contract.md.template",
     "scaffold/project/spec/multi_agent_workflow_contract.md.template",
-    "scaffold/project/spec/agent_roles.yaml.template",
-    "scaffold/project/spec/callback_hooks.yaml.template",
-    "scaffold/project/runtime/task_registry.yaml.template",
-    "scaffold/project/runtime/work_queue.yaml.template",
+    "scaffold/project/spec/agent_roles.json.template",
+    "scaffold/project/spec/callback_hooks.json.template",
+    "scaffold/project/runtime/task_registry.json.template",
+    "scaffold/project/runtime/work_queue.json.template",
     "scaffold/project/runtime/event_log.jsonl.template",
     "scaffold/project/paper/spec/paper_runtime_contract.md.template",
     "scaffold/project/paper/runtime/paper.env.template",
@@ -110,7 +110,7 @@ def load_structured(path: Path) -> Any:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        fail(f"invalid JSON-compatible YAML in {path}: {exc}")
+        fail(f"invalid JSON in {path}: {exc}")
 
 
 def save_structured(path: Path, payload: Any) -> None:
@@ -167,12 +167,12 @@ def parse_kv_env(path: Path) -> Dict[str, str]:
 
 def detect_root_kind(root: Path) -> str:
     scaffold_dir = root / "scaffold"
-    scaffold_roles = root / "scaffold/project/spec/agent_roles.yaml.template"
-    scaffold_registry = root / "scaffold/project/runtime/task_registry.yaml.template"
-    scaffold_queue = root / "scaffold/project/runtime/work_queue.yaml.template"
-    live_roles = root / "project/spec/agent_roles.yaml"
-    live_registry = root / "project/runtime/task_registry.yaml"
-    live_queue = root / "project/runtime/work_queue.yaml"
+    scaffold_roles = root / "scaffold/project/spec/agent_roles.json.template"
+    scaffold_registry = root / "scaffold/project/runtime/task_registry.json.template"
+    scaffold_queue = root / "scaffold/project/runtime/work_queue.json.template"
+    live_roles = root / "project/spec/agent_roles.json"
+    live_registry = root / "project/runtime/task_registry.json"
+    live_queue = root / "project/runtime/work_queue.json"
     if (
         scaffold_dir.is_dir()
         and scaffold_roles.is_file()
@@ -195,9 +195,9 @@ def validate_template_source(root: Path) -> None:
 
 
 def load_runtime_state(root: Path) -> Dict[str, Any]:
-    roles_path = root / "project/spec/agent_roles.yaml"
-    registry_path = root / "project/runtime/task_registry.yaml"
-    queue_path = root / "project/runtime/work_queue.yaml"
+    roles_path = root / "project/spec/agent_roles.json"
+    registry_path = root / "project/runtime/task_registry.json"
+    queue_path = root / "project/runtime/work_queue.json"
     roles = load_structured(roles_path)
     registry = load_structured(registry_path)
     queue = load_structured(queue_path)
@@ -293,7 +293,7 @@ def validate_contracts(root: Path) -> None:
         "project/paper/AGENTS.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
-        "project/spec/callback_hooks.yaml",
+        "project/spec/callback_hooks.json",
         "project/workflow/prompt_template_library.md",
         "project/workflow/TASK_PACKET_TEMPLATE.md",
         "project/workflow/MAIN_BRAIN_ACCEPTANCE_TEMPLATE.md",
@@ -310,8 +310,8 @@ def validate_contracts(root: Path) -> None:
     workflow_contract = (root / "project/spec/multi_agent_workflow_contract.md").read_text(encoding="utf-8")
     prompt_library = (root / "project/workflow/prompt_template_library.md").read_text(encoding="utf-8")
     task_packet_template = (root / "project/workflow/TASK_PACKET_TEMPLATE.md").read_text(encoding="utf-8")
-    if "project/paper/runtime/paper.env" not in runtime_contract or "project/runtime/event_log.jsonl" not in runtime_contract:
-        fail("runtime_contract.md must reference project/paper/runtime/paper.env and project/runtime/event_log.jsonl")
+    if "project/paper/runtime/paper.env" not in runtime_contract or ".env" not in runtime_contract:
+        fail("runtime_contract.md must reference .env and project/paper/runtime/paper.env as config truth sources")
     if "project/spec/runtime_contract.md" not in root_agents or "project/spec/multi_agent_workflow_contract.md" not in root_agents:
         fail("AGENTS.md must route to runtime/workflow docs")
     if "spec/paper_runtime_contract.md" not in paper_agents:
@@ -320,8 +320,8 @@ def validate_contracts(root: Path) -> None:
         fail("workflow contract must reference worker feedback template")
     if "project/output/retrospectives/RETROSPECTIVE_TEMPLATE.md" not in workflow_contract:
         fail("workflow contract must reference retrospective template")
-    if "project/runtime/event_log.jsonl" not in workflow_contract or "project/spec/callback_hooks.yaml" not in workflow_contract:
-        fail("workflow contract must reference event_log.jsonl and callback_hooks.yaml")
+    if "project/runtime/event_log.jsonl" not in workflow_contract or "project/spec/callback_hooks.json" not in workflow_contract:
+        fail("workflow contract must reference event_log.jsonl and callback_hooks.json")
     if "scripts/process_callbacks.sh" not in workflow_contract or "scripts/run_exec_batch.sh" not in workflow_contract:
         fail("workflow contract must reference process_callbacks.sh and run_exec_batch.sh")
     if "adjudicate_task.sh" not in workflow_contract or "show_task.sh" not in workflow_contract:
@@ -336,8 +336,8 @@ def validate_contracts(root: Path) -> None:
         fail("prompt_template_library.md must reference adjudicate_task.sh and main_brain_summary.sh")
     if "feedback path" not in task_packet_template or "close_task.sh" not in task_packet_template:
         fail("TASK_PACKET_TEMPLATE.md must describe feedback path and close_task.sh gate")
-    if "event_log.jsonl" not in task_packet_template or "callback_hooks.yaml" not in task_packet_template:
-        fail("TASK_PACKET_TEMPLATE.md must reference event_log.jsonl and callback_hooks.yaml")
+    if "event_log.jsonl" not in task_packet_template or "callback_hooks.json" not in task_packet_template:
+        fail("TASK_PACKET_TEMPLATE.md must reference event_log.jsonl and callback_hooks.json")
 
 
 def validate_paper_config(root: Path) -> None:
@@ -362,7 +362,7 @@ def validate_paper_config(root: Path) -> None:
 def validate_roles(root: Path, state: Dict[str, Any]) -> None:
     roles_payload = state["roles"]
     if not isinstance(roles_payload, dict) or "roles" not in roles_payload:
-        fail("project/spec/agent_roles.yaml must define a top-level 'roles' object")
+        fail("project/spec/agent_roles.json must define a top-level 'roles' object")
     roles = role_map(state)
     required_roles = {
         "main_brain",
@@ -375,7 +375,7 @@ def validate_roles(root: Path, state: Dict[str, Any]) -> None:
     }
     missing_roles = sorted(required_roles - set(roles))
     if missing_roles:
-        fail(f"agent_roles.yaml missing roles: {', '.join(missing_roles)}")
+        fail(f"agent_roles.json missing roles: {', '.join(missing_roles)}")
     for name, config in roles.items():
         ensure_fields(config, REQUIRED_ROLE_FIELDS, f"role {name}")
         for field in ["read_roots", "write_roots", "forbidden_roots", "must_read_docs", "default_acceptance_artifacts", "parallel_safe_with", "parallel_forbidden_with"]:
@@ -393,19 +393,24 @@ def validate_tasks(root: Path, state: Dict[str, Any]) -> None:
     tasks_payload = state["registry"]
     tasks = tasks_payload.get("tasks")
     if not isinstance(tasks_payload, dict) or not isinstance(tasks, list):
-        fail("project/runtime/task_registry.yaml must define a top-level 'tasks' array")
+        fail("project/runtime/task_registry.json must define a top-level 'tasks' array")
     roles = role_map(state)
     seen: set[str] = set()
     for task in tasks:
         ensure_fields(task, REQUIRED_TASK_FIELDS, f"task {task.get('task_id', '<unknown>')}")
         task_id = task["task_id"]
         if task_id in seen:
-            fail(f"duplicate task_id in task_registry.yaml: {task_id}")
+            fail(f"duplicate task_id in task_registry.json: {task_id}")
         seen.add(task_id)
         if task["role"] not in roles:
             fail(f"task {task_id} references unknown role: {task['role']}")
         if task["status"] not in TASK_STATUSES:
             fail(f"task {task_id} has invalid status: {task['status']}")
+        if task["status"] == "in_progress":
+            if not task["owner"]:
+                fail(f"task {task_id} must keep owner set while status is in_progress")
+        elif task["owner"]:
+            fail(f"task {task_id} must clear owner when status is not in_progress")
         if not isinstance(task["parallel_ok"], bool):
             fail(f"task {task_id} field 'parallel_ok' must be boolean")
         role = roles[task["role"]]
@@ -428,9 +433,9 @@ def validate_tasks(root: Path, state: Dict[str, Any]) -> None:
 def validate_queue(root: Path, state: Dict[str, Any]) -> None:
     queue_payload = state["queue"]
     if not isinstance(queue_payload, dict) or "active_items" not in queue_payload:
-        fail("project/runtime/work_queue.yaml must define top-level 'active_items'")
+        fail("project/runtime/work_queue.json must define top-level 'active_items'")
     if not isinstance(queue_payload["active_items"], list):
-        fail("work_queue.yaml field 'active_items' must be a list")
+        fail("work_queue.json field 'active_items' must be a list")
     tasks = task_map(state)
     roles = role_map(state)
     active = queue_items(state)
@@ -451,7 +456,7 @@ def validate_queue(root: Path, state: Dict[str, Any]) -> None:
         if item["status"] != "in_progress":
             fail(f"queue item {task_id} must use status 'in_progress'")
         if task["status"] != "in_progress":
-            fail(f"task {task_id} must also be in_progress in task_registry.yaml")
+            fail(f"task {task_id} must also be in_progress in task_registry.json")
         if task["owner"] != item["owner"]:
             fail(f"task {task_id} owner mismatch between task_registry and work_queue")
         role = roles[task["role"]]
@@ -770,11 +775,12 @@ def render_queue_board(root: Path, state: Dict[str, Any]) -> str:
     lines = [
         "# Main-Brain Queue",
         "",
-        "- Source of truth: `project/runtime/task_registry.yaml` and `project/runtime/work_queue.yaml`.",
+        "- Source of truth: `project/runtime/task_registry.json` and `project/runtime/work_queue.json`.",
         "- Inspect ready pool via `bash scripts/list_open_tasks.sh --open-only`.",
         "- Dispatch a task via `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`.",
         "- Run a non-interactive exec worker via `bash scripts/run_exec_worker.sh --task <task_id> --owner <owner> --target <dir>`.",
         "- Update task ownership or status via `scripts/claim_task.sh`, `scripts/close_task.sh`, `scripts/reopen_task.sh`, and `scripts/cancel_task.sh`.",
+        "- `owner` only means current active owner; inspect event/history views for the last actor after a task leaves `in_progress`.",
         "- `--open-only` only includes `todo/ready`; inspect blocked tasks explicitly with `bash scripts/list_open_tasks.sh --status blocked`.",
         "",
         "## Active Tasks",
@@ -784,7 +790,7 @@ def render_queue_board(root: Path, state: Dict[str, Any]) -> str:
     else:
         for item in queue:
             lines.append(
-                f"- `{item['task_id']}` | role=`{item['role']}` | owner=`{item['owner']}` | locked={', '.join(item['locked_paths'])}"
+                f"- `{item['task_id']}` | role=`{item['role']}` | active_owner=`{item['owner']}` | locked={', '.join(item['locked_paths'])}"
             )
     lines.extend(["", "## Task Summary"])
     by_status: Dict[str, List[str]] = {status: [] for status in sorted(TASK_STATUSES)}
@@ -1021,7 +1027,7 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
                 "任务：",
                 f"- `{task['task_id']}`: {task['title']}",
                 f"- status: `{task['status']}`",
-                f"- owner: `{task['owner'] or 'unassigned'}`",
+                f"- active_owner: `{task['owner'] or '-'}`",
                 f"- feedback_path: `{task['feedback_path']}`",
                 f"- retrospective_path: `{task['retrospective_path']}`",
             ]
@@ -1037,7 +1043,7 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
             "- 不要覆盖其他角色正在占用的文件",
             "- 不要把静态规则写回 `MEMORY.md`",
             "- 不要自行拆新的顶层 task_id，除非主脑在任务包里明确授权",
-            "- 不要绕开 `task_registry.yaml` / `work_queue.yaml` 的既有约束",
+            "- 不要绕开 `task_registry.json` / `work_queue.json` 的既有约束",
             "",
             "允许修改的文件范围：",
         ]
@@ -1059,7 +1065,9 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
             "- privileged：`{}`".format(env.get("CONTAINER_PRIVILEGED", "")),
             "- 容器用户：`{}`".format(env.get("CONTAINER_USER", "")),
             "- GRANT_SUDO：`{}`".format(env.get("CONTAINER_GRANT_SUDO", "")),
-            "- 容器环境基线入口：`project/spec/runtime_contract.md -> ## Current Host / Container Facts`",
+            "- machine truth：根目录 `.env` + `project/paper/runtime/paper.env`",
+            "- rendered mirror：`project/spec/runtime_contract.md` / `project/paper/spec/paper_runtime_contract.md`",
+            "- 容器环境镜像说明入口：`project/spec/runtime_contract.md -> ## Current Host / Container Facts`",
             "- reference image baseline 入口：`project/spec/runtime_contract.md -> ## Reference Image Environment Snapshot`",
             "- 预期基础工具：`python3`, `pip`, `latexmk`, `xelatex`, `R`, `biber`, `fd`, `tree`, `yq`",
         ]
@@ -1080,7 +1088,7 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
             [
                 "",
                 "paper 运行事实：",
-                "- active paper entrypoint 以 `project/paper/runtime/paper.env` 为准",
+                "- active paper entrypoint 的 machine truth 以 `project/paper/runtime/paper.env` 为准",
                 f"- 当前 entrypoint: `{paper_env.get('PAPER_ACTIVE_ENTRYPOINT', '')}`",
                 f"- 当前 acceptance PDF: `{paper_env.get('PAPER_ACCEPT_PDF', '')}`",
                 f"- 当前 acceptance LOG: `{paper_env.get('PAPER_ACCEPT_LOG', '')}`",
@@ -1103,6 +1111,8 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
                 "流程 gate：",
                 f"- 完成后补 `feedback`: `{task['feedback_path']}`",
                 f"- 若要 closed as done，再补 `retrospective`: `{task['retrospective_path']}`",
+                "- canonical feedback skeleton 路径：`dispatch_task.sh` 触发 `task.dispatched` callback 自动补建",
+                "- `submit_feedback.sh` 仅用于 repair missing feedback、初始化 retrospective、或手工补录",
                 "- 不允许绕开 `check_*` / `close_task.sh` 流程；worker 只提交结果，不自行验收结案",
                 f"- 反馈检查：`bash scripts/check_worker_feedback.sh --task {task['task_id']}`",
                 f"- 复盘检查：`bash scripts/check_retrospective.sh --task {task['task_id']}`",
@@ -1169,6 +1179,7 @@ def close_task(root: Path, state: Dict[str, Any], task_id: str, next_status: str
     else:
         task["accepted_by_main_brain"] = False
     task["status"] = next_status
+    task["owner"] = ""
     state["queue"]["active_items"] = [item for item in queue_items(state) if item["task_id"] != task_id]
     append_history(
         state,
@@ -1257,8 +1268,7 @@ def reopen_task(
         fail(f"task {task_id} is still claimed by {active['owner']}; cancel or close it first")
     current_owner = task["owner"]
     task["status"] = to_status
-    if to_status == "ready":
-        task["owner"] = ""
+    task["owner"] = ""
     if from_status == "done":
         task["accepted_by_main_brain"] = False
     append_history(

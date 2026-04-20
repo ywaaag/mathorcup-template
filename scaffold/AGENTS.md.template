@@ -21,7 +21,7 @@
 2. Read `MEMORY.md`.
 3. Read `project/spec/runtime_contract.md`.
 4. Read `project/spec/multi_agent_workflow_contract.md`.
-5. If this task is claimed or delegated, read `project/spec/agent_roles.yaml`, `project/runtime/task_registry.yaml`, and `project/runtime/work_queue.yaml`.
+5. If this task is claimed or delegated, read `project/spec/agent_roles.json`, `project/runtime/task_registry.json`, and `project/runtime/work_queue.json`.
 6. Read the latest indexed handoff docs listed in `## Handoff Index`.
 7. If this task is delegated or multi-session, read the relevant templates under `project/workflow/`.
 
@@ -49,8 +49,8 @@
 ## Execution Rules
 - Hard rule: run project Python/C++/LaTeX programs inside Docker container only.
 - Host is only for orchestration (`git`, editing, `docker`, prompt dispatch).
-- Do not guess runtime facts from chat memory; read `project/spec/runtime_contract.md` first.
-- Before major work, explicitly confirm container name, image, runtime, user, and tool baseline from `project/spec/runtime_contract.md`.
+- Do not guess runtime facts from chat memory; read `.env` and `project/paper/runtime/paper.env` as machine truth, then use `project/spec/runtime_contract.md` as the rendered mirror summary.
+- Before major work, explicitly confirm container name, image, runtime, user, and tool baseline from `.env`, `project/paper/runtime/paper.env`, and `project/spec/runtime_contract.md`.
 - Before major work, run `bash scripts/validate_agent_docs.sh`.
 
 ## Failure Recovery

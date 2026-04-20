@@ -48,8 +48,8 @@ bash "$SCRIPT_DIR/render_templates.sh" \
     --target "$TARGET_DIR" \
     --force \
     --include-state \
-    --only project/runtime/task_registry.yaml.template \
-    --only project/runtime/work_queue.yaml.template \
+    --only project/runtime/task_registry.json.template \
+    --only project/runtime/work_queue.json.template \
     --only project/runtime/event_log.jsonl.template \
     --only project/workflow/MAIN_BRAIN_QUEUE.md.template >/dev/null
 bash "$SCRIPT_DIR/render_task_registry.sh" --target "$TARGET_DIR" >/dev/null

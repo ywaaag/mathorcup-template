@@ -23,5 +23,5 @@ Use this checklist before accepting a worker result:
 - Should any lesson be copied into `project/output/retrospectives/`?
 
 7. Workflow State
-- Should `project/runtime/task_registry.yaml` move from `review` to `done`?
+- Should `project/runtime/task_registry.json` move from `review` to `done`?
 - Is `accepted_by_main_brain` ready to become `true`?

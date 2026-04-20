@@ -23,14 +23,14 @@
         "MEMORY.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
-        "project/spec/agent_roles.yaml",
-        "project/runtime/task_registry.yaml",
-        "project/runtime/work_queue.yaml"
+        "project/spec/agent_roles.json",
+        "project/runtime/task_registry.json",
+        "project/runtime/work_queue.json"
       ],
       "output_refs": [
         "MEMORY.md",
-        "project/runtime/task_registry.yaml",
-        "project/runtime/work_queue.yaml",
+        "project/runtime/task_registry.json",
+        "project/runtime/work_queue.json",
         "project/workflow/MAIN_BRAIN_QUEUE.md"
       ],
       "feedback_path": "project/output/review/TASK_MAIN_SYNC_feedback.md",
@@ -60,8 +60,8 @@
         "MEMORY.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
-        "project/spec/agent_roles.yaml",
-        "project/runtime/task_registry.yaml",
+        "project/spec/agent_roles.json",
+        "project/runtime/task_registry.json",
         "project/output/handoff/HANDOFF_TEMPLATE.md"
       ],
       "output_refs": [
@@ -93,8 +93,8 @@
         "MEMORY.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
-        "project/spec/agent_roles.yaml",
-        "project/runtime/task_registry.yaml",
+        "project/spec/agent_roles.json",
+        "project/runtime/task_registry.json",
         "project/paper/spec/paper_runtime_contract.md",
         "project/paper/runtime/paper.env"
       ],
@@ -124,8 +124,8 @@
         "project/paper/AGENTS.md",
         "project/paper/spec/paper_runtime_contract.md",
         "project/paper/runtime/paper.env",
-        "project/runtime/task_registry.yaml",
-        "project/runtime/work_queue.yaml"
+        "project/runtime/task_registry.json",
+        "project/runtime/work_queue.json"
       ],
       "output_refs": [
         "project/paper/runtime/paper.env#PAPER_ACCEPT_PDF",
@@ -156,8 +156,8 @@
         "MEMORY.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
-        "project/runtime/task_registry.yaml",
-        "project/runtime/work_queue.yaml",
+        "project/runtime/task_registry.json",
+        "project/runtime/work_queue.json",
         "project/output/review/WORKER_FEEDBACK_TEMPLATE.md",
         "project/output/retrospectives/RETROSPECTIVE_TEMPLATE.md"
       ],
@@ -188,8 +188,8 @@
         "project/paper/AGENTS.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
-        "project/spec/agent_roles.yaml",
-        "project/runtime/task_registry.yaml",
+        "project/spec/agent_roles.json",
+        "project/runtime/task_registry.json",
         "project/paper/spec/paper_runtime_contract.md",
         "project/paper/runtime/paper.env"
       ],
@@ -221,13 +221,13 @@
         "AGENTS.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
-        "project/spec/agent_roles.yaml",
-        "project/runtime/task_registry.yaml",
-        "project/runtime/work_queue.yaml"
+        "project/spec/agent_roles.json",
+        "project/runtime/task_registry.json",
+        "project/runtime/work_queue.json"
       ],
       "output_refs": [
-        "project/runtime/task_registry.yaml",
-        "project/runtime/work_queue.yaml"
+        "project/runtime/task_registry.json",
+        "project/runtime/work_queue.json"
       ],
       "feedback_path": "project/output/review/TASK_UTILITY_SUPPORT_feedback.md",
       "retrospective_path": "project/output/retrospectives/TASK_UTILITY_SUPPORT_retrospective.md",

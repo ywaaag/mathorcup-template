@@ -178,6 +178,24 @@ def last_event_of_type(events: Sequence[Dict[str, Any]], event_type: str) -> Opt
     return None
 
 
+def last_actor(events: Sequence[Dict[str, Any]]) -> str:
+    if not events:
+        return "-"
+    return event_actor(events[-1])
+
+
+def last_nonempty_owner(events: Sequence[Dict[str, Any]]) -> str:
+    for event in reversed(events):
+        owner = event.get("owner") or ""
+        if owner:
+            return owner
+    return "-"
+
+
+def event_actor(event: Dict[str, Any]) -> str:
+    return event.get("actor") or "-"
+
+
 def normalize_claim(text: str) -> str:
     lowered = text.strip().lower()
     lowered = lowered.replace("`", "")
@@ -289,7 +307,9 @@ def show_task(root: Path, task_id: str) -> str:
         f"  role: {task['role']}",
         f"  title: {task['title']}",
         f"  status: {task['status']}",
-        f"  owner: {task['owner'] or '-'}",
+        f"  active_owner: {task['owner'] or '-'}",
+        f"  last_actor: {last_actor(events)}",
+        f"  last_active_owner: {last_nonempty_owner(events)}",
         f"  parallel_ok: {'yes' if task['parallel_ok'] else 'no'}",
         f"  accepted_by_main_brain: {'yes' if task['accepted_by_main_brain'] else 'no'}",
         "",
@@ -399,7 +419,9 @@ def list_history(
         f"History: {task['task_id']}",
         f"  role: {task['role']}",
         f"  status: {task['status']}",
-        f"  owner: {task['owner'] or '-'}",
+        f"  active_owner: {task['owner'] or '-'}",
+        f"  last_actor: {last_actor(events)}",
+        f"  last_active_owner: {last_nonempty_owner(events)}",
         "",
         "Event Timeline:",
     ]
@@ -493,11 +515,6 @@ def comparison_input_candidates(root: Path, state: Dict[str, Any], task_id: str)
 
 def default_inputs(root: Path, state: Dict[str, Any], task_id: str) -> List[Path]:
     paths: List[Path] = comparison_input_candidates(root, state, task_id)
-    for report in collect_callback_reports(root, task_id=task_id, latest=6):
-        for ref in report["files"]:
-            candidate = root / ref
-            if candidate.is_file() and candidate.suffix in {".md", ".json"}:
-                paths.append(candidate)
     unique: List[Path] = []
     seen: set[str] = set()
     for path in paths:
@@ -651,6 +668,8 @@ def adjudicate_task(
     state = load_runtime_state(root)
     task = task_from_id(state, task_id)
     paths = resolve_inputs(root, inputs) if inputs else default_inputs(root, state, task_id)
+    task_events = collect_task_events(root, task_id)
+    additional_evidence = latest_callback_paths(root, task_id, limit=8)
     docs, agreements, disagreements, missing, preferred_label = analyze_inputs(paths)
     command, rationale = recommended_next_step(
         root,
@@ -676,7 +695,8 @@ def adjudicate_task(
         f"- role: `{task['role']}`",
         f"- title: {task['title']}",
         f"- status: `{task['status']}`",
-        f"- owner: `{task['owner'] or '-'}`",
+        f"- active_owner: `{task['owner'] or '-'}`",
+        f"- last_actor: `{last_actor(task_events)}`",
         f"- mode: `{mode}`",
         f"- generated_at: `{current_timestamp()}`",
         f"- requested_decision: `{decision}`",
@@ -716,6 +736,14 @@ def adjudicate_task(
     else:
         for item in missing:
             lines.append(f"- {item}")
+
+    lines.extend(["", "## Additional Evidence (Not Compared By Default)"])
+    if not additional_evidence:
+        lines.append("- none")
+    else:
+        lines.append("- callback/event-derived artifacts stay in this appendix and do not enter the default comparison surface")
+        for ref in additional_evidence:
+            lines.append(f"- `{ref}`")
 
     lines.extend(["", "## Recommended Next Step"])
     lines.append(f"- recommendation: {command}")
@@ -771,13 +799,14 @@ def main_brain_summary(root: Path) -> str:
         retro_path = root / task["retrospective_path"]
         feedback = artifact_status(feedback_path, FEEDBACK_HEADINGS)
         retro = artifact_status(retro_path, RETRO_HEADINGS)
+        actor = last_actor(task_events)
 
         if task["status"] == "in_progress":
             active.append(f"{task_id} | owner={task['owner'] or '-'}")
         if task["status"] == "blocked":
-            failed_or_blocked.append(f"{task_id} | blocked")
+            failed_or_blocked.append(f"{task_id} | blocked | last_actor={actor}")
         elif latest_failure is not None:
-            failed_or_blocked.append(f"{task_id} | latest_failure={latest_failure['timestamp']}")
+            failed_or_blocked.append(f"{task_id} | latest_failure={latest_failure['timestamp']} | last_actor={actor}")
 
         if feedback["state"] == "valid" and not latest_checked_after(feedback_path, latest_review_check) and task["status"] in {"in_progress", "review"}:
             feedback_ready.append(f"{task_id} | feedback ready for check")
@@ -789,9 +818,9 @@ def main_brain_summary(root: Path) -> str:
             adjudication_candidates.append(f"{task_id} | inputs={len(candidate_inputs)}")
 
         if task["status"] == "review":
-            decision_queue.append(f"{task_id} | review gate active")
+            decision_queue.append(f"{task_id} | review gate active | last_actor={actor}")
         elif task["status"] == "blocked":
-            decision_queue.append(f"{task_id} | decide reopen or keep blocked")
+            decision_queue.append(f"{task_id} | decide reopen or keep blocked | last_actor={actor}")
         elif task["status"] == "in_progress" and feedback["state"] == "valid":
             decision_queue.append(f"{task_id} | decide check/close after reading feedback")
 
@@ -800,6 +829,13 @@ def main_brain_summary(root: Path) -> str:
         "",
         f"- generated_at: `{current_timestamp()}`",
         f"- paper_entrypoint: `{paper_env.get('PAPER_ACTIVE_ENTRYPOINT', '')}`",
+        "",
+        "## Default Entry Chain",
+        "- `bash scripts/doctor.sh --target <dir>`",
+        "- `bash scripts/main_brain_summary.sh --target <dir>`",
+        "- `bash scripts/show_task.sh --task <task_id> --target <dir>`",
+        "- `bash scripts/list_history.sh --task <task_id> --target <dir>`",
+        "- `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`",
         "",
         "## Active Tasks",
     ]

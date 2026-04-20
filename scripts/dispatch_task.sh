@@ -121,6 +121,7 @@ else
     echo "[dispatch] claimed task $TASK_ID for owner $OWNER"
 fi
 echo "[dispatch] queue board refreshed"
+echo "[dispatch] canonical feedback skeleton path: ensured via task.dispatched callback when missing"
 if [[ -n "$PACKET_OUT" ]]; then
     echo "[dispatch] packet written to $PACKET_OUT"
 fi

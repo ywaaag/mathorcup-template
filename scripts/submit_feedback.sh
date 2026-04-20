@@ -14,6 +14,7 @@ WITH_RETROSPECTIVE=false
 
 usage() {
     echo "Usage: bash scripts/submit_feedback.sh --task <task_id> [--feedback-only | --with-retrospective] [--target <dir>]" >&2
+    echo "Helper semantics: repair missing feedback skeletons, initialize retrospective files, or backfill artifacts after the canonical dispatch path." >&2
 }
 
 while [[ $# -gt 0 ]]; do

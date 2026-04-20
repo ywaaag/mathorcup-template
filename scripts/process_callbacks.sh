@@ -17,7 +17,7 @@ usage() {
     cat <<'EOF'
 Usage: bash scripts/process_callbacks.sh [--target <dir>] [--event-id <id> | --latest | --replay-from <id>] [--dry-run]
 
-Processes callback_hooks.yaml against one emitted event or a replay range. This is a foreground command, not a daemon.
+Processes callback_hooks.json against one emitted event or a replay range. This is a foreground command, not a daemon.
 EOF
 }
 

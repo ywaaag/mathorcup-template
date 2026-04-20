@@ -25,15 +25,15 @@
         "MEMORY.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
-        "project/spec/agent_roles.yaml",
-        "project/runtime/task_registry.yaml",
-        "project/runtime/work_queue.yaml",
+        "project/spec/agent_roles.json",
+        "project/runtime/task_registry.json",
+        "project/runtime/work_queue.json",
         "project/workflow/MAIN_BRAIN_QUEUE.md"
       ],
       "default_acceptance_artifacts": [
         "MEMORY.md",
-        "project/runtime/task_registry.yaml",
-        "project/runtime/work_queue.yaml",
+        "project/runtime/task_registry.json",
+        "project/runtime/work_queue.json",
         "project/workflow/MAIN_BRAIN_QUEUE.md"
       ],
       "parallel_safe_with": [
@@ -85,9 +85,9 @@
         "MEMORY.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
-        "project/spec/agent_roles.yaml",
-        "project/runtime/task_registry.yaml",
-        "project/runtime/work_queue.yaml",
+        "project/spec/agent_roles.json",
+        "project/runtime/task_registry.json",
+        "project/runtime/work_queue.json",
         "project/output/handoff/HANDOFF_TEMPLATE.md"
       ],
       "default_acceptance_artifacts": [
@@ -138,9 +138,9 @@
         "MEMORY.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
-        "project/spec/agent_roles.yaml",
-        "project/runtime/task_registry.yaml",
-        "project/runtime/work_queue.yaml",
+        "project/spec/agent_roles.json",
+        "project/runtime/task_registry.json",
+        "project/runtime/work_queue.json",
         "project/paper/spec/paper_runtime_contract.md",
         "project/paper/runtime/paper.env"
       ],
@@ -187,9 +187,9 @@
         "MEMORY.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
-        "project/spec/agent_roles.yaml",
-        "project/runtime/task_registry.yaml",
-        "project/runtime/work_queue.yaml",
+        "project/spec/agent_roles.json",
+        "project/runtime/task_registry.json",
+        "project/runtime/work_queue.json",
         "project/paper/spec/paper_runtime_contract.md",
         "project/paper/runtime/paper.env"
       ],
@@ -239,9 +239,9 @@
         "MEMORY.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
-        "project/spec/agent_roles.yaml",
-        "project/runtime/task_registry.yaml",
-        "project/runtime/work_queue.yaml",
+        "project/spec/agent_roles.json",
+        "project/runtime/task_registry.json",
+        "project/runtime/work_queue.json",
         "project/output/review/WORKER_FEEDBACK_TEMPLATE.md",
         "project/output/retrospectives/RETROSPECTIVE_TEMPLATE.md"
       ],
@@ -287,9 +287,9 @@
         "MEMORY.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
-        "project/spec/agent_roles.yaml",
-        "project/runtime/task_registry.yaml",
-        "project/runtime/work_queue.yaml",
+        "project/spec/agent_roles.json",
+        "project/runtime/task_registry.json",
+        "project/runtime/work_queue.json",
         "project/paper/spec/paper_runtime_contract.md",
         "project/paper/runtime/paper.env"
       ],
@@ -330,13 +330,13 @@
         "MEMORY.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
-        "project/spec/agent_roles.yaml",
-        "project/runtime/task_registry.yaml",
-        "project/runtime/work_queue.yaml"
+        "project/spec/agent_roles.json",
+        "project/runtime/task_registry.json",
+        "project/runtime/work_queue.json"
       ],
       "default_acceptance_artifacts": [
-        "project/runtime/task_registry.yaml",
-        "project/runtime/work_queue.yaml",
+        "project/runtime/task_registry.json",
+        "project/runtime/work_queue.json",
         "project/output/review",
         "project/output/retrospectives"
       ],

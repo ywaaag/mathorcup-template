@@ -64,8 +64,8 @@
 - 会拥有 live `AGENTS.md`
 - 会拥有 live `MEMORY.md`
 - 会拥有 `project/spec/runtime_contract.md`
-- 会拥有 `project/spec/callback_hooks.yaml`
-- 会拥有 `project/runtime/task_registry.yaml`
+- 会拥有 `project/spec/callback_hooks.json`
+- 会拥有 `project/runtime/task_registry.json`
 - 会拥有 `project/runtime/event_log.jsonl`
 - 会拥有 `project/paper/runtime/paper.env`
 - 这里才是日常建模、写论文、跑容器、交接 handoff、做 retrospective 的地方
@@ -305,29 +305,31 @@ bash scripts/export_reference_image.sh \
   - 根协议入口
 - `MEMORY.md`
   - 运行状态板
+- `.env`
+  - container / image / host-path 的 machine truth
 - `project/spec/runtime_contract.md`
-  - 当前项目运行事实总入口
+  - 当前项目运行事实的 rendered mirror
 - `project/spec/multi_agent_workflow_contract.md`
   - 多 Agent 协作协议
-- `project/spec/agent_roles.yaml`
+- `project/spec/agent_roles.json`
   - machine-readable 角色权限矩阵
-- `project/runtime/task_registry.yaml`
+- `project/runtime/task_registry.json`
   - machine-readable 任务注册表
-- `project/runtime/work_queue.yaml`
+- `project/runtime/work_queue.json`
   - 当前任务占用与并发状态
 - `project/workflow/MAIN_BRAIN_QUEUE.md`
   - 给主脑和人类都更易读的队列表
 - `project/paper/runtime/paper.env`
-  - paper active entrypoint 单一事实源
+  - paper active entrypoint / acceptance artifacts 的 machine truth
 
 可以把它们理解为四层：
 
 1. `AGENTS.md`
    - 规定读哪些文档、按什么顺序工作
 2. `runtime_contract.md`
-   - 规定当前项目怎么跑、看什么算验收
-3. `agent_roles.yaml` / `task_registry.yaml` / `work_queue.yaml`
-   - 规定谁能改什么、谁正在改什么、能不能并行
+   - 给人和 Agent 看的一份 rendered mirror；如果和 `.env` / `project/paper/runtime/paper.env` 冲突，config wins
+3. `agent_roles.json` / `task_registry.json` / `work_queue.json`
+   - 规定谁能改什么、谁正在改什么、能不能并行；其中 `owner` 只表示当前 active owner
 4. `MEMORY.md` / feedback / retrospective
    - 记录当前状态、已验证事实、经验教训
 
@@ -364,7 +366,7 @@ bash scripts/export_reference_image.sh \
 
 - 决定这轮任务目标
 - 判断哪些任务可以并行
-- 看 `task_registry.yaml` 和 `MAIN_BRAIN_QUEUE.md`
+- 看 `task_registry.json` 和 `MAIN_BRAIN_QUEUE.md`
 - 让 Agent 先 claim task，再开始改文件
 - 验收 feedback 和 retrospective
 
@@ -391,12 +393,14 @@ bash scripts/export_reference_image.sh \
 1. `bash scripts/list_open_tasks.sh --open-only --target <dir>`
 2. `bash scripts/dispatch_task.sh --task <task_id> --owner <owner> --target <dir>`
 3. 把任务包发给某个 Agent 会话
-4. `bash scripts/submit_feedback.sh --task <task_id> --target <dir>`
+4. dispatch 的 `task.dispatched` callback 会在缺失时自动补建 feedback skeleton
 5. Agent 完成后填写 feedback / retrospective
-6. 如需重放最新 callback，可执行：
+6. 如果 feedback 缺失，或你要手工初始化 retrospective，再执行：
+   - `bash scripts/submit_feedback.sh --task <task_id> --with-retrospective --target <dir>`
+7. 如需重放最新 callback，可执行：
    - `bash scripts/process_callbacks.sh --latest --target <dir>`
-7. `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
-8. 视情况执行：
+8. `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
+9. 视情况执行：
    - `bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>`
    - `bash scripts/reopen_task.sh --task <task_id> --to ready|review|in_progress --reason <reason> --target <dir>`
    - `bash scripts/cancel_task.sh --task <task_id> --reason <reason> --target <dir>`
@@ -441,7 +445,7 @@ bash scripts/export_reference_image.sh \
 
 - `project/runtime/event_log.jsonl`
   - append-only event stream
-- `project/spec/callback_hooks.yaml`
+- `project/spec/callback_hooks.json`
   - machine-readable event -> action 路由表
 - `bash scripts/process_callbacks.sh`
   - 前台 callback processor
@@ -467,7 +471,7 @@ bash scripts/export_reference_image.sh \
 
 推荐做法仍然是：
 
-1. 主脑看 `task_registry.yaml` / `MAIN_BRAIN_QUEUE.md`
+1. 主脑看 `task_registry.json` / `MAIN_BRAIN_QUEUE.md`
 2. 主脑用 `dispatch_task.sh` 领取并生成 packet
 3. 把 packet 发给 sub-agent
 4. sub-agent 按同一套 feedback / retrospective / close / reopen / cancel 机制回传
@@ -481,19 +485,34 @@ bash scripts/export_reference_image.sh \
 
 ### 7.7 主脑怎么做审计与裁决
 
-这轮之后，主脑侧不需要再手翻多个 yaml/jsonl/md 去猜一个 task 到底发生了什么。
+这轮之后，主脑侧不需要再手翻多个 json/jsonl/md 去猜一个 task 到底发生了什么。
 
-推荐顺序是：
+主脑默认入口链是：
 
-1. `bash scripts/show_task.sh --task <task_id> --target <dir>`
-2. 如需看完整时间线，再执行：
+1. `bash scripts/doctor.sh --target <dir>`
+2. `bash scripts/main_brain_summary.sh --target <dir>`
+3. `bash scripts/show_task.sh --task <task_id> --target <dir>`
+4. 如需看完整时间线，再执行：
    - `bash scripts/list_history.sh --task <task_id> --target <dir>`
-3. 如果多个 worker 或多个 artifact 对同一 task 给出不同结论，再执行：
+5. 如果多个 worker 或多个 artifact 对同一 task 给出不同结论，再执行：
    - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`
-4. 然后由主脑显式决定：
+6. 然后由主脑显式决定：
    - `bash scripts/close_task.sh ...`
    - 或 `bash scripts/reopen_task.sh ...`
    - 或 `bash scripts/cancel_task.sh ...`
+
+这条链的分工是：
+
+- `doctor.sh`
+  - 先确认 repo mode、tooling、runtime config truth 入口是否正常
+- `main_brain_summary.sh`
+  - 先看全局，再判断该 drill down 哪个 task
+- `show_task.sh`
+  - 看单任务当前状态、active owner、last actor、反馈/复盘是否齐全
+- `list_history.sh`
+  - 看事件链、queue history、callback / exec artifact
+- `adjudicate_task.sh`
+  - 只在需要结构化比较多个 worker 证据时再进入
 
 这里要强调一条边界：
 
@@ -525,6 +544,12 @@ bash scripts/main_brain_summary.sh --target <dir>
 - 哪些 task 适合先做 adjudicate
 - 哪些 task 已经进入主脑 decision queue
 
+注意：
+
+- `show_task.sh` 和 `main_brain_summary.sh` 里出现的 `owner` 现在只表示当前 active owner
+- task 一旦离开 `in_progress`，registry 里的 `owner` 会被清空
+- 如果你想看最近执行者，应该看 `last_actor`、`event_log.jsonl` 或 `work_queue.json -> history`
+
 ## 8. paper 工作流的关键设计
 
 论文侧最容易出错的点，是“大家以为入口文件是 A，实际在编 B”。
@@ -546,6 +571,12 @@ bash scripts/main_brain_summary.sh --target <dir>
 - task packet
 
 都能共享同一份事实，而不是各自猜一套。
+
+同时要注意：
+
+- `project/paper/runtime/paper.env` 是 machine truth
+- `project/paper/spec/paper_runtime_contract.md` 是 rendered mirror
+- 如果二者有冲突，以 `paper.env` 为准
 
 如果你在实例仓库里切换论文入口，应该优先修改这个文件，而不是四处改脚本和文档。
 
@@ -756,7 +787,7 @@ bash scripts/close_task.sh --task TASK_REVIEW_CONSISTENCY --to done --accepted-b
 
 ### 11.10 `scripts/submit_feedback.sh`
 
-用途：为 worker 自动创建 feedback / retrospective skeleton，避免手抄路径。
+用途：repair missing feedback skeleton、初始化 retrospective、或手工补建回传文件。
 
 常见模式：
 
@@ -764,6 +795,12 @@ bash scripts/close_task.sh --task TASK_REVIEW_CONSISTENCY --to done --accepted-b
 bash scripts/submit_feedback.sh --task TASK_CODE_MODEL_SLOT --target <dir>
 bash scripts/submit_feedback.sh --task TASK_REVIEW_CONSISTENCY --with-retrospective --target <dir>
 ```
+
+注意：
+
+- canonical path 是 `dispatch_task.sh` 触发 `task.dispatched` callback 自动补 feedback skeleton
+- `submit_feedback.sh` 不是和 dispatch 并列的主路径
+- 它更适合 repair missing feedback、补 retrospective、或者手工补录
 
 ### 11.11 `scripts/reopen_task.sh` / `scripts/cancel_task.sh`
 
@@ -783,6 +820,7 @@ bash scripts/reopen_task.sh --task TASK_LAYOUT_ACCEPTANCE --to review --reason "
 - `done` 不能直接跳回 `ready` 或 `in_progress`
 - 如果要重开已验收任务，应先 `done -> review`
 - 然后再由主脑决定是否 `review -> ready` 或 `review -> in_progress`
+- task 一旦离开 `in_progress`，`owner` 会被清空；最近执行者应从 `event_log.jsonl` 或 `work_queue.json -> history` 读取
 
 ### 11.12 `scripts/check_worker_feedback.sh` / `scripts/check_retrospective.sh`
 

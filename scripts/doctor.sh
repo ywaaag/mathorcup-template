@@ -53,6 +53,8 @@ echo "grant sudo:      ${CONTAINER_GRANT_SUDO:-<image default>}"
 echo "paper entry:     $PAPER_ACTIVE_ENTRYPOINT"
 echo "paper build dir: ${PAPER_BUILD_DIR:-<same as paper dir>}"
 echo "accept pdf:      $PAPER_ACCEPT_PDF"
+echo "truth source:    .env + project/paper/runtime/paper.env"
+echo "rendered mirror: project/spec/runtime_contract.md + project/paper/spec/paper_runtime_contract.md"
 if [[ "$ROOT_KIND" == "template_source" ]]; then
     echo "note:            template-source preview values; render an instance for live runtime facts"
 fi
@@ -85,7 +87,7 @@ echo ""
 echo "== Event Harness =="
 if [[ "$ROOT_KIND" == "template_source" ]]; then
     [[ -f "$TARGET_DIR/scaffold/project/runtime/event_log.jsonl.template" ]] && status_ok "template event log scaffold detected"
-    [[ -f "$TARGET_DIR/scaffold/project/spec/callback_hooks.yaml.template" ]] && status_ok "template callback hooks scaffold detected"
+    [[ -f "$TARGET_DIR/scaffold/project/spec/callback_hooks.json.template" ]] && status_ok "template callback hooks scaffold detected"
 else
     if [[ -f "$TARGET_DIR/project/runtime/event_log.jsonl" ]]; then
         event_count="$(python3 - <<'PY' "$TARGET_DIR/project/runtime/event_log.jsonl"
@@ -99,7 +101,7 @@ PY
     else
         status_warn "event log missing"
     fi
-    if [[ -f "$TARGET_DIR/project/spec/callback_hooks.yaml" ]]; then
+    if [[ -f "$TARGET_DIR/project/spec/callback_hooks.json" ]]; then
         status_ok "callback hooks detected"
     else
         status_warn "callback hooks missing"

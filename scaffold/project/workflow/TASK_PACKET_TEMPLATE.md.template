@@ -7,7 +7,7 @@
 - main / code / paper / utility
 
 ## Task ID
-- [task id from task_registry.yaml]
+- [task id from task_registry.json]
 
 ## Goal
 - [one scoped objective]
@@ -32,9 +32,11 @@
 ## Runtime Facts
 - Container: `{{CONTAINER_NAME}}`
 - Image: `{{IMAGE_NAME}}`
+- Machine truth: root `.env` + `project/paper/runtime/paper.env`
+- Rendered mirrors: `project/spec/runtime_contract.md` + `project/paper/spec/paper_runtime_contract.md`
 - Active paper entrypoint source: `project/paper/runtime/paper.env`
 - Event stream: `project/runtime/event_log.jsonl`
-- Callback routing: `project/spec/callback_hooks.yaml`
+- Callback routing: `project/spec/callback_hooks.json`
 - Runtime/env baseline source:
   - `project/spec/runtime_contract.md -> ## Current Host / Container Facts`
   - `project/spec/runtime_contract.md -> ## Reference Image Environment Snapshot`
@@ -50,6 +52,8 @@
 - retrospective path: [project/output/retrospectives/...]
 - event log entrypoint: `project/runtime/event_log.jsonl`
 - callback artifacts: `project/output/review/callback_runs/`
+- canonical feedback skeleton path: dispatch callback on `task.dispatched`
+- `submit_feedback.sh` is a repair/init helper, not the primary dispatch path
 - do not bypass `check_worker_feedback.sh` / `check_retrospective.sh`
 - do not run `close_task.sh` yourself unless the task packet explicitly authorizes a main-brain action
 

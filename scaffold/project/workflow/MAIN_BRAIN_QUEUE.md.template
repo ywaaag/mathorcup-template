@@ -1,8 +1,14 @@
 # Main-Brain Queue
 
 - Source of truth:
-  - `project/runtime/task_registry.yaml`
-  - `project/runtime/work_queue.yaml`
+  - `project/runtime/task_registry.json`
+  - `project/runtime/work_queue.json`
+- Default entry chain:
+  - `bash scripts/doctor.sh --target <dir>`
+  - `bash scripts/main_brain_summary.sh --target <dir>`
+  - `bash scripts/show_task.sh --task <task_id> --target <dir>`
+  - `bash scripts/list_history.sh --task <task_id> --target <dir>`
+  - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`
 - Inspect dispatchable work through:
   - `bash scripts/list_open_tasks.sh --open-only`
 - Inspect one task or the whole board through:
@@ -27,5 +33,5 @@
 - none
 
 ## Task Summary
-- ready: review `project/runtime/task_registry.yaml`
+- ready: review `project/runtime/task_registry.json`
 - blocked: review explicitly with `--status blocked`; blocked tasks are not part of the direct dispatch pool

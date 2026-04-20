@@ -5,6 +5,7 @@
 - Give every Agent one fixed entry for current runtime facts.
 - Keep runtime facts out of `AGENTS.md` and out of `MEMORY.md`.
 - Separate machine-owned config from task-state and workflow rules.
+- This Markdown file is a rendered mirror for humans and Agents, not the final machine authority.
 
 ## Read Order
 
@@ -19,23 +20,26 @@
 
 - Runtime state board:
   - `MEMORY.md`
-- Container/image/host-path facts:
+- Container/image/host-path machine truth:
   - `.env`
-- Paper active entrypoint/build facts:
+- Paper active entrypoint/build machine truth:
   - `project/paper/runtime/paper.env`
 - Role permission matrix:
-  - `project/spec/agent_roles.yaml`
+  - `project/spec/agent_roles.json`
 - Callback routing rules:
-  - `project/spec/callback_hooks.yaml`
+  - `project/spec/callback_hooks.json`
 - Task registry and live file locks:
-  - `project/runtime/task_registry.yaml`
-  - `project/runtime/work_queue.yaml`
+  - `project/runtime/task_registry.json`
+  - `project/runtime/work_queue.json`
 - Orchestration event stream:
   - `project/runtime/event_log.jsonl`
 - Multi-Agent workflow and ownership:
   - `project/spec/multi_agent_workflow_contract.md`
 - Prompt/task packet templates:
   - `project/workflow/`
+- Rendered mirrors derived from the machine truth files above:
+  - `project/spec/runtime_contract.md`
+  - `project/paper/spec/paper_runtime_contract.md`
 
 ## Current Host / Container Facts
 
@@ -89,10 +93,11 @@
 
 - Do not guess runtime facts from old chat context.
 - If `.env` or `project/paper/runtime/paper.env` conflicts with assumptions, the config file wins.
-- If a runtime fact changes, update the owning config file first, then validate.
-- If task ownership or file occupancy changes, update `task_registry.yaml` / `work_queue.yaml`, not `MEMORY.md`.
+- If a runtime fact changes, update the owning config file first, then re-render or re-read the rendered mirror.
+- If task ownership or file occupancy changes, update `task_registry.json` / `work_queue.json`, not `MEMORY.md`.
 - If you need to replay or inspect orchestration state changes, read `project/runtime/event_log.jsonl` instead of reverse-engineering chat history.
 - `MEMORY.md` is for live task state only; do not copy runtime config into it.
+- `owner` in the task registry means current active owner only. Once a task leaves `in_progress`, inspect event/history views for the last actor instead of reusing `owner`.
 
 ## Handoff And Acceptance Rules
 

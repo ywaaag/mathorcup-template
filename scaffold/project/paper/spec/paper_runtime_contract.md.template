@@ -5,6 +5,7 @@
 - Keep paper-side runtime facts out of `project/paper/AGENTS.md`.
 - Give every paper-side Agent one place to confirm the active entrypoint, build target, and acceptance artifacts.
 - Ensure scripts and prompts use the same active paper profile.
+- This file is a rendered mirror of `project/paper/runtime/paper.env`, not the final machine authority.
 
 ## Mandatory Read Order
 
@@ -20,6 +21,7 @@
   - `project/paper/runtime/paper.env`
 - If the active entrypoint or build target changes, update that file first.
 - `scripts/paper.sh`, `scripts/dual_brain.sh`, validator, and prompt templates should all read from the same file.
+- If this rendered contract and `project/paper/runtime/paper.env` ever disagree, `paper.env` wins.
 
 ## Default Rendered Facts
 

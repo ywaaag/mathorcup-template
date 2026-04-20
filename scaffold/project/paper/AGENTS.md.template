@@ -20,7 +20,7 @@
 3. Read `../spec/runtime_contract.md`.
 4. Read `spec/paper_runtime_contract.md`.
 5. Read `../spec/multi_agent_workflow_contract.md`.
-6. If this task is claimed or delegated, read `../spec/agent_roles.yaml`, `../runtime/task_registry.yaml`, and `../runtime/work_queue.yaml`.
+6. If this task is claimed or delegated, read `../spec/agent_roles.json`, `../runtime/task_registry.json`, and `../runtime/work_queue.json`.
 7. Read the latest indexed handoff docs listed in `../../MEMORY.md`.
 8. If this task is delegated or multi-session, read the relevant templates under `../workflow/`.
 
@@ -44,7 +44,7 @@
 - Hard rule: run paper build tools inside Docker container only.
 - Never run project LaTeX toolchain directly on host.
 - Use `bash ../../scripts/paper.sh build` or an equivalent command derived from `project/paper/runtime/paper.env`.
-- Before writing or compiling, explicitly confirm container/image/runtime/user/tool baseline from `../spec/runtime_contract.md`.
+- Before writing or compiling, treat `../../.env` and `runtime/paper.env` as machine truth, and use `../spec/runtime_contract.md` plus `spec/paper_runtime_contract.md` as rendered mirrors.
 - Before writing or compiling, run `bash ../../scripts/validate_agent_docs.sh`.
 
 ## Failure Recovery

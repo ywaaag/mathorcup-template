@@ -14,11 +14,11 @@ All roles should read from these sources before acting:
 1. `AGENTS.md` or `project/paper/AGENTS.md`
 2. `MEMORY.md`
 3. `project/spec/runtime_contract.md`
-4. `project/spec/agent_roles.yaml`
-5. `project/spec/callback_hooks.yaml`
+4. `project/spec/agent_roles.json`
+5. `project/spec/callback_hooks.json`
 6. `project/runtime/event_log.jsonl`
-7. `project/runtime/task_registry.yaml`
-8. `project/runtime/work_queue.yaml`
+7. `project/runtime/task_registry.json`
+8. `project/runtime/work_queue.json`
 9. Indexed handoffs in `project/output/handoff/`
 10. `project/workflow/`
 11. `project/output/review/` and `project/output/retrospectives/` when relevant
@@ -69,22 +69,25 @@ All roles should read from these sources before acting:
 
 ## Machine-Readable Enforcement
 
-- Role permissions are defined in `project/spec/agent_roles.yaml`.
+- Role permissions are defined in `project/spec/agent_roles.json`.
 - Task ownership and file occupancy are defined in:
-  - `project/runtime/task_registry.yaml`
-  - `project/runtime/work_queue.yaml`
+  - `project/runtime/task_registry.json`
+  - `project/runtime/work_queue.json`
 - Event-driven harness sources are:
   - `project/runtime/event_log.jsonl`
-  - `project/spec/callback_hooks.yaml`
+  - `project/spec/callback_hooks.json`
 - Human-readable queue board is:
   - `project/workflow/MAIN_BRAIN_QUEUE.md`
+- `owner` only means current active owner while a task is in `in_progress`.
+- Once a task leaves `in_progress`, `owner` should be cleared and the latest actor should be derived from `event_log.jsonl` or `work_queue.json -> history`.
 - Main brain should inspect, dispatch, reopen, cancel, and close tasks through workflow scripts rather than freehand status edits.
 - Key scripts emit events and then run:
   - `bash scripts/process_callbacks.sh`
 - Recommended semi-automatic dispatch path:
   - `bash scripts/list_open_tasks.sh --open-only`
   - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`
-  - `bash scripts/submit_feedback.sh --task <task_id>`
+  - canonical feedback skeleton creation happens during dispatch via the `task.dispatched` callback hook
+  - `bash scripts/submit_feedback.sh --task <task_id> --with-retrospective` only when you need to repair missing feedback or initialize a retrospective manually
   - `bash scripts/close_task.sh` or `bash scripts/reopen_task.sh` / `bash scripts/cancel_task.sh`
 
 ## Execution Modes
@@ -135,7 +138,7 @@ Do not parallelize:
 - Two workers rewriting the same canonical table or figure source
 - Two sessions making overlapping `MEMORY.md` edits
 - Scope-expanding review tasks mixed with minimal-fix tasks on the same files
-- Any two claimed tasks whose `locked_paths` overlap in `work_queue.yaml`
+- Any two claimed tasks whose `locked_paths` overlap in `work_queue.json`
 
 ## Worker Return Contract
 
@@ -174,7 +177,7 @@ Use:
 
 - This template now includes a foreground event-driven orchestration harness:
   - append-only event stream: `project/runtime/event_log.jsonl`
-  - machine-readable hook routing: `project/spec/callback_hooks.yaml`
+  - machine-readable hook routing: `project/spec/callback_hooks.json`
   - callback processor: `bash scripts/process_callbacks.sh`
 - “callback” in this template means:
   - event-driven state hook
@@ -208,6 +211,12 @@ Use:
   - adjudication artifact
   - main-brain decision
 - Main-brain inspection commands:
+  - default entry chain:
+    - `bash scripts/doctor.sh --target <dir>`
+    - `bash scripts/main_brain_summary.sh --target <dir>`
+    - `bash scripts/show_task.sh --task <task_id> --target <dir>`
+    - `bash scripts/list_history.sh --task <task_id> --target <dir>`
+    - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`
   - `bash scripts/show_task.sh --task <task_id> --target <dir>`
   - `bash scripts/list_history.sh --task <task_id> --target <dir>`
   - `bash scripts/main_brain_summary.sh --target <dir>`

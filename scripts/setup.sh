@@ -117,7 +117,7 @@ render_args=(--target "$TARGET_DIR")
 run_render() {
     status_info "rendering scaffold into $TARGET_DIR"
     bash "$SCRIPT_DIR/render_templates.sh" "${render_args[@]}"
-    if [[ -f "$TARGET_DIR/project/runtime/task_registry.yaml" && -f "$TARGET_DIR/project/runtime/work_queue.yaml" ]]; then
+    if [[ -f "$TARGET_DIR/project/runtime/task_registry.json" && -f "$TARGET_DIR/project/runtime/work_queue.json" ]]; then
         bash "$SCRIPT_DIR/render_task_registry.sh" --target "$TARGET_DIR" >/dev/null
     fi
 }

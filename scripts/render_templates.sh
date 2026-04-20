@@ -103,8 +103,8 @@ only_paths = {
 
 stateful_templates = {
     "MEMORY.md.template",
-    "project/runtime/task_registry.yaml.template",
-    "project/runtime/work_queue.yaml.template",
+    "project/runtime/task_registry.json.template",
+    "project/runtime/work_queue.json.template",
     "project/runtime/event_log.jsonl.template",
     "project/workflow/MAIN_BRAIN_QUEUE.md.template",
 }

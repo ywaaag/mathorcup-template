@@ -32,6 +32,12 @@
 - `{{CONTAINER_NAME}}`
 - 当前镜像：
   - `{{IMAGE_NAME}}`
+- machine truth：
+  - `.env`
+  - `project/paper/runtime/paper.env`
+- rendered mirror：
+  - `project/spec/runtime_contract.md`
+  - `project/paper/spec/paper_runtime_contract.md`
 - 容器环境基线入口：
   - `project/spec/runtime_contract.md -> ## Current Host / Container Facts`
   - `project/spec/runtime_contract.md -> ## Reference Image Environment Snapshot`
@@ -40,9 +46,9 @@
 
 若涉及论文：
 - active paper entrypoint 以 `project/paper/runtime/paper.env` 为准
-- role / task enforcement 以 `project/spec/agent_roles.yaml` 和 `project/runtime/task_registry.yaml` 为准
+- role / task enforcement 以 `project/spec/agent_roles.json` 和 `project/runtime/task_registry.json` 为准
 - orchestration event stream 在 `project/runtime/event_log.jsonl`
-- callback hook 路由在 `project/spec/callback_hooks.yaml`
+- callback hook 路由在 `project/spec/callback_hooks.json`
 
 开始前先执行：
 - `bash scripts/validate_agent_docs.sh`
@@ -152,14 +158,17 @@ See:
   - `bash scripts/make_task_packet.sh --role <role> --task <task_id>`
 - packet 既可以贴给另一个会话，也可以直接作为 `codex exec` 的 stdin 输入。
 - 推荐的半自动派单顺序是：
+  - `bash scripts/doctor.sh --target <dir>`
+  - `bash scripts/main_brain_summary.sh --target <dir>`
   - `bash scripts/list_open_tasks.sh --open-only`
   - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`
-  - `bash scripts/submit_feedback.sh --task <task_id>`
+  - dispatch 会通过 `task.dispatched` callback 自动补 feedback skeleton
   - `bash scripts/show_task.sh --task <task_id>` if main brain wants the current audit summary before or after dispatch
   - `bash scripts/process_callbacks.sh --latest`
-  - `bash scripts/list_history.sh --task <task_id>` when main brain needs the timeline instead of raw jsonl/yaml
+  - `bash scripts/list_history.sh --task <task_id>` when main brain needs the timeline instead of raw json/jsonl files
   - `bash scripts/check_worker_feedback.sh --task <task_id>`
   - `bash scripts/close_task.sh --task <task_id> --to review|done`
+  - `bash scripts/submit_feedback.sh --task <task_id> --with-retrospective` only when feedback needs repair or retrospective needs manual initialization
 - 如果要走 exec worker 路径，建议顺序是：
   - `bash scripts/exec_healthcheck.sh --target <dir>`
   - `bash scripts/run_exec_worker.sh --task <task_id> --owner <owner> --target <dir>`
@@ -176,6 +185,6 @@ See:
 - `scripts/process_callbacks.sh` 只执行受控 built-in actions，不会把任务自动推进到 `done`。
 - 如果多个 worker 对同一个 task 留下了不同 artifact，推荐先运行：
   - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`
-- `adjudicate_task.sh` 会生成 `project/output/review/<task_id>_adjudication.md` 一类裁决草案，帮助 main brain 比较共识、冲突和缺失证据。
+- `adjudicate_task.sh` 默认只比较 worker 主证据；callback/event artifacts 作为附加证据，不进入默认 comparison surface。
 - `bash scripts/main_brain_summary.sh --target <dir>` 适合主脑先看全局，再决定哪些 task 需要审计、裁决或收口。
 - 这套脚本是半自动 orchestration convenience layer，不是后台自动调度器。

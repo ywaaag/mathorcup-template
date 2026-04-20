@@ -86,7 +86,7 @@ ROOT_KIND="$(python3 "$SCRIPT_DIR/lib/workflow_state.py" root-kind --root "$TARG
 if [[ "$ROOT_KIND" == "template_source" && "$MODE" != "template_source" ]]; then
     cat <<EOF
 [validate_agent_docs] NOTICE: detected template-source repository at $TARGET_ROOT
-[validate_agent_docs] This repo keeps source-of-truth under scaffold/ and does not keep rendered live instance files like project/spec/agent_roles.yaml at repo root.
+[validate_agent_docs] This repo keeps source-of-truth under scaffold/ and does not keep rendered live instance files like project/spec/agent_roles.json at repo root.
 [validate_agent_docs] Requested mode '$MODE' is instance-oriented, so it was not executed against the template source tree.
 [validate_agent_docs] Next steps:
   1. run: bash scripts/validate_agent_docs.sh --template-source-only

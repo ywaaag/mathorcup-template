@@ -55,7 +55,7 @@ def event_log_path(root: Path) -> Path:
 
 
 def callback_hooks_path(root: Path) -> Path:
-    return root / "project/spec/callback_hooks.yaml"
+    return root / "project/spec/callback_hooks.json"
 
 
 def callback_run_dir(root: Path) -> Path:
@@ -139,11 +139,11 @@ def load_hook_config(root: Path) -> Dict[str, Any]:
     path = callback_hooks_path(root)
     payload = load_structured(path)
     if not isinstance(payload, dict):
-        fail("project/spec/callback_hooks.yaml must contain an object")
+        fail("project/spec/callback_hooks.json must contain an object")
     if "schema_version" not in payload:
-        fail("callback_hooks.yaml missing schema_version")
+        fail("callback_hooks.json missing schema_version")
     if "hooks" not in payload or not isinstance(payload["hooks"], list):
-        fail("callback_hooks.yaml must define a top-level hooks array")
+        fail("callback_hooks.json must define a top-level hooks array")
     for hook in payload["hooks"]:
         if not isinstance(hook, dict):
             fail("each callback hook must be an object")
@@ -226,7 +226,7 @@ def derive_hint(event: Dict[str, Any]) -> str:
     event_type = event["event_type"]
     task_id = event["task_id"]
     if event_type == "task.dispatched":
-        return f"Inspect the packet for {task_id}, then decide whether to relay it manually or launch bash scripts/run_exec_worker.sh."
+        return f"Inspect the packet for {task_id}. The feedback skeleton should already exist via the dispatch callback; only use submit_feedback.sh for repair or retrospective init."
     if event_type == "worker.started":
         return f"Worker {task_id} is running. Wait for worker.completed or worker.failed before adjudicating."
     if event_type == "worker.completed":
