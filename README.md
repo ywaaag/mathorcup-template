@@ -139,6 +139,14 @@
   - 处理 event log 对应的 callback hooks，并生成可审计 callback artifact
 - `scripts/run_exec_batch.sh`
   - 并行启动多个 write-scope 不冲突的 exec workers
+- `scripts/show_task.sh`
+  - 主脑快速查看单个 task 的当前状态、artifact、recent events、next-step hint
+- `scripts/list_history.sh`
+  - 主脑快速查看单个 task 的 event timeline、queue history、callback artifacts、exec artifacts
+- `scripts/adjudicate_task.sh`
+  - 主脑生成结构化 adjudication artifact，用来比较多个 worker 结果并形成裁决草案
+- `scripts/main_brain_summary.sh`
+  - 轻量主脑摘要，快速看 active/failed/check-ready/adjudication-candidate/decision-queue
 - `scripts/submit_feedback.sh`
   - 为 worker 初始化 feedback / retrospective skeleton
 - `scripts/close_task.sh`
@@ -470,6 +478,52 @@ bash scripts/export_reference_image.sh \
 - 不是另一套 workflow contract
 - 如果 `codex exec` 也可用，它和 sub-agent 只是两个不同的 worker backend
 - 不建议 worker 自己继续任意分裂新总任务，除非主脑任务包显式允许
+
+### 7.7 主脑怎么做审计与裁决
+
+这轮之后，主脑侧不需要再手翻多个 yaml/jsonl/md 去猜一个 task 到底发生了什么。
+
+推荐顺序是：
+
+1. `bash scripts/show_task.sh --task <task_id> --target <dir>`
+2. 如需看完整时间线，再执行：
+   - `bash scripts/list_history.sh --task <task_id> --target <dir>`
+3. 如果多个 worker 或多个 artifact 对同一 task 给出不同结论，再执行：
+   - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`
+4. 然后由主脑显式决定：
+   - `bash scripts/close_task.sh ...`
+   - 或 `bash scripts/reopen_task.sh ...`
+   - 或 `bash scripts/cancel_task.sh ...`
+
+这里要强调一条边界：
+
+- 不推荐把“多个 Agent 彼此讨论”实现成自由聊天 relay
+- 推荐方式是：
+  - packet
+  - feedback
+  - retrospective
+  - event log
+  - callback artifacts
+  - adjudication artifact
+  - main-brain decision
+
+也就是说，adjudication 是结构化比较与裁决草案，不是自动决定 `done`。
+
+### 7.8 主脑摘要命令
+
+如果你想先看全局，再决定要不要 drill down 到某个 task：
+
+```bash
+bash scripts/main_brain_summary.sh --target <dir>
+```
+
+它会优先回答这些问题：
+
+- 哪些 task 正在跑
+- 哪些 task 最近失败或被 block
+- 哪些 feedback / retrospective 已经写好但还没 check
+- 哪些 task 适合先做 adjudicate
+- 哪些 task 已经进入主脑 decision queue
 
 ## 8. paper 工作流的关键设计
 
