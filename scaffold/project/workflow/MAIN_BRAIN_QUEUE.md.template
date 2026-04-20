@@ -5,6 +5,10 @@
   - `project/runtime/work_queue.yaml`
 - Inspect dispatchable work through:
   - `bash scripts/list_open_tasks.sh --open-only`
+- Inspect one task or the whole board through:
+  - `bash scripts/show_task.sh --task <task_id> --target <dir>`
+  - `bash scripts/list_history.sh --task <task_id> --target <dir>`
+  - `bash scripts/main_brain_summary.sh --target <dir>`
 - Dispatch work through:
   - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`
   - `bash scripts/run_exec_worker.sh --task <task_id> --owner <owner> --target <dir>` for one-shot exec worker runs
@@ -16,6 +20,8 @@
   - `bash scripts/cancel_task.sh --task <task_id> --reason <reason>`
 - Callback replay/debug:
   - `bash scripts/process_callbacks.sh --latest --target <dir>`
+- Structured adjudication:
+  - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`
 
 ## Active Tasks
 - none

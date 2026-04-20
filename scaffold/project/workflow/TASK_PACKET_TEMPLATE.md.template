@@ -57,6 +57,7 @@
 - Fill the feedback file with verified facts, validation result, and remaining risks.
 - If main brain expects a `done`-level close, also fill the retrospective file.
 - Assume the harness may emit hints after your run, but human review still decides whether the task closes, reopens, or cancels.
+- If another worker produces a competing result for the same task, expect main brain to use `adjudicate_task.sh` instead of free-chat arbitration.
 - Do not create new top-level tasks unless the packet explicitly allows it.
 
 ## Final Reply Format

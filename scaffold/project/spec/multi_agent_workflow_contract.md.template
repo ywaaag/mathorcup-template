@@ -196,6 +196,30 @@ Use:
   - conflict adjudication
   - reopen / cancel / consensus promotion decisions
 
+## Main-Brain Audit And Adjudication
+
+- Free chat between workers is not the recommended coordination path.
+- The recommended path is:
+  - task packet
+  - worker feedback
+  - retrospective
+  - event log
+  - callback artifacts
+  - adjudication artifact
+  - main-brain decision
+- Main-brain inspection commands:
+  - `bash scripts/show_task.sh --task <task_id> --target <dir>`
+  - `bash scripts/list_history.sh --task <task_id> --target <dir>`
+  - `bash scripts/main_brain_summary.sh --target <dir>`
+- When multiple worker artifacts disagree on the same task, main brain should first run:
+  - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`
+- `adjudicate_task.sh` only writes a structured comparison draft under `project/output/review/`.
+- It does not auto-close, auto-reopen, or auto-cancel the task.
+- The final state transition still belongs to main brain through:
+  - `bash scripts/close_task.sh`
+  - `bash scripts/reopen_task.sh`
+  - `bash scripts/cancel_task.sh`
+
 ## Delegation Note
 
 - If the environment supports sub-agent delegation, 主脑 can still dispatch narrow-scope workers through the same task registry, packet, feedback, and close/reopen/cancel flow.

@@ -155,13 +155,16 @@ See:
   - `bash scripts/list_open_tasks.sh --open-only`
   - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`
   - `bash scripts/submit_feedback.sh --task <task_id>`
+  - `bash scripts/show_task.sh --task <task_id>` if main brain wants the current audit summary before or after dispatch
   - `bash scripts/process_callbacks.sh --latest`
+  - `bash scripts/list_history.sh --task <task_id>` when main brain needs the timeline instead of raw jsonl/yaml
   - `bash scripts/check_worker_feedback.sh --task <task_id>`
   - `bash scripts/close_task.sh --task <task_id> --to review|done`
 - 如果要走 exec worker 路径，建议顺序是：
   - `bash scripts/exec_healthcheck.sh --target <dir>`
   - `bash scripts/run_exec_worker.sh --task <task_id> --owner <owner> --target <dir>`
   - `bash scripts/process_callbacks.sh --latest --target <dir>` if you need to replay the newest callback deterministically
+  - `bash scripts/show_task.sh --task <task_id> --target <dir>` before deciding close/reopen/cancel
   - `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
   - `bash scripts/check_retrospective.sh --task <task_id> --target <dir>` if the run initialized a retrospective
   - `bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>`
@@ -171,4 +174,8 @@ See:
   - `--lock <task_id:path>`
 - `scripts/run_exec_worker.sh` 只负责 claim/packet/feedback init/`codex exec`/last-message 落盘，不会自动 close task。
 - `scripts/process_callbacks.sh` 只执行受控 built-in actions，不会把任务自动推进到 `done`。
+- 如果多个 worker 对同一个 task 留下了不同 artifact，推荐先运行：
+  - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`
+- `adjudicate_task.sh` 会生成 `project/output/review/<task_id>_adjudication.md` 一类裁决草案，帮助 main brain 比较共识、冲突和缺失证据。
+- `bash scripts/main_brain_summary.sh --target <dir>` 适合主脑先看全局，再决定哪些 task 需要审计、裁决或收口。
 - 这套脚本是半自动 orchestration convenience layer，不是后台自动调度器。

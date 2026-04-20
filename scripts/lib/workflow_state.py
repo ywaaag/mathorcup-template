@@ -67,7 +67,12 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scripts/run_exec_worker.sh",
     "scripts/process_callbacks.sh",
     "scripts/run_exec_batch.sh",
+    "scripts/show_task.sh",
+    "scripts/list_history.sh",
+    "scripts/adjudicate_task.sh",
+    "scripts/main_brain_summary.sh",
     "scripts/export_reference_image.sh",
+    "scripts/lib/workflow_audit.py",
 ]
 
 FEEDBACK_HEADINGS = [
@@ -319,12 +324,16 @@ def validate_contracts(root: Path) -> None:
         fail("workflow contract must reference event_log.jsonl and callback_hooks.yaml")
     if "scripts/process_callbacks.sh" not in workflow_contract or "scripts/run_exec_batch.sh" not in workflow_contract:
         fail("workflow contract must reference process_callbacks.sh and run_exec_batch.sh")
+    if "adjudicate_task.sh" not in workflow_contract or "show_task.sh" not in workflow_contract:
+        fail("workflow contract must reference adjudicate_task.sh and show_task.sh")
     if "codex exec" not in workflow_contract or "scripts/run_exec_worker.sh" not in workflow_contract:
         fail("workflow contract must describe codex exec worker mode via scripts/run_exec_worker.sh")
     if "codex exec" not in prompt_library or "scripts/run_exec_worker.sh" not in prompt_library:
         fail("prompt_template_library.md must reference codex exec and scripts/run_exec_worker.sh")
     if "process_callbacks.sh" not in prompt_library or "event_log.jsonl" not in prompt_library:
         fail("prompt_template_library.md must reference process_callbacks.sh and event_log.jsonl")
+    if "adjudicate_task.sh" not in prompt_library or "main_brain_summary.sh" not in prompt_library:
+        fail("prompt_template_library.md must reference adjudicate_task.sh and main_brain_summary.sh")
     if "feedback path" not in task_packet_template or "close_task.sh" not in task_packet_template:
         fail("TASK_PACKET_TEMPLATE.md must describe feedback path and close_task.sh gate")
     if "event_log.jsonl" not in task_packet_template or "callback_hooks.yaml" not in task_packet_template:
