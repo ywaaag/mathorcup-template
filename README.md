@@ -64,7 +64,9 @@
 - 会拥有 live `AGENTS.md`
 - 会拥有 live `MEMORY.md`
 - 会拥有 `project/spec/runtime_contract.md`
+- 会拥有 `project/spec/callback_hooks.yaml`
 - 会拥有 `project/runtime/task_registry.yaml`
+- 会拥有 `project/runtime/event_log.jsonl`
 - 会拥有 `project/paper/runtime/paper.env`
 - 这里才是日常建模、写论文、跑容器、交接 handoff、做 retrospective 的地方
 
@@ -89,13 +91,13 @@
 - `scaffold/MEMORY.md.template`
   - 实例运行状态板模板
 - `scaffold/project/spec/`
-  - runtime contract、workflow contract、roles matrix 等协议层
+  - runtime contract、workflow contract、roles matrix、callback hooks 等协议层
 - `scaffold/project/runtime/`
-  - task registry、work queue 等运行时状态骨架
+  - task registry、work queue、event log 等运行时状态骨架
 - `scaffold/project/workflow/`
   - task packet、main-brain acceptance、queue board 等协作骨架
 - `scaffold/project/output/review/`
-  - worker feedback 模板
+  - worker feedback 模板，以及 callback/exec harness 的轻量运行产物目录
 - `scaffold/project/output/retrospectives/`
   - retrospective 模板
 - `scaffold/project/paper/runtime/paper.env.template`
@@ -133,6 +135,10 @@
   - 对 `codex exec` 做一次最小真实探活
 - `scripts/run_exec_worker.sh`
   - 用 `codex exec` 串起 claim + packet + feedback init + worker 执行
+- `scripts/process_callbacks.sh`
+  - 处理 event log 对应的 callback hooks，并生成可审计 callback artifact
+- `scripts/run_exec_batch.sh`
+  - 并行启动多个 write-scope 不冲突的 exec workers
 - `scripts/submit_feedback.sh`
   - 为 worker 初始化 feedback / retrospective skeleton
 - `scripts/close_task.sh`
@@ -360,6 +366,7 @@ bash scripts/export_reference_image.sh \
 - 人工 / 主脑驱动
 - machine-readable state 托底
 - 用脚本把多步手工操作串成半自动 workflow
+- 用 append-only event log 和受控 callback hooks 提供可回放的 orchestration harness
 
 也就是说，它不会后台自动派发任务、不会轮询队列、不会自动把任务发到别的会话；但主脑可以用现成脚本把“派工、回填、打回、撤销”这些动作标准化。
 
@@ -378,8 +385,10 @@ bash scripts/export_reference_image.sh \
 3. 把任务包发给某个 Agent 会话
 4. `bash scripts/submit_feedback.sh --task <task_id> --target <dir>`
 5. Agent 完成后填写 feedback / retrospective
-6. `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
-7. 视情况执行：
+6. 如需重放最新 callback，可执行：
+   - `bash scripts/process_callbacks.sh --latest --target <dir>`
+7. `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
+8. 视情况执行：
    - `bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>`
    - `bash scripts/reopen_task.sh --task <task_id> --to ready|review|in_progress --reason <reason> --target <dir>`
    - `bash scripts/cancel_task.sh --task <task_id> --reason <reason> --target <dir>`
@@ -400,10 +409,12 @@ bash scripts/export_reference_image.sh \
 
 1. `bash scripts/exec_healthcheck.sh --target <dir>`
 2. `bash scripts/run_exec_worker.sh --task <task_id> --owner <owner> --target <dir>`
-3. 主脑检查：
+3. 如需显式重放最新 callback，可执行：
+   - `bash scripts/process_callbacks.sh --latest --target <dir>`
+4. 主脑检查：
    - `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
    - 如本轮创建了 retrospective，再执行 `bash scripts/check_retrospective.sh --task <task_id> --target <dir>`
-4. 主脑再决定：
+5. 主脑再决定：
    - `bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>`
    - 或 `bash scripts/reopen_task.sh ...`
    - 或 `bash scripts/cancel_task.sh ...`
@@ -414,8 +425,35 @@ bash scripts/export_reference_image.sh \
 - 它不会自动 close task
 - 它不会替主脑判定 feedback 是否合格
 - 它只是把“生成 packet、初始化回传骨架、调用 `codex exec`、保存最后一条消息”串成一条显式命令
+- 关键动作会写入 `project/runtime/event_log.jsonl`，并触发受控 `callback_hooks`
 
-### 7.5 有 sub-agent 时怎么用
+### 7.5 callback / event-log / harness 是怎么工作的
+
+这轮之后，实例仓库里不只有 packet + gate，还多了一个轻量 orchestration harness：
+
+- `project/runtime/event_log.jsonl`
+  - append-only event stream
+- `project/spec/callback_hooks.yaml`
+  - machine-readable event -> action 路由表
+- `bash scripts/process_callbacks.sh`
+  - 前台 callback processor
+- `project/output/review/callback_runs/`
+  - callback 派生出的可审计 artifact
+
+这层机制的作用不是“替你自动做决定”，而是：
+
+- 记录关键状态变化
+- 在事件发生后执行受控 built-in action
+- 帮主脑生成 next-step hint 和 run summary
+- 让主脑可以重放、排查、复盘
+
+你可以把它理解为：
+
+- 不是后台守护进程
+- 不是自动工作流引擎
+- 而是文件化、可重放、由主脑显式触发的事件驱动 harness
+
+### 7.6 有 sub-agent 时怎么用
 
 如果环境支持 sub-agent delegation，也不要再维护一套独立状态系统。
 
@@ -608,7 +646,7 @@ bash scripts/dispatch_task.sh --task TASK_REVIEW_CONSISTENCY --owner bob --packe
 - `--open-only` 只看 `todo/ready` 且 `owner=""` 的任务
 - `blocked` 不在直接派发池里，想看它必须显式 `--status blocked`
 
-### 11.7 `scripts/exec_healthcheck.sh` / `scripts/run_exec_worker.sh`
+### 11.7 `scripts/exec_healthcheck.sh` / `scripts/run_exec_worker.sh` / `scripts/run_exec_batch.sh`
 
 用途：把 `codex exec` 接成一个可选但正式的 worker backend。
 
@@ -619,16 +657,37 @@ bash scripts/exec_healthcheck.sh --target <dir>
 bash scripts/exec_healthcheck.sh --target <dir> --model gpt-5.4
 bash scripts/run_exec_worker.sh --task TASK_REVIEW_CONSISTENCY --owner exec_review --target <dir>
 bash scripts/run_exec_worker.sh --task TASK_REVIEW_CONSISTENCY --owner exec_review --with-retrospective --goal "只做 review output，不改源码" --target <dir>
+bash scripts/run_exec_batch.sh --tasks TASK_CODE_MODEL_SLOT,TASK_UTILITY_SUPPORT --owner-prefix exec --lock TASK_CODE_MODEL_SLOT:project/src --lock TASK_CODE_MODEL_SLOT:project/output/review/TASK_CODE_MODEL_SLOT_feedback.md --lock TASK_UTILITY_SUPPORT:project/runtime --lock TASK_UTILITY_SUPPORT:project/output/review/TASK_UTILITY_SUPPORT_feedback.md --max-concurrency 2 --target <dir>
 ```
 
 注意：
 
 - `exec_healthcheck.sh` 只做一次最小真实探活，不是后台 health monitor
 - `run_exec_worker.sh` 会串起 dispatch、feedback skeleton、`codex exec`、last-message 落盘
+- `run_exec_batch.sh` 只负责并行 supervisor，不会自动判定任务 done
+- 如果 task slot 的默认 allowed_paths 太宽，可以用 `--lock task_id:path` 给 batch 指定更窄的 claim scope
 - 它不会自动 `close_task.sh`
 - 如果 exec 失败，任务不会被自动取消，仍由主脑决定是 retry、cancel 还是 reopen
+- 默认运行产物会落到 `project/output/review/exec_runs/`
 
-### 11.8 `scripts/claim_task.sh` / `scripts/close_task.sh`
+### 11.8 `scripts/process_callbacks.sh`
+
+用途：重放或显式处理 `event_log.jsonl` 对应的 callback hooks。
+
+常见模式：
+
+```bash
+bash scripts/process_callbacks.sh --latest --target <dir>
+bash scripts/process_callbacks.sh --event-id <event_id> --target <dir>
+bash scripts/process_callbacks.sh --replay-from <event_id> --target <dir>
+```
+
+注意：
+
+- 它只执行受控 built-in actions，不执行任意 shell callback
+- 它不是后台 listener
+- callback 派生 artifact 默认写到 `project/output/review/callback_runs/`
+### 11.9 `scripts/claim_task.sh` / `scripts/close_task.sh`
 
 用途：管理任务占用、状态推进和并发约束。
 
@@ -641,7 +700,7 @@ bash scripts/close_task.sh --task TASK_CODE_MODEL_SLOT --to review --target <dir
 bash scripts/close_task.sh --task TASK_REVIEW_CONSISTENCY --to done --accepted-by main_brain --target <dir>
 ```
 
-### 11.9 `scripts/submit_feedback.sh`
+### 11.10 `scripts/submit_feedback.sh`
 
 用途：为 worker 自动创建 feedback / retrospective skeleton，避免手抄路径。
 
@@ -652,7 +711,7 @@ bash scripts/submit_feedback.sh --task TASK_CODE_MODEL_SLOT --target <dir>
 bash scripts/submit_feedback.sh --task TASK_REVIEW_CONSISTENCY --with-retrospective --target <dir>
 ```
 
-### 11.10 `scripts/reopen_task.sh` / `scripts/cancel_task.sh`
+### 11.11 `scripts/reopen_task.sh` / `scripts/cancel_task.sh`
 
 用途：标准化处理“任务打回重做”“任务中止撤销”。
 
@@ -671,7 +730,7 @@ bash scripts/reopen_task.sh --task TASK_LAYOUT_ACCEPTANCE --to review --reason "
 - 如果要重开已验收任务，应先 `done -> review`
 - 然后再由主脑决定是否 `review -> ready` 或 `review -> in_progress`
 
-### 11.11 `scripts/check_worker_feedback.sh` / `scripts/check_retrospective.sh`
+### 11.12 `scripts/check_worker_feedback.sh` / `scripts/check_retrospective.sh`
 
 用途：在主脑验收前检查 worker 回传是否满足最小结构要求。
 
