@@ -36,6 +36,18 @@ REQUIRED_TASK_FIELDS = [
 
 TASK_STATUSES = {"todo", "ready", "in_progress", "review", "done", "blocked"}
 
+ROOT_CODEX_SKILLS = {
+    "template-source-maintenance",
+    "render-and-smoke",
+}
+
+INSTANCE_CODEX_SKILLS = {
+    "main-brain-dispatch",
+    "worker-feedback",
+    "task-audit-adjudication",
+    "instance-runtime-read",
+}
+
 TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scaffold/AGENTS.md.template",
     "scaffold/MEMORY.md.template",
@@ -68,6 +80,20 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scripts/main_brain_summary.sh",
     "scripts/export_reference_image.sh",
     "scripts/lib/workflow_audit.py",
+    ".codex/requirements.toml",
+    ".codex/skills/template-source-maintenance/SKILL.md",
+    ".codex/skills/template-source-maintenance/agents/openai.yaml",
+    ".codex/skills/render-and-smoke/SKILL.md",
+    ".codex/skills/render-and-smoke/agents/openai.yaml",
+    "scaffold/.codex/requirements.toml.template",
+    "scaffold/.codex/skills/main-brain-dispatch/SKILL.md",
+    "scaffold/.codex/skills/main-brain-dispatch/agents/openai.yaml",
+    "scaffold/.codex/skills/worker-feedback/SKILL.md",
+    "scaffold/.codex/skills/worker-feedback/agents/openai.yaml",
+    "scaffold/.codex/skills/task-audit-adjudication/SKILL.md",
+    "scaffold/.codex/skills/task-audit-adjudication/agents/openai.yaml",
+    "scaffold/.codex/skills/instance-runtime-read/SKILL.md",
+    "scaffold/.codex/skills/instance-runtime-read/agents/openai.yaml",
 ]
 
 FEEDBACK_HEADINGS = [

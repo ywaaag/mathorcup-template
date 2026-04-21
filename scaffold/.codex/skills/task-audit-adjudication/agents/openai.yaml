@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Audit"
+  short_description: "Audit task state and adjudicate structured evidence"
+  default_prompt: "Use show_task, list_history, and adjudicate_task to compare worker evidence before any human-gated state transition."

@@ -77,6 +77,9 @@
 - `scaffold/`
   - 模板源目录
   - 未来实例里绝大多数关键文件都从这里渲染
+- `.codex/`
+  - 模板源仓库自己的 Codex native front door
+  - 只负责 requirements / skills 入口约束，不承担 runtime truth
 - `scripts/`
   - 脚本入口目录
   - 负责 render / bootstrap / deps / reset / validate / doctor / launcher
@@ -88,6 +91,8 @@
 
 - `scaffold/AGENTS.md.template`
   - 实例仓库根协议模板
+- `scaffold/.codex/`
+  - 未来实例仓库的 Codex native front door 模板
 - `scaffold/MEMORY.md.template`
   - 实例运行状态板模板
 - `scaffold/project/spec/`
@@ -305,6 +310,10 @@ bash scripts/export_reference_image.sh \
   - 根协议入口
 - `MEMORY.md`
   - 运行状态板
+- `.codex/requirements.toml`
+  - Codex native front door summary
+- `.codex/skills/`
+  - Codex native working-method skills
 - `.env`
   - container / image / host-path 的 machine truth
 - `project/spec/runtime_contract.md`
@@ -332,6 +341,13 @@ bash scripts/export_reference_image.sh \
    - 规定谁能改什么、谁正在改什么、能不能并行；其中 `owner` 只表示当前 active owner
 4. `MEMORY.md` / feedback / retrospective
    - 记录当前状态、已验证事实、经验教训
+
+另外还有一层 native bridge：
+
+- `.codex/requirements.toml` / `.codex/skills/`
+  - 负责把 Codex 引导到正确的 repo truth 和正确的工作法
+  - 不和 `.env / paper.env / MEMORY.md / task_registry.json / work_queue.json / event_log.jsonl` 争夺 truth
+  - 本轮默认不启用 `hooks.json`；repo harness 仍然是唯一必需的 workflow engine
 
 ## 7. 这个模板如何支持“人类 + Agent”协作
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Main Brain Dispatch"
+  short_description: "Dispatch, observe, and close tasks through repo scripts"
+  default_prompt: "Use repo scripts to list, dispatch, observe, and close or reopen tasks without editing runtime truth by hand."

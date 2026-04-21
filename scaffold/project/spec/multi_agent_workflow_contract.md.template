@@ -11,17 +11,20 @@
 
 All roles should read from these sources before acting:
 
-1. `AGENTS.md` or `project/paper/AGENTS.md`
-2. `MEMORY.md`
-3. `project/spec/runtime_contract.md`
-4. `project/spec/agent_roles.json`
-5. `project/spec/callback_hooks.json`
-6. `project/runtime/event_log.jsonl`
-7. `project/runtime/task_registry.json`
-8. `project/runtime/work_queue.json`
-9. Indexed handoffs in `project/output/handoff/`
-10. `project/workflow/`
-11. `project/output/review/` and `project/output/retrospectives/` when relevant
+1. `.codex/requirements.toml` when present
+2. `AGENTS.md` or `project/paper/AGENTS.md`
+3. `MEMORY.md`
+4. `project/spec/runtime_contract.md`
+5. `project/spec/agent_roles.json`
+6. `project/spec/callback_hooks.json`
+7. `project/runtime/event_log.jsonl`
+8. `project/runtime/task_registry.json`
+9. `project/runtime/work_queue.json`
+10. Indexed handoffs in `project/output/handoff/`
+11. `project/workflow/`
+12. `project/output/review/` and `project/output/retrospectives/` when relevant
+
+`.codex/requirements.toml` is a native front door and behavior summary only. It does not replace repo truth in `.env`, `project/paper/runtime/paper.env`, `MEMORY.md`, `task_registry.json`, `work_queue.json`, or `event_log.jsonl`.
 
 ## Role Split
 

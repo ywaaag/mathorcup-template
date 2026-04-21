@@ -1,0 +1,43 @@
+# Codex native front door for the template-source repository.
+# This file is not runtime truth. It only routes Codex toward the real repo truth.
+
+schema_version = 1
+bridge_mode = "template_source"
+bridge_kind = "codex_native_front_door"
+non_authoritative = true
+
+[summary]
+purpose = "Route Codex into scaffold-first template maintenance without introducing a second state system."
+
+[truth]
+template_truth = ["scaffold/", "scripts/"]
+rendered_truth = ["rendered instance files under a target directory, not repo-root project/"]
+not_truth = [".codex/requirements.toml", ".codex/skills/", "repo-root project/ placeholder tree"]
+
+[read_order]
+primary = [
+  "AGENTS.md",
+  ".codex/requirements.toml",
+  "README.md",
+  "scaffold/",
+  "scripts/setup.sh",
+  "scripts/render_templates.sh",
+  "scripts/validate_agent_docs.sh",
+]
+
+[behavior]
+must_use_scripts = [
+  "bash scripts/validate_agent_docs.sh",
+  "bash scripts/validate_agent_docs.sh --template-source-only",
+  "bash scripts/setup.sh demo --render-only --target <tmpdir>",
+  "bash scripts/doctor.sh --root <tmpdir>",
+]
+forbidden = [
+  "Do not treat repo-root project/ as a live instance.",
+  "Do not move runtime truth into .codex.",
+  "Do not update rendered outputs without updating scaffold.",
+]
+
+[hooks]
+enabled = false
+reason = "Local codex_hooks is under development; the template must remain fully functional without native hooks."

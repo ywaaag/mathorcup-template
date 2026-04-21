@@ -1,0 +1,4 @@
+interface:
+  display_name: "Runtime Truth Read"
+  short_description: "Read .env and paper.env before trusting mirrors"
+  default_prompt: "Read machine truth from .env and project/paper/runtime/paper.env, then use runtime contracts as rendered mirrors only."

@@ -119,6 +119,31 @@ else
 fi
 
 echo ""
+echo "== Codex Native Bridge =="
+if [[ "$ROOT_KIND" == "template_source" ]]; then
+    [[ -f "$TARGET_DIR/.codex/requirements.toml" ]] && status_ok "template-source .codex requirements detected" || status_warn "template-source .codex requirements missing"
+    root_skill_count="$(find "$TARGET_DIR/.codex/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+    [[ "${root_skill_count:-0}" -gt 0 ]] && status_ok "template-source .codex skills detected (${root_skill_count})" || status_warn "template-source .codex skills missing"
+    [[ -f "$TARGET_DIR/scaffold/.codex/requirements.toml.template" ]] && status_ok "instance scaffold .codex requirements template detected" || status_warn "instance scaffold .codex requirements template missing"
+    scaffold_skill_count="$(find "$TARGET_DIR/scaffold/.codex/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+    [[ "${scaffold_skill_count:-0}" -gt 0 ]] && status_ok "instance scaffold .codex skills detected (${scaffold_skill_count})" || status_warn "instance scaffold .codex skills missing"
+    if [[ -f "$TARGET_DIR/.codex/hooks.json" || -f "$TARGET_DIR/scaffold/.codex/hooks.json.template" ]]; then
+        status_warn "native hooks file present; review whether it is still intentionally optional"
+    else
+        status_info "native hooks not enabled; requirements + skills bridge only"
+    fi
+else
+    [[ -f "$TARGET_DIR/.codex/requirements.toml" ]] && status_ok "rendered instance .codex requirements detected" || status_warn "rendered instance .codex requirements missing"
+    instance_skill_count="$(find "$TARGET_DIR/.codex/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+    [[ "${instance_skill_count:-0}" -gt 0 ]] && status_ok "rendered instance .codex skills detected (${instance_skill_count})" || status_warn "rendered instance .codex skills missing"
+    if [[ -f "$TARGET_DIR/.codex/hooks.json" ]]; then
+        status_warn "rendered instance native hooks file present; review whether it is still intentionally optional"
+    else
+        status_info "rendered instance native hooks not enabled; repo harness remains the only required workflow engine"
+    fi
+fi
+
+echo ""
 echo "== Validation =="
 bash "$SCRIPT_DIR/validate_agent_docs.sh" --root "$TARGET_DIR"
 

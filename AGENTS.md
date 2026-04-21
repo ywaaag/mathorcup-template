@@ -9,9 +9,10 @@
 ## Mandatory Read Order
 
 1. Read this file.
-2. Read `scaffold/`.
-3. Read `scripts/setup.sh`, `scripts/render_templates.sh`, `scripts/validate_agent_docs.sh`.
-4. If changing workflow design, read the scaffold contracts under:
+2. If present, read `.codex/requirements.toml` as a Codex-native front door summary. It does not replace repo truth.
+3. Read `scaffold/`.
+4. Read `scripts/setup.sh`, `scripts/render_templates.sh`, `scripts/validate_agent_docs.sh`.
+5. If changing workflow design, read the scaffold contracts under:
    - `scaffold/project/spec/`
    - `scaffold/project/workflow/`
    - `scaffold/project/paper/spec/`

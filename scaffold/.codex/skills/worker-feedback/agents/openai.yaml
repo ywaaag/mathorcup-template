@@ -1,0 +1,4 @@
+interface:
+  display_name: "Worker Feedback"
+  short_description: "Read packets and return feedback through the gate files"
+  default_prompt: "Read the task packet, respect scope, and return structured feedback or retrospective through the repo gate files."

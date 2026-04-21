@@ -1,0 +1,4 @@
+interface:
+  display_name: "Render And Smoke"
+  short_description: "Render scaffold into a temp instance and smoke-check it"
+  default_prompt: "Render to a temp directory, then run validate_agent_docs.sh and doctor.sh on the rendered instance."

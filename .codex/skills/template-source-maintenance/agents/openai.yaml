@@ -1,0 +1,4 @@
+interface:
+  display_name: "Template Source"
+  short_description: "Maintain scaffold-first template truth"
+  default_prompt: "Maintain the template-source repo via scaffold and validate with render-only smoke."

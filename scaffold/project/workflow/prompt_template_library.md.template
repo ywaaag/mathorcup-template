@@ -5,6 +5,7 @@
 - Provide reusable task packets for multi-Agent work.
 - Standardize pre-checks, minimal-fix tasks, compile-only tasks, worker feedback, and retrospectives.
 - Keep prompt structure stable across 主脑 / 代码脑 / 论文脑 / 杂务 Agent collaboration.
+- If repo-local `.codex/skills/` are available in the active environment, they can be used as entry helpers, but repo truth still lives in the normal runtime files.
 
 ## Template 1: 通用任务包
 

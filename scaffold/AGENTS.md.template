@@ -18,12 +18,13 @@
 
 ## Mandatory Read Order
 1. Read this file.
-2. Read `MEMORY.md`.
-3. Read `project/spec/runtime_contract.md`.
-4. Read `project/spec/multi_agent_workflow_contract.md`.
-5. If this task is claimed or delegated, read `project/spec/agent_roles.json`, `project/runtime/task_registry.json`, and `project/runtime/work_queue.json`.
-6. Read the latest indexed handoff docs listed in `## Handoff Index`.
-7. If this task is delegated or multi-session, read the relevant templates under `project/workflow/`.
+2. If present, read `.codex/requirements.toml` as the Codex-native front door summary. It routes to repo truth and does not replace it.
+3. Read `MEMORY.md`.
+4. Read `project/spec/runtime_contract.md`.
+5. Read `project/spec/multi_agent_workflow_contract.md`.
+6. If this task is claimed or delegated, read `project/spec/agent_roles.json`, `project/runtime/task_registry.json`, and `project/runtime/work_queue.json`.
+7. Read the latest indexed handoff docs listed in `## Handoff Index`.
+8. If this task is delegated or multi-session, read the relevant templates under `project/workflow/`.
 
 ## Runtime Board Contract
 - `MEMORY.md` is the only runtime state board.

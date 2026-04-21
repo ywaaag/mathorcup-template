@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any, Dict, Sequence
 
 from workflow_kernel.audit_index import check_feedback, check_retrospective
 from workflow_kernel.packet import make_task_packet
 from workflow_kernel.schema import (
+    INSTANCE_CODEX_SKILLS,
     REQUIRED_ROLE_FIELDS,
     REQUIRED_TASK_FIELDS,
+    ROOT_CODEX_SKILLS,
     TASK_STATUSES,
     any_path_matches,
     check_required_paths,
@@ -24,6 +27,130 @@ from workflow_kernel.schema import (
     task_map,
     validate_template_source,
 )
+
+
+def validate_requirements_toml(path: Path, *, context: str) -> None:
+    if not path.is_file():
+        fail(f"missing file: {path}")
+    try:
+        payload = parse_simple_toml(path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        fail(f"{context} is not valid TOML: {exc}")
+    if not isinstance(payload, dict):
+        fail(f"{context} must parse to a TOML table")
+    for key in ["schema_version", "bridge_mode", "bridge_kind", "non_authoritative"]:
+        if key not in payload:
+            fail(f"{context} missing top-level key: {key}")
+
+
+def parse_simple_toml(text: str) -> Dict[str, Any]:
+    result: Dict[str, Any] = {}
+    current = result
+    lines = text.splitlines()
+    index = 0
+    while index < len(lines):
+        raw = lines[index]
+        line = raw.strip()
+        index += 1
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            section = line[1:-1].strip()
+            if not section:
+                raise ValueError("empty table header")
+            result.setdefault(section, {})
+            current = result[section]
+            continue
+        if "=" not in line:
+            raise ValueError(f"invalid assignment line: {raw}")
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key:
+            raise ValueError(f"missing key in line: {raw}")
+        if value == "[" or (value.startswith("[") and not value.endswith("]")):
+            collected = [value]
+            while index < len(lines):
+                fragment_raw = lines[index]
+                fragment = fragment_raw.strip()
+                index += 1
+                if not fragment or fragment.startswith("#"):
+                    continue
+                collected.append(fragment)
+                if fragment.endswith("]"):
+                    break
+            value = " ".join(collected)
+        current[key] = parse_simple_toml_value(value)
+    return result
+
+
+def parse_simple_toml_value(raw: str) -> Any:
+    value = raw.strip()
+    if value in {"true", "false"}:
+        return value == "true"
+    if re.fullmatch(r"[0-9]+", value):
+        return int(value)
+    if value.startswith('"') and value.endswith('"'):
+        return value[1:-1]
+    if value.startswith("[") and value.endswith("]"):
+        inner = value[1:-1].strip()
+        if not inner:
+            return []
+        items = re.findall(r'"([^"]*)"', inner)
+        if not items and inner:
+            raise ValueError(f"unsupported array value: {raw}")
+        return items
+    raise ValueError(f"unsupported TOML value: {raw}")
+
+
+def validate_skill_dir(path: Path, *, context: str) -> None:
+    skill_md = path / "SKILL.md"
+    openai_yaml = path / "agents/openai.yaml"
+    if not skill_md.is_file():
+        fail(f"{context} missing SKILL.md")
+    if not openai_yaml.is_file():
+        fail(f"{context} missing agents/openai.yaml")
+    content = skill_md.read_text(encoding="utf-8")
+    match = re.match(r"^---\n(.*?)\n---", content, re.DOTALL)
+    if not match:
+        fail(f"{context} has invalid SKILL.md frontmatter")
+    frontmatter = match.group(1)
+    if "name:" not in frontmatter or "description:" not in frontmatter:
+        fail(f"{context} SKILL.md frontmatter must include name and description")
+
+
+def validate_skill_collection(skills_root: Path, *, context: str, required_names: set[str]) -> None:
+    if not skills_root.is_dir():
+        fail(f"missing directory: {skills_root}")
+    seen = {item.name for item in skills_root.iterdir() if item.is_dir()}
+    missing = sorted(required_names - seen)
+    if missing:
+        fail(f"{context} missing skill directories: {', '.join(missing)}")
+    for name in sorted(required_names):
+        validate_skill_dir(skills_root / name, context=f"{context}/{name}")
+
+
+def validate_optional_hooks_json(path: Path, *, context: str) -> None:
+    if not path.exists():
+        return
+    payload = load_structured(path)
+    if not isinstance(payload, dict):
+        fail(f"{context} must contain a JSON object")
+
+
+def validate_codex_bridge(root: Path, *, template_source: bool) -> None:
+    if template_source:
+        validate_requirements_toml(root / ".codex/requirements.toml", context=".codex/requirements.toml")
+        validate_skill_collection(root / ".codex/skills", context=".codex/skills", required_names=ROOT_CODEX_SKILLS)
+        validate_optional_hooks_json(root / ".codex/hooks.json", context=".codex/hooks.json")
+        validate_requirements_toml(root / "scaffold/.codex/requirements.toml.template", context="scaffold/.codex/requirements.toml.template")
+        validate_skill_collection(root / "scaffold/.codex/skills", context="scaffold/.codex/skills", required_names=INSTANCE_CODEX_SKILLS)
+        validate_optional_hooks_json(root / "scaffold/.codex/hooks.json.template", context="scaffold/.codex/hooks.json.template")
+        return
+
+    validate_requirements_toml(root / ".codex/requirements.toml", context=".codex/requirements.toml")
+    validate_skill_collection(root / ".codex/skills", context=".codex/skills", required_names=INSTANCE_CODEX_SKILLS)
+    validate_optional_hooks_json(root / ".codex/hooks.json", context=".codex/hooks.json")
 
 
 def validate_memory(root: Path) -> None:

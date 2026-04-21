@@ -50,6 +50,7 @@ from workflow_kernel.transitions import (
     task_field_value,
 )
 from workflow_kernel.validate import (
+    validate_codex_bridge,
     validate_contracts,
     validate_feedback,
     validate_handoffs,
@@ -72,6 +73,7 @@ def run_validate(root: Path, mode: str) -> None:
                 "`bash scripts/setup.sh demo --render-only --target <dir>` and validate that directory."
             )
         validate_template_source(root)
+        validate_codex_bridge(root, template_source=True)
         print("[validate_agent_docs] OK (template-source)")
         return
 
@@ -82,6 +84,7 @@ def run_validate(root: Path, mode: str) -> None:
         validate_handoffs(root)
     if mode in {"all", "contracts"}:
         validate_contracts(root)
+        validate_codex_bridge(root, template_source=False)
     if mode in {"all", "paper"}:
         validate_paper_config(root)
     if mode in {"all", "roles"}:

@@ -1,0 +1,65 @@
+# Codex native front door for rendered instances.
+# This file is not runtime truth. It only routes Codex toward the real repo truth.
+
+schema_version = 1
+bridge_mode = "instance"
+bridge_kind = "codex_native_front_door"
+non_authoritative = true
+
+[summary]
+purpose = "Route Codex into the rendered instance workflow without replacing the repo harness."
+
+[truth]
+machine_truth = [
+  ".env",
+  "project/paper/runtime/paper.env",
+  "MEMORY.md",
+  "project/runtime/task_registry.json",
+  "project/runtime/work_queue.json",
+  "project/runtime/event_log.jsonl",
+]
+rendered_mirrors = [
+  "project/spec/runtime_contract.md",
+  "project/paper/spec/paper_runtime_contract.md",
+]
+not_truth = [
+  ".codex/requirements.toml",
+  ".codex/skills/",
+]
+
+[read_order]
+primary = [
+  "AGENTS.md",
+  ".codex/requirements.toml",
+  "MEMORY.md",
+  "project/spec/runtime_contract.md",
+  "project/spec/multi_agent_workflow_contract.md",
+]
+
+[workflow]
+must_use_scripts = [
+  "bash scripts/dispatch_task.sh",
+  "bash scripts/check_worker_feedback.sh",
+  "bash scripts/check_retrospective.sh",
+  "bash scripts/close_task.sh",
+  "bash scripts/reopen_task.sh",
+  "bash scripts/cancel_task.sh",
+]
+do_not_hand_edit = [
+  "project/runtime/task_registry.json",
+  "project/runtime/work_queue.json",
+  "project/runtime/event_log.jsonl",
+]
+
+[entry_chain]
+default = [
+  "bash scripts/doctor.sh --target <dir>",
+  "bash scripts/main_brain_summary.sh --target <dir>",
+  "bash scripts/show_task.sh --task <task_id> --target <dir>",
+  "bash scripts/list_history.sh --task <task_id> --target <dir>",
+  "bash scripts/adjudicate_task.sh --task <task_id> --target <dir>",
+]
+
+[hooks]
+enabled = false
+reason = "Native hooks are optional and experimental; repo scripts and repo state remain the only required workflow engine."

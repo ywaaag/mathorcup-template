@@ -37,6 +37,9 @@
   - `project/spec/multi_agent_workflow_contract.md`
 - Prompt/task packet templates:
   - `project/workflow/`
+- Codex native front door, not runtime truth:
+  - `.codex/requirements.toml`
+  - `.codex/skills/`
 - Rendered mirrors derived from the machine truth files above:
   - `project/spec/runtime_contract.md`
   - `project/paper/spec/paper_runtime_contract.md`
