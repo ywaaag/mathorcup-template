@@ -126,6 +126,8 @@
   - 校验协议、roles、tasks、queue、paper config 等
 - `scripts/doctor.sh`
   - 轻量诊断入口
+- `scripts/check_state_consistency.sh`
+  - 只读检查 registry、queue、event log、feedback / retrospective artifact 是否互相矛盾
 - `scripts/dual_brain.sh`
   - 多脑 launcher
 - `scripts/make_task_packet.sh`
@@ -151,9 +153,11 @@
 - `scripts/adjudicate_task.sh`
   - 主脑生成结构化 adjudication artifact，用来比较多个 worker 结果并形成裁决草案
 - `scripts/main_brain_summary.sh`
-  - 轻量主脑摘要，快速看 active/failed/check-ready/adjudication-candidate/decision-queue
+  - 主脑一页式决策面板，快速看 runtime facts、queue、active/review、gate 缺口、recent events 和下一步命令建议
 - `scripts/submit_feedback.sh`
   - 为 worker 初始化 feedback / retrospective skeleton
+- `scripts/extract_policy_hints.sh`
+  - 从 feedback / retrospective 提取结构化经验候选，写入 `policy_hints_candidate.md`，供主脑人工审核
 - `scripts/close_task.sh`
   - 把任务从 `in_progress` 推进到 `review` 或 `done`
 - `scripts/reopen_task.sh`
@@ -507,22 +511,42 @@ bash scripts/export_reference_image.sh \
 
 1. `bash scripts/doctor.sh --target <dir>`
 2. `bash scripts/main_brain_summary.sh --target <dir>`
-3. `bash scripts/show_task.sh --task <task_id> --target <dir>`
-4. 如需看完整时间线，再执行：
-   - `bash scripts/list_history.sh --task <task_id> --target <dir>`
-5. 如果多个 worker 或多个 artifact 对同一 task 给出不同结论，再执行：
-   - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`
-6. 然后由主脑显式决定：
+3. `bash scripts/validate_agent_docs.sh --state-consistency-only --root <dir>`
+4. `bash scripts/recommend_tasks.sh --target <dir>`
+5. 如果准备派发任务，再执行：
+   - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner> --target <dir>`
+6. worker 回传后，先检查 gate：
+   - `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
+   - `bash scripts/check_retrospective.sh --task <task_id> --target <dir>`
+7. 再由主脑显式决定：
    - `bash scripts/close_task.sh ...`
    - 或 `bash scripts/reopen_task.sh ...`
    - 或 `bash scripts/cancel_task.sh ...`
+8. 如需做经验候选汇总，再执行：
+   - `bash scripts/extract_policy_hints.sh --target <dir>`
+9. 若需要 drill down 单任务，再执行：
+   - `bash scripts/show_task.sh --task <task_id> --target <dir>`
+10. 如需看完整时间线，再执行：
+   - `bash scripts/list_history.sh --task <task_id> --target <dir>`
+11. 如果多个 worker 或多个 artifact 对同一 task 给出不同结论，再执行：
+   - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`
 
 这条链的分工是：
 
 - `doctor.sh`
   - 先确认 repo mode、tooling、runtime config truth 入口是否正常
 - `main_brain_summary.sh`
-  - 先看全局，再判断该 drill down 哪个 task
+  - 主脑第一屏，先看 runtime facts、queue、active/review、gate 缺口、recent events 和下一步命令建议，再判断该 drill down 哪个 task
+- `validate_agent_docs.sh --state-consistency-only`
+  - 只读 gate，检查 registry / queue / event log / feedback / retrospective 是否互相矛盾
+- `recommend_tasks.sh`
+  - dispatch 前 advisory recommender，只推荐 safe-to-dispatch，不 claim、不写状态
+- `dispatch_task.sh`
+  - 真正进入派发路径，claim task 并输出 packet
+- `check_worker_feedback.sh` / `check_retrospective.sh`
+  - 在主脑 close / reopen / cancel 前检查 worker 回传 gate
+- `extract_policy_hints.sh`
+  - 只生成 `policy_hints_candidate.md`，供主脑人工审阅，不自动提升为 contract 或规则
 - `show_task.sh`
   - 看单任务当前状态、active owner、last actor、反馈/复盘是否齐全
 - `list_history.sh`
@@ -544,6 +568,24 @@ bash scripts/export_reference_image.sh \
 
 也就是说，adjudication 是结构化比较与裁决草案，不是自动决定 `done`。
 
+这条默认入口链里，只有下列命令会推进 workflow 状态或写 runtime truth：
+
+- `dispatch_task.sh`
+- `submit_feedback.sh`
+- `close_task.sh`
+- `reopen_task.sh`
+- `cancel_task.sh`
+
+而下列命令都属于 advisory 或 read-only：
+
+- `doctor.sh`
+- `main_brain_summary.sh`
+- `validate_agent_docs.sh --state-consistency-only`
+- `check_state_consistency.sh`
+- `recommend_tasks.sh`
+
+`extract_policy_hints.sh` 只写 `project/output/review/policy_hints_candidate.md`，不写 runtime truth。
+
 ### 7.8 主脑摘要命令
 
 如果你想先看全局，再决定要不要 drill down 到某个 task：
@@ -554,17 +596,20 @@ bash scripts/main_brain_summary.sh --target <dir>
 
 它会优先回答这些问题：
 
-- 哪些 task 正在跑
-- 哪些 task 最近失败或被 block
-- 哪些 feedback / retrospective 已经写好但还没 check
-- 哪些 task 适合先做 adjudicate
-- 哪些 task 已经进入主脑 decision queue
+- 当前实例 root / container / image / paper entrypoint / acceptance PDF 是什么
+- queue 中各状态 task 数量是多少
+- 哪些 task 正在跑，占用了哪些 locked_paths
+- 哪些 review task 需要主脑检查 feedback / retrospective / close gate
+- 是否存在 in_progress/review/done 任务缺 feedback，或 done 任务缺 retrospective
+- 最近 5 条 event log 发生了什么
+- 下一步应先运行哪些只读检查、dispatch 建议或 gate 命令
 
 注意：
 
 - `show_task.sh` 和 `main_brain_summary.sh` 里出现的 `owner` 现在只表示当前 active owner
 - task 一旦离开 `in_progress`，registry 里的 `owner` 会被清空
 - 如果你想看最近执行者，应该看 `last_actor`、`event_log.jsonl` 或 `work_queue.json -> history`
+- `main_brain_summary.sh` 是 advisory-only，不 dispatch、不 close、不 reopen、不 cancel、不改 runtime state
 
 ## 8. paper 工作流的关键设计
 
@@ -686,6 +731,7 @@ bash scripts/validate_agent_docs.sh --root <dir> --tasks-only
 bash scripts/validate_agent_docs.sh --root <dir> --queue-only
 bash scripts/validate_agent_docs.sh --root <dir> --feedback-only
 bash scripts/validate_agent_docs.sh --root <dir> --retrospective-only
+bash scripts/validate_agent_docs.sh --root <dir> --state-consistency-only
 ```
 
 模板源仓库还支持：
@@ -693,6 +739,8 @@ bash scripts/validate_agent_docs.sh --root <dir> --retrospective-only
 ```bash
 bash scripts/validate_agent_docs.sh --template-source-only
 ```
+
+其中 `--state-consistency-only` 只读检查 `task_registry.json`、`work_queue.json`、`event_log.jsonl`、feedback / retrospective artifact 是否一致；WARN 不会导致失败，ERROR 会导致非零退出。
 
 ### 11.3 `scripts/doctor.sh`
 
@@ -704,6 +752,48 @@ bash scripts/validate_agent_docs.sh --template-source-only
 bash scripts/doctor.sh
 bash scripts/doctor.sh --root <dir>
 ```
+
+### 11.3.1 `scripts/main_brain_summary.sh`
+
+用途：给主脑看的一页式决策面板，只读汇总 runtime facts、queue overview、active/review tasks、missing gates、recent events 和下一步建议命令。
+
+常见模式：
+
+```bash
+bash scripts/main_brain_summary.sh --target <dir>
+bash scripts/main_brain_summary.sh --root <dir>
+```
+
+注意：
+
+- 在 template-source 根目录运行时，它只会提示先 render 一个实例，不会把 repo-root `project/` 当 live instance
+- 它只输出建议，不会 dispatch / close / reopen / cancel，也不会写 `task_registry.json`、`work_queue.json` 或 `event_log.jsonl`
+
+### 11.3.2 `scripts/check_state_consistency.sh`
+
+用途：只读检查控制面状态、audit trace 和 gate artifact 是否互相矛盾。
+
+常见模式：
+
+```bash
+bash scripts/validate_agent_docs.sh --state-consistency-only --root <dir>
+bash scripts/check_state_consistency.sh --target <dir>
+bash scripts/check_state_consistency.sh --root <dir>
+```
+
+它会检查：
+
+- `work_queue.active_items` 是否能和 `task_registry.json` 中的 `in_progress` task 对齐
+- active task 的 owner / role / locked_paths 是否一致且不冲突
+- 非 `in_progress` task 是否错误保留 owner
+- `review/done` task 是否缺 feedback，`done` task 是否缺 retrospective
+- `event_log.jsonl` 的 JSONL 基本结构、重复 event_id、task_id / role 是否和 registry 匹配
+
+注意：
+
+- 这是 checker，不是 fixer；不会从 event log replay 状态，也不会写 runtime state
+- fresh rendered instance 的空 event log 会以 OK 形式通过
+- WARN 不会导致失败；ERROR 会导致非零退出
 
 ### 11.4 `scripts/dual_brain.sh`
 
@@ -728,9 +818,9 @@ bash scripts/make_task_packet.sh --role code_brain --target <dir>
 bash scripts/make_task_packet.sh --task TASK_PAPER_DRAFT_SLOT --target <dir>
 ```
 
-### 11.6 `scripts/list_open_tasks.sh` / `scripts/dispatch_task.sh`
+### 11.6 `scripts/list_open_tasks.sh` / `scripts/recommend_tasks.sh` / `scripts/dispatch_task.sh`
 
-用途：让主脑先看 dispatch pool，再一键派单。
+用途：让主脑先看 dispatch pool，用 advisory-only 推荐器判断当前哪些任务更适合派发，再一键派单。
 
 常见模式：
 
@@ -738,6 +828,8 @@ bash scripts/make_task_packet.sh --task TASK_PAPER_DRAFT_SLOT --target <dir>
 bash scripts/list_open_tasks.sh --target <dir>
 bash scripts/list_open_tasks.sh --open-only --target <dir>
 bash scripts/list_open_tasks.sh --status blocked --target <dir>
+bash scripts/recommend_tasks.sh --target <dir>
+bash scripts/recommend_tasks.sh --target <dir> --owner-prefix exec
 bash scripts/dispatch_task.sh --task TASK_PAPER_DRAFT_SLOT --owner alice --target <dir>
 bash scripts/dispatch_task.sh --task TASK_REVIEW_CONSISTENCY --owner bob --packet-out /tmp/review_packet.md --target <dir>
 ```
@@ -745,6 +837,7 @@ bash scripts/dispatch_task.sh --task TASK_REVIEW_CONSISTENCY --owner bob --packe
 注意：
 
 - `--open-only` 只看 `todo/ready` 且 `owner=""` 的任务
+- `recommend_tasks.sh` 只读 `agent_roles.json`、`task_registry.json`、`work_queue.json`，只输出 safe-to-dispatch / blocked reason / dispatch 建议命令，不 claim、不写状态
 - `blocked` 不在直接派发池里，想看它必须显式 `--status blocked`
 
 ### 11.7 `scripts/exec_healthcheck.sh` / `scripts/run_exec_worker.sh` / `scripts/run_exec_batch.sh`
@@ -817,6 +910,23 @@ bash scripts/submit_feedback.sh --task TASK_REVIEW_CONSISTENCY --with-retrospect
 - canonical path 是 `dispatch_task.sh` 触发 `task.dispatched` callback 自动补 feedback skeleton
 - `submit_feedback.sh` 不是和 dispatch 并列的主路径
 - 它更适合 repair missing feedback、补 retrospective、或者手工补录
+
+### 11.10.1 `scripts/extract_policy_hints.sh`
+
+用途：只读扫描 worker feedback / retrospective，提取结构化经验候选并生成 `project/output/review/policy_hints_candidate.md`，供主脑人工审查。
+
+常见模式：
+
+```bash
+bash scripts/extract_policy_hints.sh --target <dir>
+bash scripts/extract_policy_hints.sh --root <dir>
+```
+
+注意：
+
+- 它只写 `project/output/review/policy_hints_candidate.md`
+- 它不会修改 `AGENTS.md`、runtime contract、workflow contract、README、`task_registry.json`、`work_queue.json` 或 `event_log.jsonl`
+- fresh rendered instance 下如果没有有效候选，也会生成 candidate 文件并写明 `no policy hints found`
 
 ### 11.11 `scripts/reopen_task.sh` / `scripts/cancel_task.sh`
 

@@ -8,7 +8,7 @@ MODE="all"
 TARGET_ROOT="$ROOT_DIR"
 
 usage() {
-    echo "Usage: $0 [--root <dir>] [--memory-only|--handoff-only|--contracts-only|--paper-config-only|--roles-only|--tasks-only|--queue-only|--feedback-only|--retrospective-only|--events-only|--callbacks-only|--harness-only|--template-source-only]" >&2
+    echo "Usage: $0 [--root <dir>] [--memory-only|--handoff-only|--contracts-only|--paper-config-only|--roles-only|--tasks-only|--queue-only|--feedback-only|--retrospective-only|--state-consistency-only|--events-only|--callbacks-only|--harness-only|--template-source-only]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -53,6 +53,10 @@ while [[ $# -gt 0 ]]; do
             MODE="retrospective"
             shift
             ;;
+        --state-consistency-only)
+            MODE="state_consistency"
+            shift
+            ;;
         --events-only)
             MODE="events"
             shift
@@ -82,6 +86,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 ROOT_KIND="$(python3 "$SCRIPT_DIR/lib/workflow_state.py" root-kind --root "$TARGET_ROOT")"
+
+if [[ "$ROOT_KIND" == "template_source" && "$MODE" == "state_consistency" ]]; then
+    python3 "$SCRIPT_DIR/lib/workflow_state.py" state-consistency --root "$TARGET_ROOT"
+    exit 0
+fi
 
 if [[ "$ROOT_KIND" == "template_source" && "$MODE" != "template_source" ]]; then
     cat <<EOF
@@ -125,7 +134,7 @@ case "$MODE" in
         run_events_validation
         run_callbacks_validation
         ;;
-    memory|handoff|contracts|paper|roles|tasks|queue|feedback|retrospective)
+    memory|handoff|contracts|paper|roles|tasks|queue|feedback|retrospective|state_consistency)
         run_workflow_validation "$MODE"
         ;;
     events)

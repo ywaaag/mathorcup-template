@@ -8,7 +8,10 @@ from pathlib import Path
 from typing import Sequence
 
 from workflow_kernel.audit_index import check_feedback, check_retrospective, init_feedback_files
+from workflow_kernel.consistency import state_consistency_report
 from workflow_kernel.packet import make_task_packet
+from workflow_kernel.policy_hints import extract_policy_hints
+from workflow_kernel.recommend import recommend_tasks_report
 from workflow_kernel.render import list_tasks, write_queue_board
 from workflow_kernel.schema import (
     FEEDBACK_HEADINGS,
@@ -36,6 +39,7 @@ from workflow_kernel.schema import (
     task_map,
     validate_template_source,
 )
+from workflow_kernel.summary import main_summary_report
 from workflow_kernel.transitions import (
     append_history,
     batch_check,
@@ -66,6 +70,10 @@ from workflow_kernel.validate import (
 def run_validate(root: Path, mode: str) -> None:
     root_kind = detect_root_kind(root)
     if root_kind == "template_source":
+        if mode == "state_consistency":
+            report, status = state_consistency_report(root)
+            sys.stdout.write(report)
+            raise SystemExit(status)
         if mode != "template_source":
             fail(
                 "template-source repo detected; instance validation modes expect rendered files under project/. "
@@ -97,6 +105,11 @@ def run_validate(root: Path, mode: str) -> None:
         validate_feedback(root, state)
     if mode in {"all", "retrospective"}:
         validate_retrospectives(root, state)
+    if mode in {"all", "state_consistency"}:
+        report, status = state_consistency_report(root)
+        sys.stdout.write(report)
+        if status != 0:
+            raise SystemExit(status)
     print("[validate_agent_docs] OK")
 
 
@@ -120,6 +133,7 @@ def build_parser() -> argparse.ArgumentParser:
             "queue",
             "feedback",
             "retrospective",
+            "state_consistency",
             "template_source",
         ],
     )
@@ -161,6 +175,20 @@ def build_parser() -> argparse.ArgumentParser:
     list_tasks_parser.add_argument("--role", default="")
     list_tasks_parser.add_argument("--status", default="", choices=[""] + sorted(TASK_STATUSES))
     list_tasks_parser.add_argument("--open-only", action="store_true")
+
+    recommend_tasks_parser = subparsers.add_parser("recommend-tasks")
+    recommend_tasks_parser.add_argument("--root", required=True)
+    recommend_tasks_parser.add_argument("--owner-prefix", default="recommended")
+    recommend_tasks_parser.add_argument("--lock", action="append", default=[])
+
+    main_summary_parser = subparsers.add_parser("main-summary")
+    main_summary_parser.add_argument("--root", required=True)
+
+    state_consistency_parser = subparsers.add_parser("state-consistency")
+    state_consistency_parser.add_argument("--root", required=True)
+
+    extract_policy_hints_parser = subparsers.add_parser("extract-policy-hints")
+    extract_policy_hints_parser.add_argument("--root", required=True)
 
     batch_check_parser = subparsers.add_parser("batch-check")
     batch_check_parser.add_argument("--root", required=True)
@@ -230,6 +258,24 @@ def main(argv: Sequence[str]) -> int:
     if args.command == "root-kind":
         print(detect_root_kind(root))
         return 0
+
+    if args.command == "recommend-tasks":
+        sys.stdout.write(recommend_tasks_report(root, args.owner_prefix, args.lock))
+        return 0
+
+    if args.command == "main-summary":
+        sys.stdout.write(main_summary_report(root))
+        return 0
+
+    if args.command == "state-consistency":
+        report, status = state_consistency_report(root)
+        sys.stdout.write(report)
+        return status
+
+    if args.command == "extract-policy-hints":
+        report, status = extract_policy_hints(root)
+        sys.stdout.write(report)
+        return status
 
     state = load_runtime_state(root)
 

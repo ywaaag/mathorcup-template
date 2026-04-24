@@ -65,7 +65,10 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scripts/render_templates.sh",
     "scripts/validate_agent_docs.sh",
     "scripts/doctor.sh",
+    "scripts/check_state_consistency.sh",
+    "scripts/extract_policy_hints.sh",
     "scripts/list_open_tasks.sh",
+    "scripts/recommend_tasks.sh",
     "scripts/dispatch_task.sh",
     "scripts/submit_feedback.sh",
     "scripts/reopen_task.sh",
@@ -80,6 +83,10 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scripts/main_brain_summary.sh",
     "scripts/export_reference_image.sh",
     "scripts/lib/workflow_audit.py",
+    "scripts/lib/workflow_kernel/consistency.py",
+    "scripts/lib/workflow_kernel/policy_hints.py",
+    "scripts/lib/workflow_kernel/recommend.py",
+    "scripts/lib/workflow_kernel/summary.py",
     ".codex/requirements.toml",
     ".codex/skills/template-source-maintenance/SKILL.md",
     ".codex/skills/template-source-maintenance/agents/openai.yaml",
@@ -106,6 +113,12 @@ FEEDBACK_HEADINGS = [
     "## Remaining Risks",
     "## Lesson Learned",
     "## What Main Brain Should Have Told Me Earlier",
+    "## Failure Cause",
+    "## Missing Context",
+    "## Suggested Rule",
+    "## Suggested Contract Update",
+    "## Reusable Lesson",
+    "## Should Promote To Contract",
 ]
 
 RETRO_HEADINGS = [
@@ -117,6 +130,12 @@ RETRO_HEADINGS = [
     "## Revised Judgement",
     "## Reusable Guardrails",
     "## Next Consumer",
+    "## Failure Cause",
+    "## Missing Context",
+    "## Suggested Rule",
+    "## Suggested Contract Update",
+    "## Reusable Lesson",
+    "## Should Promote To Contract",
 ]
 
 

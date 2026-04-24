@@ -11,10 +11,11 @@ TARGET_DIR="$ROOT_DIR"
 
 usage() {
     cat <<'EOF'
-Usage: bash scripts/main_brain_summary.sh [--target <dir>|--root <dir>]
+Usage: bash scripts/extract_policy_hints.sh [--target <dir>|--root <dir>]
 
-Advisory-only: reads rendered instance runtime/config state and prints a one-page
-main-brain decision panel. It does not dispatch, close, reopen, cancel, or write state.
+Scans rendered worker feedback / retrospective artifacts and writes
+project/output/review/policy_hints_candidate.md for main-brain review.
+It does not modify runtime truth files.
 EOF
 }
 
@@ -35,4 +36,4 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-python3 "$SCRIPT_DIR/lib/workflow_state.py" main-summary --root "$TARGET_DIR"
+python3 "$SCRIPT_DIR/lib/workflow_state.py" extract-policy-hints --root "$TARGET_DIR"

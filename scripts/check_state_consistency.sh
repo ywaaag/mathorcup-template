@@ -11,10 +11,10 @@ TARGET_DIR="$ROOT_DIR"
 
 usage() {
     cat <<'EOF'
-Usage: bash scripts/main_brain_summary.sh [--target <dir>|--root <dir>]
+Usage: bash scripts/check_state_consistency.sh [--target <dir>|--root <dir>]
 
-Advisory-only: reads rendered instance runtime/config state and prints a one-page
-main-brain decision panel. It does not dispatch, close, reopen, cancel, or write state.
+Advisory-only: checks registry, queue, event log, feedback, and retrospective
+artifact consistency in a rendered instance. It does not repair or write state.
 EOF
 }
 
@@ -35,4 +35,4 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-python3 "$SCRIPT_DIR/lib/workflow_state.py" main-summary --root "$TARGET_DIR"
+python3 "$SCRIPT_DIR/lib/workflow_state.py" state-consistency --root "$TARGET_DIR"
