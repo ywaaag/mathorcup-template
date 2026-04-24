@@ -56,6 +56,7 @@
 
 完成后必须：
 - 回填 task 对应的 feedback / retrospective 文件
+- feedback / retrospective 主体字段必须填写具体内容，不能只留下空 bullet、裸 `-`、`none`、`n/a`、`no`、`empty` 或 `no meaningful change`
 - 不要把 event log 当聊天记录；它是主脑推进状态机的 machine-readable artifact
 - 不要自行执行 `close_task.sh`；把 gate 交给主脑
 - 不要自行拆新的顶层 task
@@ -158,6 +159,7 @@ See:
 - 推荐主脑不要手写任务包，而是先运行：
   - `bash scripts/make_task_packet.sh --role <role> --task <task_id>`
 - packet 既可以贴给另一个会话，也可以直接作为 `codex exec` 的 stdin 输入。
+- feedback / retrospective gate now checks minimum non-empty content in required body sections, not only heading structure.
 - 推荐的半自动派单顺序是：
   - `bash scripts/doctor.sh --target <dir>`
   - `bash scripts/main_brain_summary.sh --target <dir>`

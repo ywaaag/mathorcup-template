@@ -2,6 +2,8 @@
 
 Filename suggestion: `YYYYMMDD_topic.md`
 
+All body sections from `Task ID` through `Next Consumer` must contain concrete non-empty content before this retrospective can pass the gate. A blank bullet, bare `-`, or low-signal value like `none`, `n/a`, `no`, `empty`, or `no meaningful change` is not valid body content.
+
 ## Task ID
 - 
 
@@ -27,7 +29,7 @@ Filename suggestion: `YYYYMMDD_topic.md`
 ## Next Consumer
 - who should read this next:
 
-These fields below are candidate policy hints only. They still require explicit main-brain review and do not automatically update any contract, AGENTS.md, README, or scaffold template.
+These fields below are candidate policy hints only. They may stay at their default `none` / `no` values, still require explicit main-brain review, and do not automatically update any contract, AGENTS.md, README, or scaffold template.
 
 ## Failure Cause
 - none

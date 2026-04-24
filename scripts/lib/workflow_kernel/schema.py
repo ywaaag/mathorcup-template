@@ -138,6 +138,38 @@ RETRO_HEADINGS = [
     "## Should Promote To Contract",
 ]
 
+POLICY_HINT_HEADINGS = [
+    "## Failure Cause",
+    "## Missing Context",
+    "## Suggested Rule",
+    "## Suggested Contract Update",
+    "## Reusable Lesson",
+    "## Should Promote To Contract",
+]
+
+FEEDBACK_REQUIRED_CONTENT_HEADINGS = [
+    "## Task ID",
+    "## Role",
+    "## Files Changed",
+    "## Work Done",
+    "## Verified Facts",
+    "## Validation Or Acceptance",
+    "## Remaining Risks",
+    "## Lesson Learned",
+    "## What Main Brain Should Have Told Me Earlier",
+]
+
+RETRO_REQUIRED_CONTENT_HEADINGS = [
+    "## Task ID",
+    "## Trigger",
+    "## Real Phenomenon",
+    "## Investigation",
+    "## Verified Facts",
+    "## Revised Judgement",
+    "## Reusable Guardrails",
+    "## Next Consumer",
+]
+
 
 def fail(message: str) -> None:
     print(message, file=sys.stderr)

@@ -87,11 +87,20 @@ All roles should read from these sources before acting:
 - Key scripts emit events and then run:
   - `bash scripts/process_callbacks.sh`
 - Recommended semi-automatic dispatch path:
-  - `bash scripts/list_open_tasks.sh --open-only`
-  - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`
+  - `bash scripts/doctor.sh --target <dir>`
+  - `bash scripts/list_open_tasks.sh --open-only --target <dir>`
+  - `bash scripts/main_brain_summary.sh --target <dir>`
+  - `bash scripts/validate_agent_docs.sh --state-consistency-only --root <dir>`
+  - `bash scripts/recommend_tasks.sh --target <dir>`
+  - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner> --target <dir>`
   - canonical feedback skeleton creation happens during dispatch via the `task.dispatched` callback hook
-  - `bash scripts/submit_feedback.sh --task <task_id> --with-retrospective` only when you need to repair missing feedback or initialize a retrospective manually
-  - `bash scripts/close_task.sh` or `bash scripts/reopen_task.sh` / `bash scripts/cancel_task.sh`
+  - `bash scripts/submit_feedback.sh --task <task_id> --with-retrospective --target <dir>` only when you need to repair missing feedback or initialize a retrospective manually
+  - `bash scripts/close_task.sh --target <dir>` or `bash scripts/reopen_task.sh --target <dir>` / `bash scripts/cancel_task.sh --target <dir>`
+- `recommend_tasks.sh` is advisory-only. It reads only `project/spec/agent_roles.json`, `project/runtime/task_registry.json`, and `project/runtime/work_queue.json`, then prints safe-to-dispatch candidates, blocked reasons, and suggested dispatch commands. It never claims tasks or rewrites runtime state.
+- `main_brain_summary.sh` is advisory-only. It reads rendered instance runtime/config state, prints a one-page main-brain decision panel, and never dispatches, closes, reopens, cancels, or rewrites runtime state. It should be the first main-brain screen after `doctor.sh`.
+- `validate_agent_docs.sh --state-consistency-only` and `check_state_consistency.sh` are read-only gates/checkers. They compare registry, queue, event log, feedback, and retrospective artifacts for contradictions. They do not repair state, replay event logs, dispatch, close, reopen, cancel, or replace main-brain judgement.
+- `extract_policy_hints.sh` is not workflow truth. It scans feedback / retrospective artifacts, writes `project/output/review/policy_hints_candidate.md`, and leaves promotion decisions to the main brain.
+- Feedback and retrospective gates now check minimum non-empty content in required body sections, not only heading structure; policy-hint candidate fields may remain at default `none` / `no`.
 
 ## Execution Modes
 
@@ -160,12 +169,16 @@ Use:
 - `project/output/review/WORKER_FEEDBACK_TEMPLATE.md`
 - `project/output/retrospectives/RETROSPECTIVE_TEMPLATE.md`
 
+The required body sections in these files must be filled with concrete content before `check_worker_feedback.sh` or `check_retrospective.sh` can pass.
+
 ## Review And Retrospective Storage
 
 - Structured worker review notes:
   - `project/output/review/`
 - Reusable lessons learned:
   - `project/output/retrospectives/`
+- Structured policy-hint candidates extracted from feedback / retrospective:
+  - `project/output/review/policy_hints_candidate.md`
 - Callback processor derived artifacts:
   - `project/output/review/callback_runs/`
 - Exec worker run artifacts:
@@ -175,6 +188,7 @@ Use:
   - runtime contract
   - workflow contract
   - paper runtime config
+- `policy_hints_candidate.md` is only a candidate artifact. It helps the main brain review failure causes, missing context, and reusable rules, but it does not automatically update AGENTS.md, contracts, prompts, or scaffold templates.
 
 ## Event-Driven Harness
 
@@ -223,6 +237,10 @@ Use:
   - `bash scripts/show_task.sh --task <task_id> --target <dir>`
   - `bash scripts/list_history.sh --task <task_id> --target <dir>`
   - `bash scripts/main_brain_summary.sh --target <dir>`
+- `main_brain_summary.sh` should be the first one-page decision surface after `doctor.sh`; it summarizes runtime facts, queue counts, active tasks, review gates, missing gates, recent events, and recommended next commands.
+- `validate_agent_docs.sh --state-consistency-only` or `check_state_consistency.sh` should be the next read-only gate before dispatch or close-level decisions.
+- `recommend_tasks.sh` should be treated as the advisory surface before `dispatch_task.sh`, not as a substitute for dispatch itself.
+- `extract_policy_hints.sh` should be run after feedback / retrospective accumulation when the main brain wants a candidate lesson summary; it is not a control-plane source of truth.
 - When multiple worker artifacts disagree on the same task, main brain should first run:
   - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`
 - `adjudicate_task.sh` only writes a structured comparison draft under `project/output/review/`.

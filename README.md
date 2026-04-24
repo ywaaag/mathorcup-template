@@ -545,6 +545,7 @@ bash scripts/export_reference_image.sh \
   - 真正进入派发路径，claim task 并输出 packet
 - `check_worker_feedback.sh` / `check_retrospective.sh`
   - 在主脑 close / reopen / cancel 前检查 worker 回传 gate
+  - gate now checks minimum non-empty content in required body sections, not only heading structure
 - `extract_policy_hints.sh`
   - 只生成 `policy_hints_candidate.md`，供主脑人工审阅，不自动提升为 contract 或规则
 - `show_task.sh`
@@ -950,7 +951,8 @@ bash scripts/reopen_task.sh --task TASK_LAYOUT_ACCEPTANCE --to review --reason "
 
 ### 11.12 `scripts/check_worker_feedback.sh` / `scripts/check_retrospective.sh`
 
-用途：在主脑验收前检查 worker 回传是否满足最小结构要求。
+用途：在主脑验收前检查 worker 回传是否满足最小结构和最低内容质量要求。
+现在 gate 会检查必填主体 section 是否有最低非空有效内容，而不只是检查标题结构；policy-hint candidate 字段仍可保留默认 `none` / `no`。
 
 常见模式：
 

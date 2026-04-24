@@ -56,6 +56,7 @@
 - `submit_feedback.sh` is a repair/init helper, not the primary dispatch path
 - do not bypass `check_worker_feedback.sh` / `check_retrospective.sh`
 - do not run `close_task.sh` yourself unless the task packet explicitly authorizes a main-brain action
+- required feedback / retrospective body sections must contain concrete non-empty content; do not leave blank bullets, bare `-`, or low-signal values like `none`, `n/a`, `no`, `empty`, or `no meaningful change`
 
 ## Completion Rules
 - Fill the feedback file with verified facts, validation result, and remaining risks.
