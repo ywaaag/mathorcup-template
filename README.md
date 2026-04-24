@@ -126,6 +126,10 @@
   - 校验协议、roles、tasks、queue、paper config 等
 - `scripts/doctor.sh`
   - 轻量诊断入口
+- `scripts/smoke_instance.sh`
+  - 低风险模板自测入口：render temp instance、validate、advisory checks、dispatch/gate/reset；默认不启动 Docker、不运行 `codex exec`
+- `scripts/smoke_realflow.sh`
+  - 可选真实链路自测入口；默认 dry run，不启动 Docker、不运行 `codex exec`，必须显式传 `--with-docker` / `--with-exec`
 - `scripts/check_state_consistency.sh`
   - 只读检查 registry、queue、event log、feedback / retrospective artifact 是否互相矛盾
 - `scripts/dual_brain.sh`

@@ -65,6 +65,8 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scripts/render_templates.sh",
     "scripts/validate_agent_docs.sh",
     "scripts/doctor.sh",
+    "scripts/smoke_instance.sh",
+    "scripts/smoke_realflow.sh",
     "scripts/check_state_consistency.sh",
     "scripts/extract_policy_hints.sh",
     "scripts/list_open_tasks.sh",
