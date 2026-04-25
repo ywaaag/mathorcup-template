@@ -28,7 +28,7 @@
 4. `project/spec/multi_agent_workflow_contract.md`
 5. 消费 handoff 前，先执行默认 intake guard：`bash scripts/check_handoff_intake.sh --target <dir>`
 6. 仅在只需要 indexed path 时，才使用 shortcut：`bash scripts/check_handoff_intake.sh --latest --target <dir>` 或 `bash scripts/check_handoff_intake.sh --files --target <dir>`；warning 仍走 stderr
-7. 当前已索引的 handoff
+7. 当前已索引的 handoff（来自 `MEMORY.md -> ## Handoff Index`）
 8. [补充本轮特定文件]
 
 当前容器：
@@ -198,4 +198,5 @@ See:
   - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`
 - `adjudicate_task.sh` 默认只比较 worker 主证据；callback/event artifacts 作为附加证据，不进入默认 comparison surface。
 - `bash scripts/main_brain_summary.sh --target <dir>` 适合主脑先看全局，再决定哪些 task 需要审计、裁决或收口。
+- `bash scripts/check_handoff_intake.sh --target <dir>` 是默认 handoff intake 入口；未索引 handoff 只算 warning，不进入默认消费面。
 - 这套脚本是半自动 orchestration convenience layer，不是后台自动调度器。

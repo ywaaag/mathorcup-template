@@ -211,12 +211,17 @@ def validate_contracts(root: Path) -> None:
     workflow_contract = (root / "project/spec/multi_agent_workflow_contract.md").read_text(encoding="utf-8")
     prompt_library = (root / "project/workflow/prompt_template_library.md").read_text(encoding="utf-8")
     task_packet_template = (root / "project/workflow/TASK_PACKET_TEMPLATE.md").read_text(encoding="utf-8")
+    paper_runtime_contract = (root / "project/paper/spec/paper_runtime_contract.md").read_text(encoding="utf-8")
     if "project/paper/runtime/paper.env" not in runtime_contract or ".env" not in runtime_contract:
         fail("runtime_contract.md must reference .env and project/paper/runtime/paper.env as config truth sources")
     if "project/spec/runtime_contract.md" not in root_agents or "project/spec/multi_agent_workflow_contract.md" not in root_agents:
         fail("AGENTS.md must route to runtime/workflow docs")
+    if "check_handoff_intake.sh" not in root_agents:
+        fail("AGENTS.md must mention scripts/check_handoff_intake.sh for indexed handoff intake")
     if "spec/paper_runtime_contract.md" not in paper_agents:
         fail("project/paper/AGENTS.md must route to paper runtime contract")
+    if "check_handoff_intake.sh" not in paper_agents:
+        fail("project/paper/AGENTS.md must mention scripts/check_handoff_intake.sh for indexed handoff intake")
     if "project/output/review/WORKER_FEEDBACK_TEMPLATE.md" not in workflow_contract:
         fail("workflow contract must reference worker feedback template")
     if "project/output/retrospectives/RETROSPECTIVE_TEMPLATE.md" not in workflow_contract:
@@ -229,16 +234,26 @@ def validate_contracts(root: Path) -> None:
         fail("workflow contract must reference adjudicate_task.sh and show_task.sh")
     if "codex exec" not in workflow_contract or "scripts/run_exec_worker.sh" not in workflow_contract:
         fail("workflow contract must describe codex exec worker mode via scripts/run_exec_worker.sh")
+    if "check_handoff_intake.sh" not in workflow_contract:
+        fail("workflow contract must reference scripts/check_handoff_intake.sh")
     if "codex exec" not in prompt_library or "scripts/run_exec_worker.sh" not in prompt_library:
         fail("prompt_template_library.md must reference codex exec and scripts/run_exec_worker.sh")
+    if "check_handoff_intake.sh" not in prompt_library:
+        fail("prompt_template_library.md must reference scripts/check_handoff_intake.sh")
     if "process_callbacks.sh" not in prompt_library or "event_log.jsonl" not in prompt_library:
         fail("prompt_template_library.md must reference process_callbacks.sh and event_log.jsonl")
     if "adjudicate_task.sh" not in prompt_library or "main_brain_summary.sh" not in prompt_library:
         fail("prompt_template_library.md must reference adjudicate_task.sh and main_brain_summary.sh")
     if "feedback path" not in task_packet_template or "close_task.sh" not in task_packet_template:
         fail("TASK_PACKET_TEMPLATE.md must describe feedback path and close_task.sh gate")
+    if "check_handoff_intake.sh" not in task_packet_template:
+        fail("TASK_PACKET_TEMPLATE.md must reference scripts/check_handoff_intake.sh")
     if "event_log.jsonl" not in task_packet_template or "callback_hooks.json" not in task_packet_template:
         fail("TASK_PACKET_TEMPLATE.md must reference event_log.jsonl and callback_hooks.json")
+    if "check_handoff_intake.sh" not in runtime_contract:
+        fail("runtime_contract.md must reference scripts/check_handoff_intake.sh")
+    if "check_handoff_intake.sh" not in paper_runtime_contract:
+        fail("paper_runtime_contract.md must reference scripts/check_handoff_intake.sh")
 
 
 def validate_paper_config(root: Path) -> None:

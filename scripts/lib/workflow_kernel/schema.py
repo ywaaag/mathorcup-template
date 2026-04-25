@@ -70,6 +70,7 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scripts/smoke_instance.sh",
     "scripts/smoke_realflow.sh",
     "scripts/submit_handoff.sh",
+    "scripts/check_handoff_intake.sh",
     "scripts/check_state_consistency.sh",
     "scripts/extract_policy_hints.sh",
     "scripts/list_open_tasks.sh",

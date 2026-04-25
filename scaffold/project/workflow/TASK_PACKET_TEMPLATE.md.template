@@ -28,7 +28,7 @@
 4. `project/spec/multi_agent_workflow_contract.md`
 5. Before consuming handoffs, run the default intake guard: `bash scripts/check_handoff_intake.sh --target <dir>`
 6. Use `bash scripts/check_handoff_intake.sh --latest --target <dir>` or `bash scripts/check_handoff_intake.sh --files --target <dir>` only as indexed-path shortcuts
-7. Indexed handoffs
+7. Indexed handoffs from `MEMORY.md -> ## Handoff Index`
 8. Task-specific files
 
 ## Runtime Facts
@@ -49,6 +49,7 @@
 - Validation command: `bash scripts/validate_agent_docs.sh`
 - Indexed handoff intake check: `bash scripts/check_handoff_intake.sh --target <dir>` when this task consumes upstream handoffs
 - Indexed-path shortcuts: `bash scripts/check_handoff_intake.sh --latest --target <dir>` or `bash scripts/check_handoff_intake.sh --files --target <dir>` when a packet only needs paths; warnings still go to stderr
+- Default intake is indexed-only; unindexed disk handoffs are warnings and do not enter the consumable surface.
 - Extra compile/acceptance step: [fill this if needed]
 
 ## Feedback Gate

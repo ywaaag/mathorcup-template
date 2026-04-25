@@ -14,7 +14,7 @@
 3. `../spec/runtime_contract.md`
 4. This file
 5. `bash scripts/check_handoff_intake.sh --target <instance_dir>`
-6. Indexed handoffs
+6. Indexed handoffs from `MEMORY.md -> ## Handoff Index`
 
 ## Single Source Of Truth
 
@@ -52,6 +52,7 @@
 - Indexed handoff files shortcut:
   - `bash scripts/check_handoff_intake.sh --files --target <instance_dir>`
 - Shortcut modes print only indexed paths to stdout and send warnings to stderr; use the default report before full handoff consumption.
+- Unindexed disk handoffs are warnings only and must not become the default paper intake surface.
 - If a task packet writes a direct compile command, it must still be derived from `project/paper/runtime/paper.env`.
 - Do not assume `main.tex`; read the config file.
 - The reference image is expected to already provide:

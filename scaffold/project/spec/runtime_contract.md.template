@@ -14,7 +14,7 @@
 3. `project/spec/runtime_contract.md`
 4. `project/spec/multi_agent_workflow_contract.md`
 5. `bash scripts/check_handoff_intake.sh --target <instance_dir>`
-6. Indexed handoffs
+6. Indexed handoffs from `MEMORY.md -> ## Handoff Index`
 7. Task-specific workflow templates if needed
 
 ## Source Of Truth Layers
@@ -111,6 +111,7 @@
 - Use `bash scripts/check_handoff_intake.sh --files --target <instance_dir>` when only indexed handoff file paths are needed.
 - Shortcut modes print only indexed paths to stdout and send warnings to stderr; use the default report before full handoff consumption.
 - `project/output/handoff/P*.md` files that exist on disk but are not indexed should be treated as warnings, not default inputs.
+- Use `bash scripts/check_handoff_intake.sh --target <instance_dir>` before consuming any handoff so the default intake surface stays indexed-only.
 - Code-side accepted outputs should live under:
   - `project/output/`
   - `project/figures/`

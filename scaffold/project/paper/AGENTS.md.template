@@ -35,6 +35,7 @@
 - Unindexed `../output/handoff/P*.md` files may exist on disk; they are warnings only and must not enter the default paper-side intake set.
 - If data or figure is missing, stop speculative writing and return a blocker or worker packet.
 - `project/paper/runtime/paper.env` is the single source for active paper entrypoint, build target, and acceptance artifacts.
+- `bash ../../scripts/check_handoff_intake.sh --target ../..` is the required paper-side intake guard before consuming handoffs; unindexed disk handoffs are warnings only.
 
 ## LaTeX Hard Rules
 - Figures must include `\caption{}` and `\label{}`.

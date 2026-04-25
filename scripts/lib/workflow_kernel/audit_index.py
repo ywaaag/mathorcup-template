@@ -257,14 +257,167 @@ def handoff_relpath(root: Path, path: Path) -> str:
 def check_handoff(root: Path, file_path: str, *, require_content: bool = True) -> Path:
     path = resolve_handoff_path(root, file_path)
     handoff_dir = (root / "project/output/handoff").resolve()
-    if path.parent != handoff_dir:
-        fail(f"handoff file {path.name} must be in project/output/handoff/")
-    if path.name == "HANDOFF_TEMPLATE.md" or not path.name.startswith("P") or path.suffix != ".md":
-        fail(f"invalid handoff filename: {path.name}")
-    lines = require_headings(path, HANDOFF_HEADINGS, f"handoff file {path.name}")
-    if require_content:
-        require_effective_sections(path, lines, HANDOFF_HEADINGS, "handoff")
+    issue = handoff_contract_issue(path, handoff_dir, require_content=require_content)
+    if issue:
+        fail(issue)
     return path
+
+
+def handoff_contract_issue(path: Path, handoff_dir: Path, *, require_content: bool) -> Optional[str]:
+    if not path.is_file():
+        return f"missing file: {path}"
+    if path.parent != handoff_dir:
+        return f"handoff file {path.name} must be in project/output/handoff/"
+    if path.name == "HANDOFF_TEMPLATE.md" or not path.name.startswith("P") or path.suffix != ".md":
+        return f"invalid handoff filename: {path.name}"
+
+    lines = path.read_text(encoding="utf-8").splitlines()
+    found = [line.strip() for line in lines if line.startswith("## ")]
+    if found != list(HANDOFF_HEADINGS):
+        return f"handoff file {path.name} must contain exact headings: {' | '.join(HANDOFF_HEADINGS)}"
+
+    if require_content:
+        sections = sections_by_heading(lines)
+        missing_or_low_signal = [
+            heading[3:]
+            for heading in HANDOFF_HEADINGS
+            if not has_effective_content(sections.get(heading, []))
+        ]
+        if missing_or_low_signal:
+            return "\n".join(
+                f"- handoff file {path.name} missing or low-signal section: {section_name}"
+                for section_name in missing_or_low_signal
+            )
+    return None
+
+
+def load_handoff_index(root: Path) -> Dict[str, Any]:
+    memory_path = root / "MEMORY.md"
+    if not memory_path.is_file():
+        fail("missing file: MEMORY.md")
+
+    lines = memory_path.read_text(encoding="utf-8").splitlines()
+    try:
+        start = lines.index("## Handoff Index")
+    except ValueError:
+        fail("MEMORY.md missing section: ## Handoff Index")
+
+    end = len(lines)
+    for index in range(start + 1, len(lines)):
+        if lines[index].startswith("## "):
+            end = index
+            break
+
+    latest: Optional[str] = None
+    latest_seen = False
+    files_seen = False
+    files: List[str] = []
+
+    for raw_line in lines[start + 1 : end]:
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("- latest:"):
+            latest_seen = True
+            value = stripped.split(":", 1)[1].strip()
+            if value and value != "none":
+                latest = _normalize_indexed_handoff_ref(value)
+            continue
+        if stripped == "- files:":
+            files_seen = True
+            continue
+        if stripped.startswith("- "):
+            if not files_seen:
+                fail("MEMORY.md -> ## Handoff Index must declare '- files:' before file entries")
+            files.append(_normalize_indexed_handoff_ref(stripped[2:].strip()))
+            continue
+        fail(f"MEMORY.md -> ## Handoff Index contains unsupported line: {raw_line}")
+
+    if not latest_seen:
+        fail("MEMORY.md -> ## Handoff Index missing '- latest:' entry")
+    if not files_seen:
+        fail("MEMORY.md -> ## Handoff Index missing '- files:' entry")
+
+    deduped_files: List[str] = []
+    seen: set[str] = set()
+    for item in files:
+        if item in seen:
+            continue
+        seen.add(item)
+        deduped_files.append(item)
+
+    if latest is None and deduped_files:
+        fail("MEMORY.md -> ## Handoff Index cannot use 'latest: none' when indexed files are present")
+    if latest is not None and latest not in seen:
+        fail(f"MEMORY.md -> ## Handoff Index latest entry is not present in files: {latest}")
+
+    return {
+        "latest": latest,
+        "files": deduped_files,
+    }
+
+
+def _normalize_indexed_handoff_ref(value: str) -> str:
+    normalized = value.strip().strip("`").strip()
+    if not normalized:
+        fail("MEMORY.md -> ## Handoff Index contains an empty handoff path")
+    normalized = normalize_relpath(normalized)
+    if not normalized.startswith("project/output/handoff/"):
+        fail(f"indexed handoff must stay under project/output/handoff/: {normalized}")
+    if normalized.endswith("/HANDOFF_TEMPLATE.md") or normalized == "project/output/handoff/HANDOFF_TEMPLATE.md":
+        fail("HANDOFF_TEMPLATE.md cannot appear in MEMORY.md -> ## Handoff Index")
+    if not normalized.endswith(".md"):
+        fail(f"indexed handoff must be a Markdown file: {normalized}")
+    return normalized
+
+
+def inspect_handoff_intake(root: Path) -> Dict[str, Any]:
+    if detect_root_kind(root) != "instance":
+        fail("handoff-intake requires a rendered instance root")
+
+    handoff_dir = (root / "project/output/handoff").resolve()
+    if not handoff_dir.is_dir():
+        fail("missing directory: project/output/handoff")
+
+    index = load_handoff_index(root)
+    indexed_files = index["files"]
+    for rel in indexed_files:
+        check_handoff(root, rel, require_content=True)
+
+    warnings: List[str] = []
+    indexed_set = set(indexed_files)
+    for path in sorted(handoff_dir.glob("P*.md")):
+        rel = normalize_relpath(path.relative_to(root).as_posix())
+        if rel in indexed_set:
+            continue
+        issue = handoff_contract_issue(path.resolve(), handoff_dir, require_content=True)
+        if issue:
+            warnings.append(f"unindexed handoff ignored by default intake: {rel} (contract issue: {issue})")
+            continue
+        warnings.append(f"unindexed handoff ignored by default intake: {rel}")
+
+    return {
+        "latest": index["latest"],
+        "files": indexed_files,
+        "warnings": warnings,
+    }
+
+
+def render_handoff_intake_report(report: Dict[str, Any]) -> str:
+    lines = [
+        "[workflow] indexed latest: " + (report["latest"] or "none"),
+        "[workflow] indexed files:",
+    ]
+    if report["files"]:
+        lines.extend(f"- {item}" for item in report["files"])
+    else:
+        lines.append("- none")
+    if report["warnings"]:
+        lines.append("[workflow] warnings:")
+        lines.extend(f"- {item}" for item in report["warnings"])
+    else:
+        lines.append("[workflow] warnings: none")
+    return "\n".join(lines) + "\n"
 
 
 def update_handoff_index(root: Path, handoff_rel: str) -> None:

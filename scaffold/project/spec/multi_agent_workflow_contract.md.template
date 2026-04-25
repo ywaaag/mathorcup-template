@@ -86,6 +86,7 @@ All roles should read from these sources before acting:
 - Main brain should inspect, dispatch, reopen, cancel, and close tasks through workflow scripts rather than freehand status edits.
 - State-changing workflow scripts acquire a rendered-instance write lock at `project/runtime/.workflow.lock`, use atomic writes for structured registry / queue JSON and the generated queue board, and run a post-change consistency check before returning success.
 - Read-only/advisory commands such as `doctor.sh`, `main_brain_summary.sh`, `recommend_tasks.sh`, `check_state_consistency.sh`, and `extract_policy_hints.sh` do not acquire the write lock or change control-plane state.
+- `bash scripts/check_handoff_intake.sh --target <dir>` is also read-only/advisory. It reads only `MEMORY.md -> ## Handoff Index`, validates indexed handoffs, and warns about unindexed disk handoffs without promoting them into the default intake set.
 - Key scripts emit events and then run:
   - `bash scripts/process_callbacks.sh`
 - Recommended semi-automatic dispatch path:
@@ -93,6 +94,7 @@ All roles should read from these sources before acting:
   - `bash scripts/list_open_tasks.sh --open-only --target <dir>`
   - `bash scripts/main_brain_summary.sh --target <dir>`
   - `bash scripts/validate_agent_docs.sh --state-consistency-only --root <dir>`
+  - `bash scripts/check_handoff_intake.sh --target <dir>`
   - `bash scripts/recommend_tasks.sh --target <dir>`
   - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner> --target <dir>`
   - canonical feedback skeleton creation happens during dispatch via the `task.dispatched` callback hook
@@ -137,6 +139,7 @@ All roles should read from these sources before acting:
 - 代码脑 / 论文脑 / 杂务 Agent:
   - default behavior is to return structured feedback instead of rewriting `MEMORY.md`
   - should use `scripts/submit_handoff.sh` for code-brain handoffs instead of manually editing `## Handoff Index`
+  - should use `scripts/check_handoff_intake.sh` before consuming indexed handoffs instead of scanning `project/output/handoff/` directly
   - may update `## Blockers` and `## Next Actions` only when explicitly assigned or when acting as the only active session
 
 ## Parallelism Rules
