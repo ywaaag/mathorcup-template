@@ -20,6 +20,7 @@ OVERALL_STATUS=0
 HANDOFF_REL="project/output/handoff/P1_smoke_handoff_${DATE_STAMP}.md"
 HANDOFF_INDEX_VERIFIED=false
 HANDOFF_EVENT_VERIFIED=false
+HANDOFF_INTAKE_PROBE_VERIFIED=false
 
 usage() {
     cat <<'EOF'
@@ -226,6 +227,147 @@ check_handoff_event() {
     HANDOFF_EVENT_VERIFIED=true
 }
 
+prepare_handoff_intake_probe() {
+    HANDOFF_INTAKE_PROBE_DIR="$(mktemp -d "$TARGET_DIR/intake_probe.XXXXXX")"
+    HANDOFF_INTAKE_PROBE_INDEXED_REL="project/output/handoff/P1_intake_indexed_${DATE_STAMP}.md"
+    HANDOFF_INTAKE_PROBE_UNINDEXED_REL="project/output/handoff/P2_intake_unindexed_${DATE_STAMP}.md"
+
+    bash "$SCRIPT_DIR/setup.sh" "$COMPETITION_NAME_ARG" --render-only --target "$HANDOFF_INTAKE_PROBE_DIR" >/dev/null
+
+    python3 - "$HANDOFF_INTAKE_PROBE_DIR" "$HANDOFF_INTAKE_PROBE_INDEXED_REL" "$HANDOFF_INTAKE_PROBE_UNINDEXED_REL" <<'PY'
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1])
+indexed_rel = sys.argv[2]
+unindexed_rel = sys.argv[3]
+
+body = """# Intake Probe Handoff
+
+## Problem
+- indexed handoff intake probe
+
+## Inputs
+- canonical inputs: synthetic probe state
+- supporting files: MEMORY.md and project/output/handoff/
+
+## Method
+- model / script: host-only smoke probe
+- what was actually validated: default intake, shortcut output, missing-indexed failure
+
+## Outputs
+- figures: none
+- tables: stdout and stderr captures
+- csv: none
+
+## For Paper Brain
+- key claims: indexed handoffs are consumable; unindexed valid handoffs warn only
+- variable definitions: latest means the MEMORY.md Handoff Index latest entry
+- wording boundaries / caveats: this is a synthetic workflow probe, not a modeling result
+
+## Risks
+- assumption risk: probe content is synthetic but contract-valid
+- sensitivity risk: none
+"""
+
+(root / indexed_rel).write_text(body, encoding="utf-8")
+(root / unindexed_rel).write_text(body, encoding="utf-8")
+
+memory_path = root / "MEMORY.md"
+lines = memory_path.read_text(encoding="utf-8").splitlines()
+start = lines.index("## Handoff Index")
+end = len(lines)
+for index in range(start + 1, len(lines)):
+    if lines[index].startswith("## "):
+        end = index
+        break
+
+replacement = [
+    "## Handoff Index",
+    f"- latest: {indexed_rel}",
+    "- files:",
+    f"  - {indexed_rel}",
+]
+memory_path.write_text("\n".join(lines[:start] + replacement + lines[end:]).rstrip() + "\n", encoding="utf-8")
+PY
+
+    echo "probe_dir: $HANDOFF_INTAKE_PROBE_DIR"
+    echo "indexed_rel: $HANDOFF_INTAKE_PROBE_INDEXED_REL"
+    echo "unindexed_rel: $HANDOFF_INTAKE_PROBE_UNINDEXED_REL"
+}
+
+check_handoff_intake_default_probe() {
+    local stdout_file stderr_file
+    stdout_file="$(mktemp)"
+    stderr_file="$(mktemp)"
+
+    bash "$SCRIPT_DIR/check_handoff_intake.sh" --target "$HANDOFF_INTAKE_PROBE_DIR" >"$stdout_file" 2>"$stderr_file"
+
+    grep -Fx "[workflow] indexed latest: $HANDOFF_INTAKE_PROBE_INDEXED_REL" "$stdout_file" >/dev/null
+    grep -Fx "[workflow] indexed files:" "$stdout_file" >/dev/null
+    grep -Fx -- "- $HANDOFF_INTAKE_PROBE_INDEXED_REL" "$stdout_file" >/dev/null
+    grep -Fx "[workflow] warnings:" "$stdout_file" >/dev/null
+    grep -F "unindexed handoff ignored by default intake: $HANDOFF_INTAKE_PROBE_UNINDEXED_REL" "$stdout_file" >/dev/null
+    [[ ! -s "$stderr_file" ]]
+
+    echo "[probe] default_report_stdout:"
+    cat "$stdout_file"
+    echo "[probe] default_report_stderr: <empty>"
+
+    rm -f "$stdout_file" "$stderr_file"
+}
+
+check_handoff_intake_shortcut_probe() {
+    local mode="$1"
+    local stdout_file stderr_file
+    stdout_file="$(mktemp)"
+    stderr_file="$(mktemp)"
+
+    local args=()
+    if [[ "$mode" == "latest" ]]; then
+        args+=(--latest)
+    else
+        args+=(--files)
+    fi
+
+    bash "$SCRIPT_DIR/check_handoff_intake.sh" "${args[@]}" --target "$HANDOFF_INTAKE_PROBE_DIR" >"$stdout_file" 2>"$stderr_file"
+
+    grep -Fx "$HANDOFF_INTAKE_PROBE_INDEXED_REL" "$stdout_file" >/dev/null
+    [[ "$(wc -l < "$stdout_file")" -eq 1 ]]
+    grep -F "unindexed handoff ignored by default intake: $HANDOFF_INTAKE_PROBE_UNINDEXED_REL" "$stderr_file" >/dev/null
+
+    echo "[probe] ${mode}_stdout:"
+    cat "$stdout_file"
+    echo "[probe] ${mode}_stderr:"
+    cat "$stderr_file"
+
+    rm -f "$stdout_file" "$stderr_file"
+}
+
+check_handoff_intake_missing_indexed_failure() {
+    local stdout_file stderr_file
+    stdout_file="$(mktemp)"
+    stderr_file="$(mktemp)"
+
+    rm -f "$HANDOFF_INTAKE_PROBE_DIR/$HANDOFF_INTAKE_PROBE_INDEXED_REL"
+
+    set +e
+    bash "$SCRIPT_DIR/check_handoff_intake.sh" --target "$HANDOFF_INTAKE_PROBE_DIR" >"$stdout_file" 2>"$stderr_file"
+    local exit_code=$?
+    set -e
+
+    [[ "$exit_code" -ne 0 ]]
+    grep -F "missing file:" "$stderr_file" >/dev/null
+    grep -F "$HANDOFF_INTAKE_PROBE_INDEXED_REL" "$stderr_file" >/dev/null
+
+    echo "[probe] missing_indexed_exit_code: $exit_code"
+    echo "[probe] missing_indexed_stderr:"
+    cat "$stderr_file"
+
+    rm -f "$stdout_file" "$stderr_file"
+    HANDOFF_INTAKE_PROBE_VERIFIED=true
+}
+
 finish_report() {
     local ready_count="unavailable"
     local policy_hints_generated="false"
@@ -254,6 +396,7 @@ finish_report() {
         echo "- policy_hints_generated: $policy_hints_generated"
         echo "- handoff_index_updated: $handoff_index_updated"
         echo "- handoff_event_recorded: $handoff_event_recorded"
+        echo "- handoff_intake_probe_verified: $HANDOFF_INTAKE_PROBE_VERIFIED"
         echo "- reset_after_validate_passed: $reset_validate_passed"
         echo "- kept_temp_dir: $([[ "$KEEP_TEMP" == true || "$TARGET_PROVIDED" == true || "$OVERALL_STATUS" -ne 0 ]] && echo true || echo false)"
         echo "- overall_status: $([[ "$OVERALL_STATUS" -eq 0 ]] && echo PASS || echo FAIL)"
@@ -314,6 +457,11 @@ run_required "handoff_validate_after_submit" bash "$SCRIPT_DIR/validate_agent_do
 run_required "handoff_consistency_after_submit" bash "$SCRIPT_DIR/check_state_consistency.sh" --target "$TARGET_DIR"
 run_required "handoff_memory_index_check" check_handoff_index
 run_required "handoff_event_check" check_handoff_event
+run_required "handoff_intake_probe_setup" prepare_handoff_intake_probe
+run_required "handoff_intake_default_report" check_handoff_intake_default_probe
+run_required "handoff_intake_latest_shortcut" check_handoff_intake_shortcut_probe latest
+run_required "handoff_intake_files_shortcut" check_handoff_intake_shortcut_probe files
+run_required "handoff_intake_missing_indexed_failure" check_handoff_intake_missing_indexed_failure
 run_required "extract_policy_hints" bash "$SCRIPT_DIR/extract_policy_hints.sh" --target "$TARGET_DIR"
 run_required "paper_print_config" bash "$SCRIPT_DIR/paper.sh" --target "$TARGET_DIR" print-config
 run_required "reset_state" bash "$SCRIPT_DIR/reset_state.sh" --target "$TARGET_DIR"
