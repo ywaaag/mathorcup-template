@@ -160,6 +160,8 @@
   - 主脑一页式决策面板，快速看 runtime facts、queue、active/review、gate 缺口、recent events 和下一步命令建议
 - `scripts/submit_feedback.sh`
   - 为 worker 初始化 feedback / retrospective skeleton
+- `scripts/submit_handoff.sh`
+  - 校验 code-brain handoff，默认更新 `MEMORY.md -> Handoff Index`，并记录 `handoff_submitted` event；不改变 task 状态
 - `scripts/extract_policy_hints.sh`
   - 从 feedback / retrospective 提取结构化经验候选，写入 `policy_hints_candidate.md`，供主脑人工审核
 - `scripts/close_task.sh`
@@ -419,12 +421,13 @@ bash scripts/export_reference_image.sh \
 3. 把任务包发给某个 Agent 会话
 4. dispatch 的 `task.dispatched` callback 会在缺失时自动补建 feedback skeleton
 5. Agent 完成后填写 feedback / retrospective
-6. 如果 feedback 缺失，或你要手工初始化 retrospective，再执行：
+6. code-brain handoff 通过 `submit_handoff.sh` 提交、校验并索引到 `MEMORY.md -> Handoff Index`
+7. 如果 feedback 缺失，或你要手工初始化 retrospective，再执行：
    - `bash scripts/submit_feedback.sh --task <task_id> --with-retrospective --target <dir>`
-7. 如需重放最新 callback，可执行：
+8. 如需重放最新 callback，可执行：
    - `bash scripts/process_callbacks.sh --latest --target <dir>`
-8. `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
-9. 视情况执行：
+9. `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
+10. 视情况执行：
    - `bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>`
    - `bash scripts/reopen_task.sh --task <task_id> --to ready|review|in_progress --reason <reason> --target <dir>`
    - `bash scripts/cancel_task.sh --task <task_id> --reason <reason> --target <dir>`
@@ -903,7 +906,7 @@ bash scripts/close_task.sh --task TASK_CODE_MODEL_SLOT --to review --target <dir
 bash scripts/close_task.sh --task TASK_REVIEW_CONSISTENCY --to done --accepted-by main_brain --target <dir>
 ```
 
-### 11.10 `scripts/submit_feedback.sh`
+### 11.10 `scripts/submit_feedback.sh` / `scripts/submit_handoff.sh`
 
 用途：repair missing feedback skeleton、初始化 retrospective、或手工补建回传文件。
 
@@ -912,6 +915,8 @@ bash scripts/close_task.sh --task TASK_REVIEW_CONSISTENCY --to done --accepted-b
 ```bash
 bash scripts/submit_feedback.sh --task TASK_CODE_MODEL_SLOT --target <dir>
 bash scripts/submit_feedback.sh --task TASK_REVIEW_CONSISTENCY --with-retrospective --target <dir>
+bash scripts/submit_handoff.sh --task TASK_CODE_MODEL_SLOT --handoff <dir>/project/output/handoff/P1_model_20260425.md --target <dir>
+bash scripts/submit_handoff.sh --task TASK_CODE_MODEL_SLOT --handoff <dir>/project/output/handoff/P1_model_20260425.md --target <dir> --no-index
 ```
 
 注意：
@@ -919,6 +924,7 @@ bash scripts/submit_feedback.sh --task TASK_REVIEW_CONSISTENCY --with-retrospect
 - canonical path 是 `dispatch_task.sh` 触发 `task.dispatched` callback 自动补 feedback skeleton
 - `submit_feedback.sh` 不是和 dispatch 并列的主路径
 - 它更适合 repair missing feedback、补 retrospective、或者手工补录
+- `submit_handoff.sh` 是 code-brain handoff 的提交入口：它只接受 rendered instance root，检查 `project/output/handoff/P*.md` 的 6 个 heading 和最低具体内容，默认原子更新 `MEMORY.md -> Handoff Index`，并写入 `handoff_submitted` event；`--no-index` 只校验并记事件，不改 MEMORY
 
 ### 11.10.1 `scripts/extract_policy_hints.sh`
 

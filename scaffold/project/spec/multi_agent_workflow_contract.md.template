@@ -96,6 +96,7 @@ All roles should read from these sources before acting:
   - `bash scripts/recommend_tasks.sh --target <dir>`
   - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner> --target <dir>`
   - canonical feedback skeleton creation happens during dispatch via the `task.dispatched` callback hook
+  - code-brain handoffs must be submitted through `bash scripts/submit_handoff.sh --task <task_id> --handoff <path> --target <dir>` so the file is checked, indexed, and recorded in `event_log.jsonl`
   - `bash scripts/submit_feedback.sh --task <task_id> --with-retrospective --target <dir>` only when you need to repair missing feedback or initialize a retrospective manually
   - `bash scripts/close_task.sh --target <dir>` or `bash scripts/reopen_task.sh --target <dir>` / `bash scripts/cancel_task.sh --target <dir>`
 - `recommend_tasks.sh` is advisory-only. It reads only `project/spec/agent_roles.json`, `project/runtime/task_registry.json`, and `project/runtime/work_queue.json`, then prints safe-to-dispatch candidates, blocked reasons, and suggested dispatch commands. It never claims tasks or rewrites runtime state.
@@ -135,7 +136,8 @@ All roles should read from these sources before acting:
   - full ownership
 - 代码脑 / 论文脑 / 杂务 Agent:
   - default behavior is to return structured feedback instead of rewriting `MEMORY.md`
-  - may update `## Blockers`, `## Next Actions`, `## Handoff Index` only when explicitly assigned or when acting as the only active session
+  - should use `scripts/submit_handoff.sh` for code-brain handoffs instead of manually editing `## Handoff Index`
+  - may update `## Blockers` and `## Next Actions` only when explicitly assigned or when acting as the only active session
 
 ## Parallelism Rules
 

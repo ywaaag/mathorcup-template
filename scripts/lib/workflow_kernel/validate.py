@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Sequence
 
-from workflow_kernel.audit_index import check_feedback, check_retrospective
+from workflow_kernel.audit_index import check_feedback, check_handoff, check_retrospective
 from workflow_kernel.packet import make_task_packet
 from workflow_kernel.schema import (
     INSTANCE_CODEX_SKILLS,
@@ -181,22 +181,10 @@ def validate_handoffs(root: Path) -> None:
     template = handoff_dir / "HANDOFF_TEMPLATE.md"
     if not template.is_file():
         fail("missing file: project/output/handoff/HANDOFF_TEMPLATE.md")
-    expected = [
-        "## Problem",
-        "## Inputs",
-        "## Method",
-        "## Outputs",
-        "## For Paper Brain",
-        "## Risks",
-    ]
     for path in sorted(handoff_dir.glob("*.md")):
         if path.name == "HANDOFF_TEMPLATE.md":
             continue
-        if not path.name.endswith(".md") or not path.name.startswith("P"):
-            fail(f"invalid handoff filename: {path.name}")
-        headings = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.startswith("## ")]
-        if headings != expected:
-            fail(f"{path.name} must contain the exact 6 handoff headings in order")
+        check_handoff(root, path.as_posix(), require_content=False)
 
 
 def validate_contracts(root: Path) -> None:

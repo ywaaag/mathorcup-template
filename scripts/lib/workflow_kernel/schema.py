@@ -69,6 +69,7 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scripts/doctor.sh",
     "scripts/smoke_instance.sh",
     "scripts/smoke_realflow.sh",
+    "scripts/submit_handoff.sh",
     "scripts/check_state_consistency.sh",
     "scripts/extract_policy_hints.sh",
     "scripts/list_open_tasks.sh",
@@ -149,6 +150,15 @@ POLICY_HINT_HEADINGS = [
     "## Suggested Contract Update",
     "## Reusable Lesson",
     "## Should Promote To Contract",
+]
+
+HANDOFF_HEADINGS = [
+    "## Problem",
+    "## Inputs",
+    "## Method",
+    "## Outputs",
+    "## For Paper Brain",
+    "## Risks",
 ]
 
 FEEDBACK_REQUIRED_CONTENT_HEADINGS = [

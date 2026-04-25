@@ -7,9 +7,13 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from workflow_kernel.schema import (
     FEEDBACK_HEADINGS,
     FEEDBACK_REQUIRED_CONTENT_HEADINGS,
+    HANDOFF_HEADINGS,
     RETRO_HEADINGS,
     RETRO_REQUIRED_CONTENT_HEADINGS,
+    atomic_write_text,
+    detect_root_kind,
     fail,
+    normalize_relpath,
     task_from_id,
 )
 
@@ -22,6 +26,18 @@ LOW_SIGNAL_PLACEHOLDERS = {
     "if the main brain had told me this earlier:",
     "future task packets should include:",
     "who should read this next:",
+    "canonical inputs:",
+    "supporting files:",
+    "model / script:",
+    "what was actually validated:",
+    "figures:",
+    "tables:",
+    "csv:",
+    "key claims:",
+    "variable definitions:",
+    "wording boundaries / caveats:",
+    "assumption risk:",
+    "sensitivity risk:",
 }
 LOW_SIGNAL_PREFIXES = (
     "these fields below are candidate policy hints only",
@@ -220,3 +236,88 @@ def check_retrospective(
         if task_id and f"- {task_id}" not in task_id_values:
             fail(f"retrospective file {path.name} does not contain task id '{task_id}'")
     return path
+
+
+def resolve_handoff_path(root: Path, file_path: str) -> Path:
+    if not file_path:
+        fail("submit-handoff requires --handoff")
+    path = Path(file_path)
+    if not path.is_absolute():
+        path = root / path
+    return path.resolve()
+
+
+def handoff_relpath(root: Path, path: Path) -> str:
+    try:
+        return normalize_relpath(path.resolve().relative_to(root.resolve()).as_posix())
+    except ValueError:
+        fail(f"handoff file {path.name} must be inside rendered instance root: {root}")
+
+
+def check_handoff(root: Path, file_path: str, *, require_content: bool = True) -> Path:
+    path = resolve_handoff_path(root, file_path)
+    handoff_dir = (root / "project/output/handoff").resolve()
+    if path.parent != handoff_dir:
+        fail(f"handoff file {path.name} must be in project/output/handoff/")
+    if path.name == "HANDOFF_TEMPLATE.md" or not path.name.startswith("P") or path.suffix != ".md":
+        fail(f"invalid handoff filename: {path.name}")
+    lines = require_headings(path, HANDOFF_HEADINGS, f"handoff file {path.name}")
+    if require_content:
+        require_effective_sections(path, lines, HANDOFF_HEADINGS, "handoff")
+    return path
+
+
+def update_handoff_index(root: Path, handoff_rel: str) -> None:
+    memory_path = root / "MEMORY.md"
+    if not memory_path.is_file():
+        fail("missing file: MEMORY.md")
+
+    lines = memory_path.read_text(encoding="utf-8").splitlines()
+    try:
+        start = lines.index("## Handoff Index")
+    except ValueError:
+        fail("MEMORY.md missing section: ## Handoff Index")
+
+    end = len(lines)
+    for index in range(start + 1, len(lines)):
+        if lines[index].startswith("## "):
+            end = index
+            break
+
+    existing_files = set()
+    for line in lines[start + 1 : end]:
+        stripped = line.strip()
+        if stripped.startswith("- project/output/handoff/"):
+            existing_files.add(stripped[2:].strip())
+        elif stripped.startswith("- `project/output/handoff/`"):
+            existing_files.add(stripped[3:-1].strip())
+        elif stripped.startswith("- `project/output/handoff/"):
+            existing_files.add(stripped[3:].rstrip("`").strip())
+
+    existing_files.add(handoff_rel)
+    replacement = [
+        "## Handoff Index",
+        f"- latest: {handoff_rel}",
+        "- files:",
+    ]
+    replacement.extend(f"  - {item}" for item in sorted(existing_files))
+    new_lines = lines[:start] + replacement + lines[end:]
+    atomic_write_text(memory_path, "\n".join(new_lines).rstrip() + "\n")
+
+
+def submit_handoff(
+    root: Path,
+    state: Dict[str, Any],
+    *,
+    task_id: str,
+    file_path: str,
+    index: bool,
+) -> str:
+    if detect_root_kind(root) != "instance":
+        fail("submit-handoff requires a rendered instance root")
+    task_from_id(state, task_id)
+    path = check_handoff(root, file_path, require_content=True)
+    rel = handoff_relpath(root, path)
+    if index:
+        update_handoff_index(root, rel)
+    return rel

@@ -119,7 +119,6 @@ run_step() {
     set +e
     "$@" > "$output_file" 2>&1
     local exit_code=$?
-    set -e
     append_step_result "$label" "$command_text" "$exit_code" "$output_file"
     rm -f "$output_file"
     return "$exit_code"
@@ -198,7 +197,7 @@ run_required() {
 
 run_goal_text() {
     cat <<EOF
-Act as code_brain. Create project/output/realflow_metrics.csv with three sample metric rows. Create project/output/handoff/P0_realflow_smoke_${DATE_STAMP}.md using exactly the six HANDOFF_TEMPLATE headings: Problem, Inputs, Method, Outputs, For Paper Brain, Risks. Update MEMORY.md -> Handoff Index with that handoff. Fill the feedback body content. Fill the retrospective body content. Do not modify project/paper. Do not close the task.
+Act as code_brain. Create project/output/realflow_metrics.csv with three sample metric rows. Create project/output/handoff/P0_realflow_smoke_${DATE_STAMP}.md using exactly the six HANDOFF_TEMPLATE headings: Problem, Inputs, Method, Outputs, For Paper Brain, Risks. Submit that handoff with bash scripts/submit_handoff.sh --task TASK_CODE_MODEL_SLOT --handoff project/output/handoff/P0_realflow_smoke_${DATE_STAMP}.md --target . so MEMORY.md -> Handoff Index and event_log.jsonl are updated by the workflow tool. Fill the feedback body content. Fill the retrospective body content. Do not modify project/paper. Do not close the task.
 EOF
 }
 

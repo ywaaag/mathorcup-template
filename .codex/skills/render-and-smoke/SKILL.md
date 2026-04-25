@@ -15,7 +15,7 @@ bash scripts/smoke_instance.sh --keep-temp
 
 It writes a timestamped Markdown report under `reports/`, renders a temporary instance, runs low-risk advisory checks, fills minimum valid feedback content for the Phase 1 gate, and does not start Docker or run `codex exec`.
 
-The smoke path exercises the state-changing workflow entrypoints through their instance-local write lock and post-change consistency check.
+The smoke path exercises the state-changing workflow entrypoints through their instance-local write lock and post-change consistency check, including `submit_handoff.sh` for host-only handoff validation, MEMORY indexing, and event emission.
 
 ## Standard flow
 

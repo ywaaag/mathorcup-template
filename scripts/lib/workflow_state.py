@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from workflow_kernel.audit_index import check_feedback, check_retrospective, init_feedback_files
+from workflow_kernel.audit_index import check_feedback, check_handoff, check_retrospective, init_feedback_files, submit_handoff
 from workflow_kernel.consistency import state_consistency_report
 from workflow_kernel.packet import make_task_packet
 from workflow_kernel.policy_hints import extract_policy_hints
@@ -250,6 +250,16 @@ def build_parser() -> argparse.ArgumentParser:
     check_retro_parser.add_argument("--task")
     check_retro_parser.add_argument("--file")
 
+    check_handoff_parser = subparsers.add_parser("check-handoff")
+    check_handoff_parser.add_argument("--root", required=True)
+    check_handoff_parser.add_argument("--file", required=True)
+
+    submit_handoff_parser = subparsers.add_parser("submit-handoff")
+    submit_handoff_parser.add_argument("--root", required=True)
+    submit_handoff_parser.add_argument("--task", required=True)
+    submit_handoff_parser.add_argument("--handoff", required=True)
+    submit_handoff_parser.add_argument("--no-index", action="store_true")
+
     render_queue = subparsers.add_parser("render-queue")
     render_queue.add_argument("--root", required=True)
 
@@ -362,6 +372,17 @@ def main(argv: Sequence[str]) -> int:
     if args.command == "check-retrospective":
         check_retrospective(root, state, task_id=args.task, file_path=args.file, require_exists=True)
         print("[workflow] retrospective OK")
+        return 0
+
+    if args.command == "check-handoff":
+        path = check_handoff(root, args.file, require_content=True)
+        print(f"[workflow] handoff OK: {path.relative_to(root).as_posix()}")
+        return 0
+
+    if args.command == "submit-handoff":
+        rel = submit_handoff(root, state, task_id=args.task, file_path=args.handoff, index=not args.no_index)
+        print(f"[workflow] handoff submitted: {rel}")
+        print(f"[workflow] handoff indexed: {str(not args.no_index).lower()}")
         return 0
 
     if args.command == "render-queue":

@@ -12,10 +12,14 @@ TARGET_DIR=""
 TARGET_PROVIDED=false
 KEEP_TEMP=false
 STAMP="$(date +%Y%m%d_%H%M%S)"
+DATE_STAMP="$(date +%Y%m%d)"
 REPORT_DIR="$ROOT_DIR/reports"
 REPORT_PATH="$REPORT_DIR/smoke_instance_${STAMP}.md"
 STEP_INDEX=0
 OVERALL_STATUS=0
+HANDOFF_REL="project/output/handoff/P1_smoke_handoff_${DATE_STAMP}.md"
+HANDOFF_INDEX_VERIFIED=false
+HANDOFF_EVENT_VERIFIED=false
 
 usage() {
     cat <<'EOF'
@@ -91,7 +95,6 @@ run_step() {
     set +e
     "$@" > "$output_file" 2>&1
     local exit_code=$?
-    set -e
     append_step_result "$label" "$command_text" "$exit_code" "$output_file"
     rm -f "$output_file"
     return "$exit_code"
@@ -182,10 +185,53 @@ These fields below are candidate policy hints only. They may stay at their defau
 EOF
 }
 
+write_minimal_handoff() {
+    cat > "$TARGET_DIR/$HANDOFF_REL" <<EOF
+# P1 Smoke Handoff
+
+## Problem
+- P1 smoke validation for the submit_handoff workflow entrypoint.
+
+## Inputs
+- MEMORY.md and project/runtime files are rendered from scaffold for this temporary instance.
+- No competition dataset is required for this host-only smoke artifact.
+
+## Method
+- Created a deterministic handoff artifact to exercise validation, indexing, and event emission.
+- Verified the handoff submit contract without starting Docker or running codex exec.
+
+## Outputs
+- $HANDOFF_REL records the smoke handoff content.
+- project/runtime/event_log.jsonl should contain a handoff_submitted event.
+
+## For Paper Brain
+- Paper brain should treat this as smoke evidence for workflow mechanics only.
+- Indexed handoffs in MEMORY.md are the consumable handoff list.
+
+## Risks
+- This synthetic handoff is not a modeling result.
+- No paper claim should cite this smoke artifact as problem evidence.
+EOF
+}
+
+check_handoff_index() {
+    grep -F "latest: $HANDOFF_REL" "$TARGET_DIR/MEMORY.md" >/dev/null
+    grep -F "  - $HANDOFF_REL" "$TARGET_DIR/MEMORY.md" >/dev/null
+    HANDOFF_INDEX_VERIFIED=true
+}
+
+check_handoff_event() {
+    grep -F '"event_type": "handoff_submitted"' "$TARGET_DIR/project/runtime/event_log.jsonl" >/dev/null
+    grep -F "\"handoff\": \"$HANDOFF_REL\"" "$TARGET_DIR/project/runtime/event_log.jsonl" >/dev/null
+    HANDOFF_EVENT_VERIFIED=true
+}
+
 finish_report() {
     local ready_count="unavailable"
     local policy_hints_generated="false"
     local reset_validate_passed="false"
+    local handoff_index_updated="false"
+    local handoff_event_recorded="false"
     if [[ -f "$TARGET_DIR/project/runtime/task_registry.json" ]]; then
         ready_count="$(ready_task_count 2>/dev/null || echo unavailable)"
     fi
@@ -195,11 +241,19 @@ finish_report() {
     if grep -q "reset_validate_after" "$REPORT_PATH" && grep -A4 "reset_validate_after" "$REPORT_PATH" | grep -q "result: PASS"; then
         reset_validate_passed="true"
     fi
+    if [[ "$HANDOFF_INDEX_VERIFIED" == true ]]; then
+        handoff_index_updated="true"
+    fi
+    if [[ "$HANDOFF_EVENT_VERIFIED" == true ]]; then
+        handoff_event_recorded="true"
+    fi
     {
         echo "## Key Observations"
         echo ""
         echo "- ready_task_count_current: $ready_count"
         echo "- policy_hints_generated: $policy_hints_generated"
+        echo "- handoff_index_updated: $handoff_index_updated"
+        echo "- handoff_event_recorded: $handoff_event_recorded"
         echo "- reset_after_validate_passed: $reset_validate_passed"
         echo "- kept_temp_dir: $([[ "$KEEP_TEMP" == true || "$TARGET_PROVIDED" == true || "$OVERALL_STATUS" -ne 0 ]] && echo true || echo false)"
         echo "- overall_status: $([[ "$OVERALL_STATUS" -eq 0 ]] && echo PASS || echo FAIL)"
@@ -254,6 +308,12 @@ run_required "fill_minimal_feedback" write_minimal_feedback
 run_required "check_worker_feedback" bash "$SCRIPT_DIR/check_worker_feedback.sh" --task TASK_REVIEW_CONSISTENCY --target "$TARGET_DIR"
 run_required "close_task_review" bash "$SCRIPT_DIR/close_task.sh" --task TASK_REVIEW_CONSISTENCY --to review --target "$TARGET_DIR"
 run_required "check_state_consistency" bash "$SCRIPT_DIR/check_state_consistency.sh" --target "$TARGET_DIR"
+run_required "write_minimal_handoff" write_minimal_handoff
+run_required "submit_handoff" bash "$SCRIPT_DIR/submit_handoff.sh" --task TASK_CODE_MODEL_SLOT --handoff "$TARGET_DIR/$HANDOFF_REL" --target "$TARGET_DIR" --actor smoke_instance
+run_required "handoff_validate_after_submit" bash "$SCRIPT_DIR/validate_agent_docs.sh" --root "$TARGET_DIR"
+run_required "handoff_consistency_after_submit" bash "$SCRIPT_DIR/check_state_consistency.sh" --target "$TARGET_DIR"
+run_required "handoff_memory_index_check" check_handoff_index
+run_required "handoff_event_check" check_handoff_event
 run_required "extract_policy_hints" bash "$SCRIPT_DIR/extract_policy_hints.sh" --target "$TARGET_DIR"
 run_required "paper_print_config" bash "$SCRIPT_DIR/paper.sh" --target "$TARGET_DIR" print-config
 run_required "reset_state" bash "$SCRIPT_DIR/reset_state.sh" --target "$TARGET_DIR"
