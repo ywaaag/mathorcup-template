@@ -87,6 +87,7 @@ All roles should read from these sources before acting:
 - State-changing workflow scripts acquire a rendered-instance write lock at `project/runtime/.workflow.lock`, use atomic writes for structured registry / queue JSON and the generated queue board, and run a post-change consistency check before returning success.
 - Read-only/advisory commands such as `doctor.sh`, `main_brain_summary.sh`, `recommend_tasks.sh`, `check_state_consistency.sh`, and `extract_policy_hints.sh` do not acquire the write lock or change control-plane state.
 - `bash scripts/check_handoff_intake.sh --target <dir>` is also read-only/advisory. It reads only `MEMORY.md -> ## Handoff Index`, validates indexed handoffs, and warns about unindexed disk handoffs without promoting them into the default intake set.
+- Before a main-brain review/done decision, run `bash scripts/check_handoff_intake.sh --target <dir>` and use only the indexed surface as consumable handoff input.
 - Key scripts emit events and then run:
   - `bash scripts/process_callbacks.sh`
 - Recommended semi-automatic dispatch path:
@@ -100,7 +101,9 @@ All roles should read from these sources before acting:
   - canonical feedback skeleton creation happens during dispatch via the `task.dispatched` callback hook
   - code-brain handoffs must be submitted through `bash scripts/submit_handoff.sh --task <task_id> --handoff <path> --target <dir>` so the file is checked, indexed, and recorded in `event_log.jsonl`
   - `bash scripts/submit_feedback.sh --task <task_id> --with-retrospective --target <dir>` only when you need to repair missing feedback or initialize a retrospective manually
-  - `bash scripts/close_task.sh --target <dir>` or `bash scripts/reopen_task.sh --target <dir>` / `bash scripts/cancel_task.sh --target <dir>`
+  - `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
+  - `bash scripts/check_retrospective.sh --task <task_id> --target <dir>` when closing as done
+  - `bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>` or `bash scripts/reopen_task.sh --target <dir>` / `bash scripts/cancel_task.sh --target <dir>`
 - `recommend_tasks.sh` is advisory-only. It reads only `project/spec/agent_roles.json`, `project/runtime/task_registry.json`, and `project/runtime/work_queue.json`, then prints safe-to-dispatch candidates, blocked reasons, and suggested dispatch commands. It never claims tasks or rewrites runtime state.
 - `main_brain_summary.sh` is advisory-only. It reads rendered instance runtime/config state, prints a one-page main-brain decision panel, and never dispatches, closes, reopens, cancels, or rewrites runtime state. It should be the first main-brain screen after `doctor.sh`.
 - `validate_agent_docs.sh --state-consistency-only` and `check_state_consistency.sh` are read-only gates/checkers. They compare registry, queue, event log, feedback, and retrospective artifacts for contradictions. They do not repair state, replay event logs, dispatch, close, reopen, cancel, or replace main-brain judgement.
@@ -245,6 +248,7 @@ The required body sections in these files must be filled with concrete content b
   - `bash scripts/list_history.sh --task <task_id> --target <dir>`
   - `bash scripts/main_brain_summary.sh --target <dir>`
 - `main_brain_summary.sh` should be the first one-page decision surface after `doctor.sh`; it summarizes runtime facts, queue counts, active tasks, review gates, missing gates, recent events, and recommended next commands.
+- `main_brain_summary.sh` must expose the review/done close gate, including `check_handoff_intake.sh --target <dir>`, `check_worker_feedback.sh --task <task_id> --target <dir>`, `check_retrospective.sh --task <task_id> --target <dir>`, and `close_task.sh --task <task_id> --to review|done --target <dir>`.
 - `validate_agent_docs.sh --state-consistency-only` or `check_state_consistency.sh` should be the next read-only gate before dispatch or close-level decisions.
 - `recommend_tasks.sh` should be treated as the advisory surface before `dispatch_task.sh`, not as a substitute for dispatch itself.
 - `extract_policy_hints.sh` should be run after feedback / retrospective accumulation when the main brain wants a candidate lesson summary; it is not a control-plane source of truth.
@@ -256,6 +260,7 @@ The required body sections in these files must be filled with concrete content b
   - `bash scripts/close_task.sh`
   - `bash scripts/reopen_task.sh`
   - `bash scripts/cancel_task.sh`
+- worker must not run close_task.sh; workers fill feedback/retrospective and return evidence for main-brain judgement.
 
 ## Delegation Note
 

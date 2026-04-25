@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
-from workflow_kernel.audit_index import check_feedback, check_retrospective
+from workflow_kernel.audit_index import check_feedback, check_retrospective, inspect_handoff_intake
 from workflow_kernel.packet import choose_cwd, collect_acceptance_artifacts
 from workflow_kernel.render import write_queue_board
 from workflow_kernel.schema import (
@@ -307,6 +307,7 @@ def close_task(root: Path, state: Dict[str, Any], task_id: str, next_status: str
         fail(f"task {task_id} is not currently claimed")
     from_status = task["status"]
     owner = task["owner"]
+    handoff_intake = inspect_handoff_intake(root)
     check_feedback(root, state, task_id=task_id, file_path=None, require_exists=True)
     if next_status == "done":
         check_retrospective(root, state, task_id=task_id, file_path=None, require_exists=True)
@@ -326,7 +327,12 @@ def close_task(root: Path, state: Dict[str, Any], task_id: str, next_status: str
         to_status=next_status,
         owner=owner,
         actor=actor or accepted_by or owner,
-        extra={"accepted_by": accepted_by},
+        extra={
+            "accepted_by": accepted_by,
+            "handoff_intake_latest": handoff_intake.get("latest") or "none",
+            "handoff_intake_files": handoff_intake.get("files", []),
+            "handoff_intake_warning_count": len(handoff_intake.get("warnings", [])),
+        },
     )
     save_structured(state["registry_path"], state["registry"])
     save_structured(state["queue_path"], state["queue"])

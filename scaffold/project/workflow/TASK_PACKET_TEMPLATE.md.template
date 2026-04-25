@@ -60,8 +60,14 @@
 - canonical feedback skeleton path: dispatch callback on `task.dispatched`
 - `submit_feedback.sh` is a repair/init helper, not the primary dispatch path
 - do not bypass `check_worker_feedback.sh` / `check_retrospective.sh`
-- do not run `close_task.sh` yourself unless the task packet explicitly authorizes a main-brain action
+- worker must not run close_task.sh; only main brain may execute close/reopen/cancel decisions
 - required feedback / retrospective body sections must contain concrete non-empty content; do not leave blank bullets, bare `-`, or low-signal values like `none`, `n/a`, `no`, `empty`, or `no meaningful change`
+- main-brain review/done gate:
+  - `bash scripts/check_handoff_intake.sh --target <dir>`
+  - `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
+  - `bash scripts/check_retrospective.sh --task <task_id> --target <dir>`
+  - `bash scripts/close_task.sh --task <task_id> --to review --target <dir>`
+  - `bash scripts/close_task.sh --task <task_id> --to done --accepted-by main_brain --target <dir>`
 
 ## Completion Rules
 - Fill the feedback file with verified facts, validation result, and remaining risks.

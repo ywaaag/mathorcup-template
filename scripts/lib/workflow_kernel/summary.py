@@ -164,6 +164,7 @@ def append_review_tasks(lines: List[str], root: Path, tasks: Sequence[Dict[str, 
         lines.append(f"  feedback_path: {feedback_path or '-'} | exists={exists_flag(root, feedback_path)}")
         lines.append(f"  retrospective_path: {retrospective_path or '-'} | exists={exists_flag(root, retrospective_path)}")
         lines.append(f"  accepted_by_main_brain: {accepted}")
+        lines.append(f"  check_handoff_intake: {command(['bash', 'scripts/check_handoff_intake.sh', '--target', str(root)])}")
         lines.append(f"  check_feedback: {command(['bash', 'scripts/check_worker_feedback.sh', '--task', task_id, '--target', str(root)])}")
         lines.append(f"  check_retrospective: {command(['bash', 'scripts/check_retrospective.sh', '--task', task_id, '--target', str(root)])}")
         lines.append(
@@ -183,6 +184,78 @@ def append_review_tasks(lines: List[str], root: Path, tasks: Sequence[Dict[str, 
                 ]
             )
         )
+
+
+def done_tasks(tasks: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [task for task in tasks if task.get("status") == "done"]
+
+
+def append_close_gate(lines: List[str], root: Path, tasks: Sequence[Dict[str, Any]], active: Sequence[Dict[str, Any]]) -> None:
+    lines.append("## Review / Done Close Gate")
+    lines.append(f"- Handoff intake first: {command(['bash', 'scripts/check_handoff_intake.sh', '--target', str(root)])}")
+    if active:
+        lines.append("- Active tasks can move to review only after main-brain gate checks:")
+        for item in active:
+            task_id = item.get("task_id", "<task_id>")
+            lines.append(f"  - {command(['bash', 'scripts/check_worker_feedback.sh', '--task', task_id, '--target', str(root)])}")
+            lines.append(f"  - {command(['bash', 'scripts/close_task.sh', '--task', task_id, '--to', 'review', '--target', str(root)])}")
+    else:
+        lines.append("- Active tasks can move to review after feedback passes; no active tasks are currently claimed.")
+        lines.append(f"  - {command(['bash', 'scripts/check_worker_feedback.sh', '--task', '<task_id>', '--target', str(root)])}")
+        lines.append(f"  - {command(['bash', 'scripts/close_task.sh', '--task', '<task_id>', '--to', 'review', '--target', str(root)])}")
+
+    reviews = review_tasks(tasks)
+    if reviews:
+        lines.append("- Review tasks can move to done only after feedback, retrospective, and main-brain acceptance:")
+        for task in reviews:
+            task_id = task["task_id"]
+            lines.append(f"  - {command(['bash', 'scripts/check_worker_feedback.sh', '--task', task_id, '--target', str(root)])}")
+            lines.append(f"  - {command(['bash', 'scripts/check_retrospective.sh', '--task', task_id, '--target', str(root)])}")
+            lines.append(
+                "  - "
+                + command(
+                    [
+                        "bash",
+                        "scripts/close_task.sh",
+                        "--task",
+                        task_id,
+                        "--to",
+                        "done",
+                        "--accepted-by",
+                        "main_brain",
+                        "--target",
+                        str(root),
+                    ]
+                )
+            )
+    else:
+        lines.append("- Review tasks can move to done after feedback and retrospective pass; no review tasks are waiting.")
+        lines.append(f"  - {command(['bash', 'scripts/check_worker_feedback.sh', '--task', '<task_id>', '--target', str(root)])}")
+        lines.append(f"  - {command(['bash', 'scripts/check_retrospective.sh', '--task', '<task_id>', '--target', str(root)])}")
+        lines.append(
+            "  - "
+            + command(
+                [
+                    "bash",
+                    "scripts/close_task.sh",
+                    "--task",
+                    "<task_id>",
+                    "--to",
+                    "done",
+                    "--accepted-by",
+                    "main_brain",
+                    "--target",
+                    str(root),
+                ]
+            )
+        )
+
+    done = done_tasks(tasks)
+    if done:
+        lines.append("- Done tasks already accepted by main brain:")
+        for task in done:
+            accepted = "yes" if task.get("accepted_by_main_brain") else "no"
+            lines.append(f"  - {task.get('task_id', '<unknown>')} | accepted_by_main_brain={accepted}")
 
 
 def append_recent_events(lines: List[str], root: Path) -> None:
@@ -226,6 +299,7 @@ def append_recommended_commands(
         lines.append("- Review gate drill-down:")
         for task in reviews:
             task_id = task["task_id"]
+            lines.append(f"  - {command(['bash', 'scripts/check_handoff_intake.sh', '--target', str(root)])}")
             lines.append(f"  - {command(['bash', 'scripts/check_worker_feedback.sh', '--task', task_id, '--target', str(root)])}")
             lines.append(f"  - {command(['bash', 'scripts/check_retrospective.sh', '--task', task_id, '--target', str(root)])}")
             lines.append(
@@ -311,6 +385,8 @@ def main_summary_report(root: Path) -> str:
     append_active_tasks(lines, active)
     lines.append("")
     append_review_tasks(lines, root, tasks)
+    lines.append("")
+    append_close_gate(lines, root, tasks, active)
 
     lines.extend(["", "## Missing Gates"])
     gate_issues = missing_gates(root, tasks)

@@ -112,6 +112,12 @@
 - Shortcut modes print only indexed paths to stdout and send warnings to stderr; use the default report before full handoff consumption.
 - `project/output/handoff/P*.md` files that exist on disk but are not indexed should be treated as warnings, not default inputs.
 - Use `bash scripts/check_handoff_intake.sh --target <instance_dir>` before consuming any handoff so the default intake surface stays indexed-only.
+- Main brain must inspect indexed handoff intake before any review/done decision:
+  - `bash scripts/check_handoff_intake.sh --target <dir>`
+- Review/done gate commands:
+  - `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
+  - `bash scripts/check_retrospective.sh --task <task_id> --target <dir>`
+  - `bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>`
 - Code-side accepted outputs should live under:
   - `project/output/`
   - `project/figures/`

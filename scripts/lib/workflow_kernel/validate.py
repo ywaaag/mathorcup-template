@@ -29,6 +29,20 @@ from workflow_kernel.schema import (
 )
 
 
+PHASE6_CLOSE_GATE_COMMANDS = [
+    "bash scripts/check_handoff_intake.sh --target <dir>",
+    "bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>",
+    "bash scripts/check_retrospective.sh --task <task_id> --target <dir>",
+    "bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>",
+]
+
+
+def require_text_contains(text: str, needles: Sequence[str], context: str) -> None:
+    missing = [needle for needle in needles if needle not in text]
+    if missing:
+        fail(f"{context} missing required Phase 6 close/review gate text: {', '.join(missing)}")
+
+
 def validate_requirements_toml(path: Path, *, context: str) -> None:
     if not path.is_file():
         fail(f"missing file: {path}")
@@ -211,6 +225,7 @@ def validate_contracts(root: Path) -> None:
     workflow_contract = (root / "project/spec/multi_agent_workflow_contract.md").read_text(encoding="utf-8")
     prompt_library = (root / "project/workflow/prompt_template_library.md").read_text(encoding="utf-8")
     task_packet_template = (root / "project/workflow/TASK_PACKET_TEMPLATE.md").read_text(encoding="utf-8")
+    acceptance_template = (root / "project/workflow/MAIN_BRAIN_ACCEPTANCE_TEMPLATE.md").read_text(encoding="utf-8")
     paper_runtime_contract = (root / "project/paper/spec/paper_runtime_contract.md").read_text(encoding="utf-8")
     if "project/paper/runtime/paper.env" not in runtime_contract or ".env" not in runtime_contract:
         fail("runtime_contract.md must reference .env and project/paper/runtime/paper.env as config truth sources")
@@ -254,6 +269,59 @@ def validate_contracts(root: Path) -> None:
         fail("runtime_contract.md must reference scripts/check_handoff_intake.sh")
     if "check_handoff_intake.sh" not in paper_runtime_contract:
         fail("paper_runtime_contract.md must reference scripts/check_handoff_intake.sh")
+    require_text_contains(
+        acceptance_template,
+        PHASE6_CLOSE_GATE_COMMANDS,
+        "MAIN_BRAIN_ACCEPTANCE_TEMPLATE.md",
+    )
+    require_text_contains(
+        workflow_contract,
+        [
+            "check_handoff_intake.sh --target <dir>",
+            "check_worker_feedback.sh --task <task_id> --target <dir>",
+            "check_retrospective.sh --task <task_id> --target <dir>",
+            "close_task.sh --task <task_id> --to review|done --target <dir>",
+            "worker must not run close_task.sh",
+        ],
+        "multi_agent_workflow_contract.md",
+    )
+    require_text_contains(
+        task_packet_template,
+        [
+            "check_handoff_intake.sh --target <dir>",
+            "check_worker_feedback.sh --task <task_id> --target <dir>",
+            "check_retrospective.sh --task <task_id> --target <dir>",
+            "close_task.sh --task <task_id> --to review --target <dir>",
+            "close_task.sh --task <task_id> --to done --accepted-by main_brain --target <dir>",
+            "worker must not run close_task.sh",
+        ],
+        "TASK_PACKET_TEMPLATE.md",
+    )
+    require_text_contains(
+        prompt_library,
+        [
+            "check_handoff_intake.sh --target <dir>",
+            "check_worker_feedback.sh --task <task_id> --target <dir>",
+            "check_retrospective.sh --task <task_id> --target <dir>",
+            "close_task.sh --task <task_id> --to review|done --target <dir>",
+            "不要自行执行 `close_task.sh`",
+        ],
+        "prompt_template_library.md",
+    )
+    from workflow_kernel.summary import main_summary_report
+
+    summary = main_summary_report(root)
+    require_text_contains(
+        summary,
+        [
+            "## Review / Done Close Gate",
+            "scripts/check_handoff_intake.sh",
+            "scripts/check_worker_feedback.sh",
+            "scripts/check_retrospective.sh",
+            "scripts/close_task.sh",
+        ],
+        "main_brain_summary.sh output",
+    )
 
 
 def validate_paper_config(root: Path) -> None:
@@ -343,7 +411,19 @@ def validate_tasks(root: Path, state: Dict[str, Any]) -> None:
             fail(f"task {task_id} feedback_path parent does not exist: {feedback_parent.relative_to(root)}")
         if not retro_parent.exists():
             fail(f"task {task_id} retrospective_path parent does not exist: {retro_parent.relative_to(root)}")
-        make_task_packet(root, state, task["role"], task_id)
+        packet = make_task_packet(root, state, task["role"], task_id)
+        require_text_contains(
+            packet,
+            [
+                "bash scripts/check_handoff_intake.sh --target",
+                f"bash scripts/check_worker_feedback.sh --task {task_id} --target",
+                f"bash scripts/check_retrospective.sh --task {task_id} --target",
+                f"bash scripts/close_task.sh --task {task_id} --to review --target",
+                f"bash scripts/close_task.sh --task {task_id} --to done --accepted-by main_brain --target",
+                "worker 只提交结果，不自行验收结案",
+            ],
+            f"generated task packet for {task_id}",
+        )
 
 
 def validate_queue(root: Path, state: Dict[str, Any]) -> None:

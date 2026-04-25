@@ -36,6 +36,7 @@
 - If data or figure is missing, stop speculative writing and return a blocker or worker packet.
 - `project/paper/runtime/paper.env` is the single source for active paper entrypoint, build target, and acceptance artifacts.
 - `bash ../../scripts/check_handoff_intake.sh --target ../..` is the required paper-side intake guard before consuming handoffs; unindexed disk handoffs are warnings only.
+- Main-brain review/done decisions must inspect indexed intake before accepting paper-side handoff consumption.
 
 ## LaTeX Hard Rules
 - Figures must include `\caption{}` and `\label{}`.
