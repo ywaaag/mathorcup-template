@@ -102,6 +102,10 @@
 - If you need to replay or inspect orchestration state changes, read `project/runtime/event_log.jsonl` instead of reverse-engineering chat history.
 - `MEMORY.md` is for live task state only; do not copy runtime config into it.
 - `owner` in the task registry means current active owner only. Once a task leaves `in_progress`, inspect event/history views for the last actor instead of reusing `owner`.
+- Read-only audit commands keep text output by default and expose structured JSON for tool consumers:
+  - `bash scripts/check_state_consistency.sh --target <dir> --json`
+  - `bash scripts/main_brain_summary.sh --target <dir> --json`
+- Structured audit JSON must include `schema_version`, `generated_at`, `root`, `root_kind`, `ok` or `status`, and queryable sections/findings/commands.
 
 ## Handoff And Acceptance Rules
 

@@ -55,6 +55,7 @@
 
 开始前先执行：
 - `bash scripts/validate_agent_docs.sh`
+- 需要机器可消费验收面时，使用 `bash scripts/check_state_consistency.sh --target <dir> --json` 和 `bash scripts/main_brain_summary.sh --target <dir> --json`；默认文本输出仍给人读
 
 完成后必须：
 - 回填 task 对应的 feedback / retrospective 文件

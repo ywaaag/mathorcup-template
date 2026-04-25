@@ -13,6 +13,9 @@ Use this checklist before accepting a worker result:
 - Which claims are actually verified by live files, logs, or outputs?
 - Indexed handoff intake checked first:
   - `bash scripts/check_handoff_intake.sh --target <dir>`
+- Optional structured read-only checks for machine-assisted review:
+  - `bash scripts/check_state_consistency.sh --target <dir> --json`
+  - `bash scripts/main_brain_summary.sh --target <dir> --json`
 
 4. Acceptance Artifacts
 - If the task touched paper/build, were the host-visible acceptance artifacts refreshed?

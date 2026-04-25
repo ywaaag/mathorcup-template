@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, Tuple
 
@@ -41,6 +42,14 @@ class Finding:
 
     def render(self) -> str:
         return f"- task_id={self.task_id} | path={self.path} | {self.message}"
+
+    def to_dict(self) -> Dict[str, str]:
+        return {
+            "level": self.level,
+            "task_id": self.task_id,
+            "path": self.path,
+            "message": self.message,
+        }
 
 
 class ConsistencyReport:
@@ -83,6 +92,31 @@ class ConsistencyReport:
             lines.append("Result: PASS")
         return "\n".join(lines) + "\n"
 
+    def to_payload(self, *, generated_at: str, root_kind: str) -> Dict[str, Any]:
+        return {
+            "schema_version": "state_consistency.v1",
+            "generated_at": generated_at,
+            "root": str(self.root),
+            "root_kind": root_kind,
+            "ok": not self.has_errors,
+            "status": "FAIL" if self.has_errors else "PASS",
+            "read_only": True,
+            "findings": {
+                "ok": [item.to_dict() for item in self.ok],
+                "warn": [item.to_dict() for item in self.warn],
+                "error": [item.to_dict() for item in self.error],
+            },
+            "summary": {
+                "ok_count": len(self.ok),
+                "warn_count": len(self.warn),
+                "error_count": len(self.error),
+            },
+        }
+
+
+def generated_timestamp() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
 
 def template_source_notice(root: Path) -> str:
     return "\n".join(
@@ -105,8 +139,51 @@ def template_source_notice(root: Path) -> str:
 
 
 def state_consistency_report(root: Path) -> Tuple[str, int]:
-    if detect_root_kind(root) == "template_source":
+    root_kind = detect_root_kind(root)
+    if root_kind == "template_source":
         return template_source_notice(root), 0
+
+    payload, status = state_consistency_payload(root)
+    report = _report_from_payload(root, payload)
+    return report.render(), status
+
+
+def state_consistency_payload(root: Path) -> Tuple[Dict[str, Any], int]:
+    root_kind = detect_root_kind(root)
+    generated_at = generated_timestamp()
+    if root_kind == "template_source":
+        payload = {
+            "schema_version": "state_consistency.v1",
+            "generated_at": generated_at,
+            "root": str(root),
+            "root_kind": root_kind,
+            "ok": True,
+            "status": "TEMPLATE_SOURCE",
+            "read_only": True,
+            "findings": {
+                "ok": [],
+                "warn": [
+                    {
+                        "level": "WARN",
+                        "task_id": "-",
+                        "path": "-",
+                        "message": "template-source root; render a temporary instance before checking runtime consistency",
+                    }
+                ],
+                "error": [],
+            },
+            "summary": {
+                "ok_count": 0,
+                "warn_count": 1,
+                "error_count": 0,
+            },
+            "commands": [
+                'tmpdir="$(mktemp -d)"',
+                'bash scripts/setup.sh demo --render-only --target "$tmpdir"',
+                'bash scripts/check_state_consistency.sh --target "$tmpdir"',
+            ],
+        }
+        return payload, 0
 
     state = load_runtime_state(root)
     report = ConsistencyReport(root)
@@ -122,7 +199,22 @@ def state_consistency_report(root: Path) -> Tuple[str, int]:
 
     if not report.error:
         report.add("OK", "no state consistency errors detected", path="project/runtime")
-    return report.render(), 1 if report.has_errors else 0
+    status = 1 if report.has_errors else 0
+    return report.to_payload(generated_at=generated_at, root_kind=root_kind), status
+
+
+def _report_from_payload(root: Path, payload: Dict[str, Any]) -> ConsistencyReport:
+    report = ConsistencyReport(root)
+    findings = payload.get("findings", {})
+    for level_key, level_name in [("ok", "OK"), ("warn", "WARN"), ("error", "ERROR")]:
+        for item in findings.get(level_key, []):
+            report.add(
+                level_name,
+                str(item.get("message", "")),
+                task_id=str(item.get("task_id", "-")),
+                path=str(item.get("path", "-")),
+            )
+    return report
 
 
 def check_registry_owner_semantics(report: ConsistencyReport, state: Dict[str, Any]) -> None:

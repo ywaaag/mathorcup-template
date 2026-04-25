@@ -43,6 +43,12 @@ def require_text_contains(text: str, needles: Sequence[str], context: str) -> No
         fail(f"{context} missing required Phase 6 close/review gate text: {', '.join(missing)}")
 
 
+def require_payload_keys(payload: Dict[str, Any], keys: Sequence[str], context: str) -> None:
+    missing = [key for key in keys if key not in payload]
+    if missing:
+        fail(f"{context} missing structured output keys: {', '.join(missing)}")
+
+
 def validate_requirements_toml(path: Path, *, context: str) -> None:
     if not path.is_file():
         fail(f"missing file: {path}")
@@ -270,6 +276,32 @@ def validate_contracts(root: Path) -> None:
     if "check_handoff_intake.sh" not in paper_runtime_contract:
         fail("paper_runtime_contract.md must reference scripts/check_handoff_intake.sh")
     require_text_contains(
+        workflow_contract,
+        [
+            "check_state_consistency.sh --target <dir> --json",
+            "main_brain_summary.sh --target <dir> --json",
+            "schema_version",
+            "generated_at",
+        ],
+        "multi_agent_workflow_contract.md",
+    )
+    require_text_contains(
+        runtime_contract,
+        [
+            "check_state_consistency.sh --target <dir> --json",
+            "main_brain_summary.sh --target <dir> --json",
+        ],
+        "runtime_contract.md",
+    )
+    require_text_contains(
+        prompt_library,
+        [
+            "check_state_consistency.sh --target <dir> --json",
+            "main_brain_summary.sh --target <dir> --json",
+        ],
+        "prompt_template_library.md",
+    )
+    require_text_contains(
         acceptance_template,
         PHASE6_CLOSE_GATE_COMMANDS,
         "MAIN_BRAIN_ACCEPTANCE_TEMPLATE.md",
@@ -308,7 +340,8 @@ def validate_contracts(root: Path) -> None:
         ],
         "prompt_template_library.md",
     )
-    from workflow_kernel.summary import main_summary_report
+    from workflow_kernel.consistency import state_consistency_payload
+    from workflow_kernel.summary import main_summary_payload, main_summary_report
 
     summary = main_summary_report(root)
     require_text_contains(
@@ -321,6 +354,18 @@ def validate_contracts(root: Path) -> None:
             "scripts/close_task.sh",
         ],
         "main_brain_summary.sh output",
+    )
+    state_payload, _state_status = state_consistency_payload(root)
+    require_payload_keys(
+        state_payload,
+        ["schema_version", "generated_at", "root", "root_kind", "ok", "status", "findings"],
+        "check_state_consistency.sh --json output",
+    )
+    summary_payload = main_summary_payload(root)
+    require_payload_keys(
+        summary_payload,
+        ["schema_version", "generated_at", "root", "root_kind", "ok", "status", "sections", "commands"],
+        "main_brain_summary.sh --json output",
     )
 
 

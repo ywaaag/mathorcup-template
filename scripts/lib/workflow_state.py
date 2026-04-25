@@ -16,7 +16,7 @@ from workflow_kernel.audit_index import (
     render_handoff_intake_report,
     submit_handoff,
 )
-from workflow_kernel.consistency import state_consistency_report
+from workflow_kernel.consistency import state_consistency_payload, state_consistency_report
 from workflow_kernel.packet import make_task_packet
 from workflow_kernel.policy_hints import extract_policy_hints
 from workflow_kernel.recommend import recommend_tasks_report
@@ -48,7 +48,7 @@ from workflow_kernel.schema import (
     task_map,
     validate_template_source,
 )
-from workflow_kernel.summary import main_summary_report
+from workflow_kernel.summary import main_summary_payload, main_summary_report
 from workflow_kernel.transitions import (
     append_history,
     batch_check,
@@ -206,9 +206,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     main_summary_parser = subparsers.add_parser("main-summary")
     main_summary_parser.add_argument("--root", required=True)
+    main_summary_parser.add_argument("--json", action="store_true")
+    main_summary_parser.add_argument("--format", choices=["text", "json"], default="text")
 
     state_consistency_parser = subparsers.add_parser("state-consistency")
     state_consistency_parser.add_argument("--root", required=True)
+    state_consistency_parser.add_argument("--json", action="store_true")
+    state_consistency_parser.add_argument("--format", choices=["text", "json"], default="text")
 
     extract_policy_hints_parser = subparsers.add_parser("extract-policy-hints")
     extract_policy_hints_parser.add_argument("--root", required=True)
@@ -306,12 +310,19 @@ def main(argv: Sequence[str]) -> int:
         return 0
 
     if args.command == "main-summary":
-        sys.stdout.write(main_summary_report(root))
+        if args.json or args.format == "json":
+            print(json.dumps(main_summary_payload(root), ensure_ascii=True, indent=2))
+        else:
+            sys.stdout.write(main_summary_report(root))
         return 0
 
     if args.command == "state-consistency":
-        report, status = state_consistency_report(root)
-        sys.stdout.write(report)
+        if args.json or args.format == "json":
+            payload, status = state_consistency_payload(root)
+            print(json.dumps(payload, ensure_ascii=True, indent=2))
+        else:
+            report, status = state_consistency_report(root)
+            sys.stdout.write(report)
         return status
 
     if args.command == "extract-policy-hints":

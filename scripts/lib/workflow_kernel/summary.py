@@ -346,6 +346,183 @@ def append_recommendation_preview(lines: List[str], root: Path) -> None:
         lines.append("- scripts/recommend_tasks.sh was not found; basic summary sections above were still generated.")
 
 
+def close_gate_commands(root: Path, task_id: str = "<task_id>") -> Dict[str, str]:
+    return {
+        "check_handoff_intake": command(["bash", "scripts/check_handoff_intake.sh", "--target", str(root)]),
+        "check_worker_feedback": command(["bash", "scripts/check_worker_feedback.sh", "--task", task_id, "--target", str(root)]),
+        "check_retrospective": command(["bash", "scripts/check_retrospective.sh", "--task", task_id, "--target", str(root)]),
+        "close_review": command(["bash", "scripts/close_task.sh", "--task", task_id, "--to", "review", "--target", str(root)]),
+        "close_done": command(
+            [
+                "bash",
+                "scripts/close_task.sh",
+                "--task",
+                task_id,
+                "--to",
+                "done",
+                "--accepted-by",
+                "main_brain",
+                "--target",
+                str(root),
+            ]
+        ),
+    }
+
+
+def main_summary_payload(root: Path) -> Dict[str, Any]:
+    root_kind = detect_root_kind(root)
+    generated_at = current_timestamp()
+    if root_kind == "template_source":
+        return {
+            "schema_version": "main_brain_summary.v1",
+            "generated_at": generated_at,
+            "root": str(root),
+            "root_kind": root_kind,
+            "ok": True,
+            "status": "TEMPLATE_SOURCE",
+            "read_only": True,
+            "sections": {
+                "repo_runtime_quick_facts": {
+                    "root_path": str(root),
+                    "root_kind": root_kind,
+                },
+                "template_source_notice": [
+                    "Do not run this against the template source as if it were a rendered instance.",
+                    "Render a temporary instance before reading live main-brain state.",
+                ],
+            },
+            "commands": [
+                'tmpdir="$(mktemp -d)"',
+                'bash scripts/setup.sh demo --render-only --target "$tmpdir"',
+                'bash scripts/main_brain_summary.sh --target "$tmpdir"',
+            ],
+        }
+
+    state = load_runtime_state(root)
+    tasks = list(task_map(state).values())
+    active = queue_items(state)
+    root_env = parse_kv_env(root / ".env")
+    paper_env = parse_kv_env(root / "project/paper/runtime/paper.env")
+    counts = status_counts(tasks)
+    recent_events, recent_event_note = read_recent_events(root, limit=5)
+    gate_issues = missing_gates(root, tasks)
+
+    active_section = [
+        {
+            "task_id": str(item.get("task_id", "")),
+            "role": str(item.get("role", "")),
+            "owner": str(item.get("owner", "")),
+            "locked_paths": list(item.get("locked_paths", [])) if isinstance(item.get("locked_paths", []), list) else [],
+        }
+        for item in active
+    ]
+    review_section = []
+    for task in review_tasks(tasks):
+        task_id = task["task_id"]
+        feedback_path = task.get("feedback_path", "")
+        retrospective_path = task.get("retrospective_path", "")
+        review_section.append(
+            {
+                "task_id": task_id,
+                "role": task.get("role", ""),
+                "title": task.get("title", ""),
+                "feedback_path": feedback_path,
+                "feedback_exists": exists_flag(root, feedback_path) == "yes",
+                "retrospective_path": retrospective_path,
+                "retrospective_exists": exists_flag(root, retrospective_path) == "yes",
+                "accepted_by_main_brain": bool(task.get("accepted_by_main_brain")),
+                "commands": close_gate_commands(root, task_id),
+            }
+        )
+
+    dispatchable = ready_or_todo_tasks(tasks)
+    blocked = blocked_tasks(tasks)
+    recommended_commands: List[Dict[str, str]] = [
+        {
+            "name": "recommend_tasks",
+            "command": command(["bash", "scripts/recommend_tasks.sh", "--target", str(root)]),
+        }
+    ]
+    if dispatchable:
+        recommended_commands.append(
+            {
+                "name": "dispatch_shape",
+                "command": command(["bash", "scripts/dispatch_task.sh", "--task", "<task_id>", "--owner", "<owner>", "--target", str(root)]),
+            }
+        )
+    for item in active:
+        task_id = str(item.get("task_id", "<task_id>"))
+        recommended_commands.append({"name": "show_task", "task_id": task_id, "command": command(["bash", "scripts/show_task.sh", "--task", task_id, "--target", str(root)])})
+        recommended_commands.append({"name": "list_history", "task_id": task_id, "command": command(["bash", "scripts/list_history.sh", "--task", task_id, "--target", str(root)])})
+    for task in review_tasks(tasks):
+        task_id = task["task_id"]
+        for name, cmd in close_gate_commands(root, task_id).items():
+            recommended_commands.append({"name": name, "task_id": task_id, "command": cmd})
+    for task in blocked:
+        task_id = task["task_id"]
+        recommended_commands.append({"name": "show_task", "task_id": task_id, "command": command(["bash", "scripts/show_task.sh", "--task", task_id, "--target", str(root)])})
+        recommended_commands.append({"name": "list_history", "task_id": task_id, "command": command(["bash", "scripts/list_history.sh", "--task", task_id, "--target", str(root)])})
+        recommended_commands.append(
+            {
+                "name": "reopen_ready",
+                "task_id": task_id,
+                "command": command(["bash", "scripts/reopen_task.sh", "--task", task_id, "--to", "ready", "--reason", "main brain re-queued blocked task", "--target", str(root)]),
+            }
+        )
+        recommended_commands.append(
+            {
+                "name": "cancel_blocked",
+                "task_id": task_id,
+                "command": command(["bash", "scripts/cancel_task.sh", "--task", task_id, "--reason", "main brain cancelled blocked task", "--target", str(root)]),
+            }
+        )
+
+    return {
+        "schema_version": "main_brain_summary.v1",
+        "generated_at": generated_at,
+        "root": str(root),
+        "root_kind": root_kind,
+        "ok": not gate_issues,
+        "status": "WARN" if gate_issues else "OK",
+        "read_only": True,
+        "sections": {
+            "repo_runtime_quick_facts": {
+                "root_path": str(root),
+                "root_kind": root_kind,
+                "competition": value_or_missing(root_env.get("COMPETITION_NAME", ""), source=".env#COMPETITION_NAME"),
+                "container": value_or_missing(root_env.get("CONTAINER_NAME", ""), source=".env#CONTAINER_NAME"),
+                "image": value_or_missing(root_env.get("IMAGE_NAME", ""), source=".env#IMAGE_NAME"),
+                "paper_active_entrypoint": value_or_missing(paper_env.get("PAPER_ACTIVE_ENTRYPOINT", ""), source="paper.env#PAPER_ACTIVE_ENTRYPOINT"),
+                "paper_accept_pdf": value_or_missing(paper_env.get("PAPER_ACCEPT_PDF", ""), source="paper.env#PAPER_ACCEPT_PDF"),
+            },
+            "queue_overview": {status: counts.get(status, 0) for status in STATUS_ORDER},
+            "active_tasks": active_section,
+            "review_decision_needed_tasks": review_section,
+            "review_done_close_gate": {
+                "default_commands": close_gate_commands(root),
+                "active_task_ids": [item["task_id"] for item in active_section],
+                "review_task_ids": [item["task_id"] for item in review_section],
+                "done_task_ids": [str(task.get("task_id", "")) for task in done_tasks(tasks)],
+            },
+            "missing_gates": [
+                {
+                    "message": issue,
+                }
+                for issue in gate_issues
+            ],
+            "recent_events": {
+                "note": recent_event_note,
+                "items": recent_events,
+            },
+            "recommended_next_commands": recommended_commands,
+            "recommendation_preview": {
+                "command": command(["bash", "scripts/recommend_tasks.sh", "--target", str(root)]),
+            },
+        },
+        "commands": recommended_commands,
+    }
+
+
 def main_summary_report(root: Path) -> str:
     root_kind = detect_root_kind(root)
     if root_kind == "template_source":

@@ -8,10 +8,11 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 source "$SCRIPT_DIR/lib/common.sh"
 
 TARGET_DIR="$ROOT_DIR"
+OUTPUT_FORMAT="text"
 
 usage() {
     cat <<'EOF'
-Usage: bash scripts/check_state_consistency.sh [--target <dir>|--root <dir>]
+Usage: bash scripts/check_state_consistency.sh [--target <dir>|--root <dir>] [--json|--format text|json]
 
 Advisory-only: checks registry, queue, event log, feedback, and retrospective
 artifact consistency in a rendered instance. It does not repair or write state.
@@ -24,6 +25,22 @@ while [[ $# -gt 0 ]]; do
             TARGET_DIR="$(abs_path "$2")"
             shift 2
             ;;
+        --json)
+            OUTPUT_FORMAT="json"
+            shift
+            ;;
+        --format)
+            case "$2" in
+                text|json)
+                    OUTPUT_FORMAT="$2"
+                    shift 2
+                    ;;
+                *)
+                    usage >&2
+                    die "unknown format: $2"
+                    ;;
+            esac
+            ;;
         -h|--help)
             usage
             exit 0
@@ -35,4 +52,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-python3 "$SCRIPT_DIR/lib/workflow_state.py" state-consistency --root "$TARGET_DIR"
+args=(state-consistency --root "$TARGET_DIR")
+if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+    args+=(--json)
+fi
+
+python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}"
