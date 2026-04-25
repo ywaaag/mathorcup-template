@@ -9,9 +9,10 @@ TASK_ID=""
 LATEST=20
 EVENT_TYPE=""
 ACTOR=""
+OUTPUT_FORMAT="text"
 
 usage() {
-    echo "Usage: bash scripts/list_history.sh --task <task_id> [--latest <n>] [--event-type <type>] [--actor <actor>] [--target <dir>]" >&2
+    echo "Usage: bash scripts/list_history.sh --task <task_id> [--latest <n>] [--event-type <type>] [--actor <actor>] [--target <dir>] [--json|--format text|json]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -36,6 +37,23 @@ while [[ $# -gt 0 ]]; do
             TARGET_DIR="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$2")"
             shift 2
             ;;
+        --json)
+            OUTPUT_FORMAT="json"
+            shift
+            ;;
+        --format)
+            case "$2" in
+                text|json)
+                    OUTPUT_FORMAT="$2"
+                    shift 2
+                    ;;
+                *)
+                    usage
+                    echo "unknown format: $2" >&2
+                    exit 2
+                    ;;
+            esac
+            ;;
         -h|--help)
             usage
             exit 0
@@ -56,4 +74,5 @@ python3 "$SCRIPT_DIR/lib/workflow_audit.py" \
     --task "$TASK_ID" \
     --latest "$LATEST" \
     --event-type "$EVENT_TYPE" \
-    --actor "$ACTOR"
+    --actor "$ACTOR" \
+    --format "$OUTPUT_FORMAT"

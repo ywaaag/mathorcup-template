@@ -161,6 +161,18 @@ def collect_adjudication_artifacts(root: Path, task_id: str) -> List[str]:
     return [relref(root, path) for path in matches]
 
 
+def task_summary(task: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "task_id": task["task_id"],
+        "role": task["role"],
+        "title": task["title"],
+        "status": task["status"],
+        "active_owner": task.get("owner") or "",
+        "parallel_ok": bool(task.get("parallel_ok", False)),
+        "accepted_by_main_brain": bool(task.get("accepted_by_main_brain", False)),
+    }
+
+
 def last_event_of_type(events: Sequence[Dict[str, Any]], event_type: str) -> Optional[Dict[str, Any]]:
     for event in reversed(events):
         if event["event_type"] == event_type:
@@ -382,6 +394,17 @@ def list_history(
     event_type: str,
     actor: str,
 ) -> str:
+    return render_history(list_history_payload(root, task_id, latest=latest, event_type=event_type, actor=actor))
+
+
+def list_history_payload(
+    root: Path,
+    task_id: str,
+    *,
+    latest: int,
+    event_type: str,
+    actor: str,
+) -> Dict[str, Any]:
     ensure_instance_root(root)
     state = load_runtime_state(root)
     task = task_from_id(state, task_id)
@@ -405,11 +428,41 @@ def list_history(
     exec_artifacts = collect_exec_artifacts(root, task_id, latest=latest)
     adjudications = collect_adjudication_artifacts(root, task_id)
 
+    return {
+        "schema_version": "task_history.v1",
+        "generated_at": current_timestamp(),
+        "root": str(root),
+        "root_kind": "instance",
+        "task": task_summary(task),
+        "filters": {
+            "latest": latest,
+            "event_type": event_type,
+            "actor": actor,
+        },
+        "events": events,
+        "queue_history": queue_history,
+        "callback_artifacts": callbacks,
+        "exec_artifacts": exec_artifacts,
+        "adjudication_artifacts": adjudications,
+        "read_only": True,
+        "ok": True,
+        "status": "OK",
+    }
+
+
+def render_history(payload: Dict[str, Any]) -> str:
+    task = payload["task"]
+    events = payload["events"]
+    queue_history = payload["queue_history"]
+    callbacks = payload["callback_artifacts"]
+    exec_artifacts = payload["exec_artifacts"]
+    adjudications = payload["adjudication_artifacts"]
+
     lines = [
         f"History: {task['task_id']}",
         f"  role: {task['role']}",
         f"  status: {task['status']}",
-        f"  active_owner: {task['owner'] or '-'}",
+        f"  active_owner: {task['active_owner'] or '-'}",
         f"  last_actor: {last_actor(events)}",
         f"  last_active_owner: {last_nonempty_owner(events)}",
         "",
@@ -653,7 +706,24 @@ def adjudicate_task(
     output: str,
     decision: str,
     note: str,
-) -> str:
+) -> Dict[str, Any]:
+    payload = adjudication_payload(root, task_id, inputs=inputs, mode=mode, output=output, decision=decision, note=note)
+    output_path = root / payload["artifact_written"]["path"]
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(render_adjudication_markdown(payload), encoding="utf-8")
+    return payload
+
+
+def adjudication_payload(
+    root: Path,
+    task_id: str,
+    *,
+    inputs: Sequence[str],
+    mode: str,
+    output: str,
+    decision: str,
+    note: str,
+) -> Dict[str, Any]:
     ensure_instance_root(root)
     state = load_runtime_state(root)
     task = task_from_id(state, task_id)
@@ -677,6 +747,62 @@ def adjudicate_task(
     else:
         output_path = root / "project/output/review" / f"{task_id}_adjudication.md"
 
+    inputs_considered = [
+        {
+            "path": relref(root, doc["path"]),
+            "label": doc["label"],
+            "sections": {
+                section: list(items)
+                for section, items in doc["claims"].items()
+            },
+        }
+        for doc in docs
+    ]
+    normalized_disagreements = [
+        {
+            "section": entry["section"],
+            "entries": [
+                {
+                    "label": label,
+                    "items": list(items),
+                }
+                for label, items in entry["entries"]
+            ],
+        }
+        for entry in disagreements
+    ]
+    return {
+        "schema_version": "task_adjudication.v1",
+        "generated_at": current_timestamp(),
+        "root": str(root),
+        "root_kind": "instance",
+        "task": task_summary(task),
+        "mode": mode,
+        "decision": decision,
+        "note": note,
+        "inputs_considered": inputs_considered,
+        "agreements": list(agreements),
+        "disagreements": normalized_disagreements,
+        "missing_evidence": list(missing),
+        "additional_evidence": list(additional_evidence),
+        "recommended_next_step": {
+            "command": command,
+            "rationale": list(rationale),
+            "tentative_preferred_artifact": preferred_label or "",
+        },
+        "artifact_written": {
+            "path": relref(root, output_path),
+            "format": "markdown",
+        },
+        "read_only": False,
+        "ok": True,
+        "status": "OK",
+    }
+
+
+def render_adjudication_markdown(payload: Dict[str, Any]) -> str:
+    task = payload["task"]
+    recommendation = payload["recommended_next_step"]
     lines = [
         "# Adjudication Draft",
         "",
@@ -685,62 +811,61 @@ def adjudicate_task(
         f"- role: `{task['role']}`",
         f"- title: {task['title']}",
         f"- status: `{task['status']}`",
-        f"- active_owner: `{task['owner'] or '-'}`",
-        f"- last_actor: `{last_actor(task_events)}`",
-        f"- mode: `{mode}`",
-        f"- generated_at: `{current_timestamp()}`",
-        f"- requested_decision: `{decision}`",
+        f"- active_owner: `{task['active_owner'] or '-'}`",
+        f"- mode: `{payload['mode']}`",
+        f"- generated_at: `{payload['generated_at']}`",
+        f"- requested_decision: `{payload['decision']}`",
     ]
-    if note:
-        lines.append(f"- note: {note}")
+    if payload["note"]:
+        lines.append(f"- note: {payload['note']}")
 
     lines.extend(["", "## Inputs Considered"])
-    if not docs:
+    if not payload["inputs_considered"]:
         lines.append("- none")
     else:
-        for doc in docs:
-            sections = ", ".join(sorted(doc["claims"])) if doc["claims"] else "none"
-            lines.append(f"- `{relref(root, doc['path'])}`")
+        for doc in payload["inputs_considered"]:
+            sections = ", ".join(sorted(doc["sections"])) if doc["sections"] else "none"
+            lines.append(f"- `{doc['path']}`")
             lines.append(f"  - sections: {sections}")
 
     lines.extend(["", "## Agreements"])
-    if not agreements:
+    if not payload["agreements"]:
         lines.append("- none")
     else:
-        for item in agreements:
+        for item in payload["agreements"]:
             lines.append(f"- {item}")
 
     lines.extend(["", "## Disagreements"])
-    if not disagreements:
+    if not payload["disagreements"]:
         lines.append("- none")
     else:
-        for entry in disagreements:
+        for entry in payload["disagreements"]:
             lines.append(f"- `{entry['section']}`")
-            for label, items in entry["entries"]:
-                rendered = "; ".join(items[:4])
-                lines.append(f"  - {label}: {rendered}")
+            for item in entry["entries"]:
+                rendered = "; ".join(item["items"][:4])
+                lines.append(f"  - {item['label']}: {rendered}")
 
     lines.extend(["", "## Missing Evidence"])
-    if not missing:
+    if not payload["missing_evidence"]:
         lines.append("- none")
     else:
-        for item in missing:
+        for item in payload["missing_evidence"]:
             lines.append(f"- {item}")
 
     lines.extend(["", "## Additional Evidence (Not Compared By Default)"])
-    if not additional_evidence:
+    if not payload["additional_evidence"]:
         lines.append("- none")
     else:
         lines.append("- callback/event-derived artifacts stay in this appendix and do not enter the default comparison surface")
-        for ref in additional_evidence:
+        for ref in payload["additional_evidence"]:
             lines.append(f"- `{ref}`")
 
     lines.extend(["", "## Recommended Next Step"])
-    lines.append(f"- recommendation: {command}")
-    if preferred_label:
-        lines.append(f"- tentative_preferred_artifact: `{preferred_label}`")
-    if rationale:
-        for item in rationale:
+    lines.append(f"- recommendation: {recommendation['command']}")
+    if recommendation["tentative_preferred_artifact"]:
+        lines.append(f"- tentative_preferred_artifact: `{recommendation['tentative_preferred_artifact']}`")
+    if recommendation["rationale"]:
+        for item in recommendation["rationale"]:
             lines.append(f"- rationale: {item}")
     else:
         lines.append("- rationale: human review is still required")
@@ -755,10 +880,7 @@ def adjudicate_task(
             "- follow_up_command: ",
         ]
     )
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
-    return relref(root, output_path)
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def latest_checked_after(path: Path, event: Optional[Dict[str, Any]]) -> bool:
@@ -855,6 +977,8 @@ def build_parser() -> argparse.ArgumentParser:
     list_history_parser.add_argument("--latest", type=int, default=20)
     list_history_parser.add_argument("--event-type", default="")
     list_history_parser.add_argument("--actor", default="")
+    list_history_parser.add_argument("--json", action="store_true")
+    list_history_parser.add_argument("--format", choices=["text", "json"], default="text")
 
     adjudicate_parser = subparsers.add_parser("adjudicate")
     adjudicate_parser.add_argument("--root", required=True)
@@ -864,6 +988,8 @@ def build_parser() -> argparse.ArgumentParser:
     adjudicate_parser.add_argument("--output", default="")
     adjudicate_parser.add_argument("--decision", default="manual", choices=["close_review", "reopen", "cancel", "manual"])
     adjudicate_parser.add_argument("--note", default="")
+    adjudicate_parser.add_argument("--json", action="store_true")
+    adjudicate_parser.add_argument("--format", choices=["text", "json"], default="text")
 
     summary_parser = subparsers.add_parser("main-brain-summary")
     summary_parser.add_argument("--root", required=True)
@@ -880,20 +1006,35 @@ def main(argv: Sequence[str]) -> int:
         return 0
 
     if args.command == "list-history":
-        sys.stdout.write(
-            list_history(
-                root,
-                args.task,
-                latest=args.latest,
-                event_type=args.event_type,
-                actor=args.actor,
+        if args.json or args.format == "json":
+            print(
+                json.dumps(
+                    list_history_payload(
+                        root,
+                        args.task,
+                        latest=args.latest,
+                        event_type=args.event_type,
+                        actor=args.actor,
+                    ),
+                    ensure_ascii=True,
+                    indent=2,
+                )
             )
-        )
+        else:
+            sys.stdout.write(
+                list_history(
+                    root,
+                    args.task,
+                    latest=args.latest,
+                    event_type=args.event_type,
+                    actor=args.actor,
+                )
+            )
         return 0
 
     if args.command == "adjudicate":
         inputs = [item.strip() for item in args.inputs.split(",") if item.strip()]
-        output_ref = adjudicate_task(
+        payload = adjudicate_task(
             root,
             args.task,
             inputs=inputs,
@@ -902,7 +1043,10 @@ def main(argv: Sequence[str]) -> int:
             decision=args.decision,
             note=args.note,
         )
-        print(f"[workflow] adjudication written to {output_ref}")
+        if args.json or args.format == "json":
+            print(json.dumps(payload, ensure_ascii=True, indent=2))
+        else:
+            print(f"[workflow] adjudication written to {payload['artifact_written']['path']}")
         return 0
 
     if args.command == "main-brain-summary":

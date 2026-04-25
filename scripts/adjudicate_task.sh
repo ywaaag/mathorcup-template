@@ -11,6 +11,7 @@ MODE="compare"
 OUTPUT=""
 DECISION="manual"
 NOTE=""
+OUTPUT_FORMAT="text"
 
 usage() {
     cat <<'EOF' >&2
@@ -23,6 +24,7 @@ Options:
   --decision <close_review|reopen|cancel|manual>
   --note <text>
   --target <dir>
+  --json|--format text|json
 EOF
 }
 
@@ -56,6 +58,23 @@ while [[ $# -gt 0 ]]; do
             TARGET_DIR="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$2")"
             shift 2
             ;;
+        --json)
+            OUTPUT_FORMAT="json"
+            shift
+            ;;
+        --format)
+            case "$2" in
+                text|json)
+                    OUTPUT_FORMAT="$2"
+                    shift 2
+                    ;;
+                *)
+                    usage
+                    echo "unknown format: $2" >&2
+                    exit 2
+                    ;;
+            esac
+            ;;
         -h|--help)
             usage
             exit 0
@@ -78,4 +97,5 @@ python3 "$SCRIPT_DIR/lib/workflow_audit.py" \
     --mode "$MODE" \
     --output "$OUTPUT" \
     --decision "$DECISION" \
-    --note "$NOTE"
+    --note "$NOTE" \
+    --format "$OUTPUT_FORMAT"

@@ -55,7 +55,7 @@
 
 开始前先执行：
 - `bash scripts/validate_agent_docs.sh`
-- 需要机器可消费验收面时，使用 `bash scripts/check_state_consistency.sh --target <dir> --json` 和 `bash scripts/main_brain_summary.sh --target <dir> --json`；默认文本输出仍给人读
+- 需要机器可消费验收面时，使用 `bash scripts/doctor.sh --target <dir> --json`、`bash scripts/check_state_consistency.sh --target <dir> --json`、`bash scripts/main_brain_summary.sh --target <dir> --json`、`bash scripts/list_history.sh --task <task_id> --target <dir> --json` 和 `bash scripts/adjudicate_task.sh --task <task_id> --target <dir> --json`；默认文本输出仍给人读
 
 完成后必须：
 - 回填 task 对应的 feedback / retrospective 文件
@@ -168,6 +168,7 @@ See:
 - feedback / retrospective gate now checks minimum non-empty content in required body sections, not only heading structure.
 - 推荐的半自动派单顺序是：
   - `bash scripts/doctor.sh --target <dir>`
+  - `bash scripts/doctor.sh --target <dir> --json` if a tool needs structured runtime, harness, validation, and container warning fields
   - `bash scripts/main_brain_summary.sh --target <dir>`
   - `bash scripts/list_open_tasks.sh --open-only`
   - `bash scripts/check_handoff_intake.sh --target <dir>` when the next worker will consume code-brain handoffs
@@ -176,6 +177,7 @@ See:
   - `bash scripts/show_task.sh --task <task_id>` if main brain wants the current audit summary before or after dispatch
   - `bash scripts/process_callbacks.sh --latest`
   - `bash scripts/list_history.sh --task <task_id>` when main brain needs the timeline instead of raw json/jsonl files
+  - `bash scripts/list_history.sh --task <task_id> --target <dir> --json` when a tool needs structured event, queue, callback, exec, and adjudication history
   - `bash scripts/check_worker_feedback.sh --task <task_id>`
   - `bash scripts/submit_handoff.sh --task <task_id> --handoff <path> --target <dir>` if a code-brain handoff was created
   - `bash scripts/close_task.sh --task <task_id> --to review|done`
@@ -198,6 +200,8 @@ See:
 - `scripts/process_callbacks.sh` 只执行受控 built-in actions，不会把任务自动推进到 `done`。
 - 如果多个 worker 对同一个 task 留下了不同 artifact，推荐先运行：
   - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`
+- 工具消费裁决结果时可运行：
+  - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir> --json`
 - `adjudicate_task.sh` 默认只比较 worker 主证据；callback/event artifacts 作为附加证据，不进入默认 comparison surface。
 - `bash scripts/main_brain_summary.sh --target <dir>` 适合主脑先看全局，再决定哪些 task 需要审计、裁决或收口。
 - `bash scripts/check_handoff_intake.sh --target <dir>` 是默认 handoff intake 入口；未索引 handoff 只算 warning，不进入默认消费面。

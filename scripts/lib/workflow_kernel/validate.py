@@ -280,6 +280,9 @@ def validate_contracts(root: Path) -> None:
         [
             "check_state_consistency.sh --target <dir> --json",
             "main_brain_summary.sh --target <dir> --json",
+            "doctor.sh --target <dir> --json",
+            "list_history.sh --task <task_id> --target <dir> --json",
+            "adjudicate_task.sh --task <task_id> --target <dir> --json",
             "schema_version",
             "generated_at",
         ],
@@ -290,6 +293,9 @@ def validate_contracts(root: Path) -> None:
         [
             "check_state_consistency.sh --target <dir> --json",
             "main_brain_summary.sh --target <dir> --json",
+            "doctor.sh --target <dir> --json",
+            "list_history.sh --task <task_id> --target <dir> --json",
+            "adjudicate_task.sh --task <task_id> --target <dir> --json",
         ],
         "runtime_contract.md",
     )
@@ -298,6 +304,9 @@ def validate_contracts(root: Path) -> None:
         [
             "check_state_consistency.sh --target <dir> --json",
             "main_brain_summary.sh --target <dir> --json",
+            "doctor.sh --target <dir> --json",
+            "list_history.sh --task <task_id> --target <dir> --json",
+            "adjudicate_task.sh --task <task_id> --target <dir> --json",
         ],
         "prompt_template_library.md",
     )
@@ -341,7 +350,9 @@ def validate_contracts(root: Path) -> None:
         "prompt_template_library.md",
     )
     from workflow_kernel.consistency import state_consistency_payload
+    from workflow_kernel.doctor import doctor_payload
     from workflow_kernel.summary import main_summary_payload, main_summary_report
+    from workflow_audit import adjudication_payload, list_history_payload
 
     summary = main_summary_report(root)
     require_text_contains(
@@ -366,6 +377,67 @@ def validate_contracts(root: Path) -> None:
         summary_payload,
         ["schema_version", "generated_at", "root", "root_kind", "ok", "status", "sections", "commands"],
         "main_brain_summary.sh --json output",
+    )
+    scripts_dir = root / "scripts"
+    doctor = doctor_payload(root, scripts_dir)
+    require_payload_keys(
+        doctor,
+        [
+            "schema_version",
+            "generated_at",
+            "root",
+            "root_kind",
+            "read_only",
+            "runtime_config",
+            "tooling",
+            "event_harness",
+            "codex_native_bridge",
+            "validation",
+            "container_state",
+            "container_tool_baseline",
+            "status",
+        ],
+        "doctor.sh --json output",
+    )
+    task_from_id(load_runtime_state(root), "TASK_MAIN_SYNC")
+    history_payload = list_history_payload(root, "TASK_MAIN_SYNC", latest=20, event_type="", actor="")
+    require_payload_keys(
+        history_payload,
+        [
+            "schema_version",
+            "generated_at",
+            "root",
+            "task",
+            "filters",
+            "events",
+            "queue_history",
+            "callback_artifacts",
+            "exec_artifacts",
+            "adjudication_artifacts",
+            "read_only",
+        ],
+        "list_history.sh --json output",
+    )
+    adjudication = adjudication_payload(root, "TASK_MAIN_SYNC", inputs=[], mode="compare", output="", decision="manual", note="")
+    require_payload_keys(
+        adjudication,
+        [
+            "schema_version",
+            "generated_at",
+            "root",
+            "task",
+            "mode",
+            "decision",
+            "inputs_considered",
+            "agreements",
+            "disagreements",
+            "missing_evidence",
+            "additional_evidence",
+            "recommended_next_step",
+            "artifact_written",
+            "read_only",
+        ],
+        "adjudicate_task.sh --json output",
     )
 
 

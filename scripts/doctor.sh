@@ -8,6 +8,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 source "$SCRIPT_DIR/lib/common.sh"
 
 TARGET_DIR="$ROOT_DIR"
+OUTPUT_FORMAT="text"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -15,8 +16,23 @@ while [[ $# -gt 0 ]]; do
             TARGET_DIR="$(abs_path "$2")"
             shift 2
             ;;
+        --json)
+            OUTPUT_FORMAT="json"
+            shift
+            ;;
+        --format)
+            case "$2" in
+                text|json)
+                    OUTPUT_FORMAT="$2"
+                    shift 2
+                    ;;
+                *)
+                    die "unknown format: $2"
+                    ;;
+            esac
+            ;;
         -h|--help)
-            echo "Usage: bash scripts/doctor.sh [--root <dir>]"
+            echo "Usage: bash scripts/doctor.sh [--root <dir>|--target <dir>] [--json|--format text|json]"
             exit 0
             ;;
         *)
@@ -24,6 +40,20 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+    python3 - "$TARGET_DIR" "$SCRIPT_DIR" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(sys.argv[2]) / "lib"))
+from workflow_kernel.doctor import doctor_payload
+
+print(json.dumps(doctor_payload(Path(sys.argv[1]), Path(sys.argv[2])), ensure_ascii=True, indent=2))
+PY
+    exit 0
+fi
 
 ROOT_KIND="$(python3 "$SCRIPT_DIR/lib/workflow_state.py" root-kind --root "$TARGET_DIR")"
 
