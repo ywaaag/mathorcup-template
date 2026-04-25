@@ -7,7 +7,15 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from workflow_kernel.audit_index import check_feedback, check_handoff, check_retrospective, init_feedback_files, submit_handoff
+from workflow_kernel.audit_index import (
+    check_feedback,
+    check_handoff,
+    check_retrospective,
+    init_feedback_files,
+    inspect_handoff_intake,
+    render_handoff_intake_report,
+    submit_handoff,
+)
 from workflow_kernel.consistency import state_consistency_report
 from workflow_kernel.packet import make_task_packet
 from workflow_kernel.policy_hints import extract_policy_hints
@@ -254,6 +262,11 @@ def build_parser() -> argparse.ArgumentParser:
     check_handoff_parser.add_argument("--root", required=True)
     check_handoff_parser.add_argument("--file", required=True)
 
+    handoff_intake_parser = subparsers.add_parser("handoff-intake")
+    handoff_intake_parser.add_argument("--root", required=True)
+    handoff_intake_parser.add_argument("--latest", action="store_true")
+    handoff_intake_parser.add_argument("--files", action="store_true")
+
     submit_handoff_parser = subparsers.add_parser("submit-handoff")
     submit_handoff_parser.add_argument("--root", required=True)
     submit_handoff_parser.add_argument("--task", required=True)
@@ -377,6 +390,24 @@ def main(argv: Sequence[str]) -> int:
     if args.command == "check-handoff":
         path = check_handoff(root, args.file, require_content=True)
         print(f"[workflow] handoff OK: {path.relative_to(root).as_posix()}")
+        return 0
+
+    if args.command == "handoff-intake":
+        if args.latest and args.files:
+            fail("--latest and --files cannot be used together")
+        report = inspect_handoff_intake(root)
+        if args.latest:
+            for warning in report["warnings"]:
+                print(f"[workflow] warning: {warning}", file=sys.stderr)
+            print(report["latest"] or "none")
+            return 0
+        if args.files:
+            for warning in report["warnings"]:
+                print(f"[workflow] warning: {warning}", file=sys.stderr)
+            for item in report["files"]:
+                print(item)
+            return 0
+        sys.stdout.write(render_handoff_intake_report(report))
         return 0
 
     if args.command == "submit-handoff":

@@ -26,8 +26,10 @@
 2. `MEMORY.md`
 3. `project/spec/runtime_contract.md`
 4. `project/spec/multi_agent_workflow_contract.md`
-5. Indexed handoffs
-6. Task-specific files
+5. Before consuming handoffs, run the default intake guard: `bash scripts/check_handoff_intake.sh --target <dir>`
+6. Use `bash scripts/check_handoff_intake.sh --latest --target <dir>` or `bash scripts/check_handoff_intake.sh --files --target <dir>` only as indexed-path shortcuts
+7. Indexed handoffs
+8. Task-specific files
 
 ## Runtime Facts
 - Container: `{{CONTAINER_NAME}}`
@@ -45,6 +47,8 @@
 
 ## Acceptance
 - Validation command: `bash scripts/validate_agent_docs.sh`
+- Indexed handoff intake check: `bash scripts/check_handoff_intake.sh --target <dir>` when this task consumes upstream handoffs
+- Indexed-path shortcuts: `bash scripts/check_handoff_intake.sh --latest --target <dir>` or `bash scripts/check_handoff_intake.sh --files --target <dir>` when a packet only needs paths; warnings still go to stderr
 - Extra compile/acceptance step: [fill this if needed]
 
 ## Feedback Gate
@@ -62,6 +66,7 @@
 - Fill the feedback file with verified facts, validation result, and remaining risks.
 - If main brain expects a `done`-level close, also fill the retrospective file.
 - If this task creates a code-brain handoff, save it under `project/output/handoff/P*.md` and submit it with `bash scripts/submit_handoff.sh --task <task_id> --handoff <path> --target <dir>` instead of manually editing `MEMORY.md`.
+- If this task consumes upstream handoffs, use `bash scripts/check_handoff_intake.sh` instead of scanning `project/output/handoff/` directly.
 - Assume the harness may emit hints after your run, but human review still decides whether the task closes, reopens, or cancels.
 - If another worker produces a competing result for the same task, expect main brain to use `adjudicate_task.sh` instead of free-chat arbitration.
 - Do not create new top-level tasks unless the packet explicitly allows it.

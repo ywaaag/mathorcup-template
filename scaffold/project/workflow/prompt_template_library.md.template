@@ -26,8 +26,10 @@
 2. `MEMORY.md`
 3. `project/spec/runtime_contract.md`
 4. `project/spec/multi_agent_workflow_contract.md`
-5. 当前已索引的 handoff
-6. [补充本轮特定文件]
+5. 消费 handoff 前，先执行默认 intake guard：`bash scripts/check_handoff_intake.sh --target <dir>`
+6. 仅在只需要 indexed path 时，才使用 shortcut：`bash scripts/check_handoff_intake.sh --latest --target <dir>` 或 `bash scripts/check_handoff_intake.sh --files --target <dir>`；warning 仍走 stderr
+7. 当前已索引的 handoff
+8. [补充本轮特定文件]
 
 当前容器：
 - `{{CONTAINER_NAME}}`
@@ -57,6 +59,7 @@
 完成后必须：
 - 回填 task 对应的 feedback / retrospective 文件
 - 如果生成 code-brain handoff，使用 `bash scripts/submit_handoff.sh --task <task_id> --handoff <path> --target <dir>` 校验、索引并记录事件，不要手工改 `MEMORY.md -> Handoff Index`
+- 如果消费上游 handoff，使用 `bash scripts/check_handoff_intake.sh` 读取默认 intake 结果，不要直接扫 `project/output/handoff/`
 - feedback / retrospective 主体字段必须填写具体内容，不能只留下空 bullet、裸 `-`、`none`、`n/a`、`no`、`empty` 或 `no meaningful change`
 - 不要把 event log 当聊天记录；它是主脑推进状态机的 machine-readable artifact
 - 不要自行执行 `close_task.sh`；把 gate 交给主脑
@@ -165,6 +168,7 @@ See:
   - `bash scripts/doctor.sh --target <dir>`
   - `bash scripts/main_brain_summary.sh --target <dir>`
   - `bash scripts/list_open_tasks.sh --open-only`
+  - `bash scripts/check_handoff_intake.sh --target <dir>` when the next worker will consume code-brain handoffs
   - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`
   - dispatch 会通过 `task.dispatched` callback 自动补 feedback skeleton
   - `bash scripts/show_task.sh --task <task_id>` if main brain wants the current audit summary before or after dispatch
@@ -188,6 +192,7 @@ See:
   - `--lock <task_id:path>`
 - `scripts/run_exec_worker.sh` 只负责 claim/packet/feedback init/`codex exec`/last-message 落盘，不会自动 close task。
 - code-brain workers should submit handoffs through `scripts/submit_handoff.sh`; it validates the six handoff sections, updates `MEMORY.md -> Handoff Index` by default, and records `handoff_submitted` in `event_log.jsonl`.
+- paper-side or review-side consumers should read handoffs through `scripts/check_handoff_intake.sh`; it validates indexed handoffs and warns about unindexed disk handoffs without promoting them into the default intake surface.
 - `scripts/process_callbacks.sh` 只执行受控 built-in actions，不会把任务自动推进到 `done`。
 - 如果多个 worker 对同一个 task 留下了不同 artifact，推荐先运行：
   - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`

@@ -21,11 +21,18 @@
 4. Read `spec/paper_runtime_contract.md`.
 5. Read `../spec/multi_agent_workflow_contract.md`.
 6. If this task is claimed or delegated, read `../spec/agent_roles.json`, `../runtime/task_registry.json`, and `../runtime/work_queue.json`.
-7. Read the latest indexed handoff docs listed in `../../MEMORY.md`.
-8. If this task is delegated or multi-session, read the relevant templates under `../workflow/`.
+7. Before consuming handoffs, run the default intake guard: `bash ../../scripts/check_handoff_intake.sh --target ../..`.
+8. Use `bash ../../scripts/check_handoff_intake.sh --latest --target ../..` or `bash ../../scripts/check_handoff_intake.sh --files --target ../..` only as indexed-path shortcuts.
+9. Read the latest indexed handoff docs listed in `../../MEMORY.md`.
+10. If this task is delegated or multi-session, read the relevant templates under `../workflow/`.
 
 ## Input Contract
 - Only consume outputs that are indexed in `## Handoff Index`.
+- Default intake command: `bash ../../scripts/check_handoff_intake.sh --target ../..`.
+- Latest indexed handoff shortcut: `bash ../../scripts/check_handoff_intake.sh --latest --target ../..`.
+- Indexed handoff files shortcut: `bash ../../scripts/check_handoff_intake.sh --files --target ../..`.
+- Shortcut modes print only indexed paths to stdout and send warnings to stderr; they are not substitutes for the default paper-side intake guard.
+- Unindexed `../output/handoff/P*.md` files may exist on disk; they are warnings only and must not enter the default paper-side intake set.
 - If data or figure is missing, stop speculative writing and return a blocker or worker packet.
 - `project/paper/runtime/paper.env` is the single source for active paper entrypoint, build target, and acceptance artifacts.
 

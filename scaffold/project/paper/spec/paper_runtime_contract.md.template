@@ -13,7 +13,8 @@
 2. `../../MEMORY.md`
 3. `../spec/runtime_contract.md`
 4. This file
-5. Indexed handoffs
+5. `bash scripts/check_handoff_intake.sh --target <instance_dir>`
+6. Indexed handoffs
 
 ## Single Source Of Truth
 
@@ -44,6 +45,13 @@
 
 - Preferred entrypoint command:
   - `bash scripts/paper.sh build`
+- Preferred indexed handoff intake command:
+  - `bash scripts/check_handoff_intake.sh --target <instance_dir>`
+- Latest indexed handoff shortcut:
+  - `bash scripts/check_handoff_intake.sh --latest --target <instance_dir>`
+- Indexed handoff files shortcut:
+  - `bash scripts/check_handoff_intake.sh --files --target <instance_dir>`
+- Shortcut modes print only indexed paths to stdout and send warnings to stderr; use the default report before full handoff consumption.
 - If a task packet writes a direct compile command, it must still be derived from `project/paper/runtime/paper.env`.
 - Do not assume `main.tex`; read the config file.
 - The reference image is expected to already provide:
@@ -58,3 +66,4 @@
 2. The output directory changed, but acceptance still checks the old PDF path.
 3. A paper-side worker patched TeX files without first reading the current build profile.
 4. Someone copied runtime facts into `MEMORY.md`, creating a second source of truth.
+5. Paper-side intake scanned `project/output/handoff/` directly and consumed an unindexed handoff.
