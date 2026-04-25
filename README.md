@@ -121,7 +121,7 @@
 - `scripts/install_deps.sh`
   - 只负责容器内依赖安装
 - `scripts/reset_state.sh`
-  - 只负责重置运行状态
+  - 只负责重置运行状态；状态写入使用 instance-local workflow lock
 - `scripts/validate_agent_docs.sh`
   - 校验协议、roles、tasks、queue、paper config 等
 - `scripts/doctor.sh`
@@ -147,7 +147,7 @@
 - `scripts/run_exec_worker.sh`
   - 用 `codex exec` 串起 claim + packet + feedback init + worker 执行
 - `scripts/process_callbacks.sh`
-  - 处理 event log 对应的 callback hooks，并生成可审计 callback artifact
+  - 处理 event log 对应的 callback hooks，并生成可审计 callback artifact；写入时使用 workflow lock
 - `scripts/run_exec_batch.sh`
   - 并行启动多个 write-scope 不冲突的 exec workers
 - `scripts/show_task.sh`
@@ -747,6 +747,8 @@ bash scripts/validate_agent_docs.sh --template-source-only
 
 其中 `--state-consistency-only` 只读检查 `task_registry.json`、`work_queue.json`、`event_log.jsonl`、feedback / retrospective artifact 是否一致；WARN 不会导致失败，ERROR 会导致非零退出。
 
+状态变更入口会在写入后自动运行同一套轻量 consistency check；如果检查失败，命令以非零退出并报告 post-change consistency check failure。
+
 ### 11.3 `scripts/doctor.sh`
 
 用途：给人类一个比较容易读的诊断摘要。
@@ -889,6 +891,8 @@ bash scripts/process_callbacks.sh --replay-from <event_id> --target <dir>
 ### 11.9 `scripts/claim_task.sh` / `scripts/close_task.sh`
 
 用途：管理任务占用、状态推进和并发约束。
+
+这些状态变更脚本会在 rendered instance 的 `project/runtime/.workflow.lock` 上获取 repo-local 写锁，保护 `task_registry.json`、`work_queue.json`、`event_log.jsonl` 和生成的 `MAIN_BRAIN_QUEUE.md`。read-only/advisory 命令不获取该写锁。
 
 常见模式：
 

@@ -20,6 +20,7 @@ from workflow_kernel.schema import (
     RETRO_HEADINGS,
     TASK_STATUSES,
     TEMPLATE_SOURCE_REQUIRED_FILES,
+    atomic_write_text,
     any_path_matches,
     check_required_paths,
     detect_root_kind,
@@ -111,6 +112,20 @@ def run_validate(root: Path, mode: str) -> None:
         if status != 0:
             raise SystemExit(status)
     print("[validate_agent_docs] OK")
+
+
+def reset_runtime_state(root: Path, template_root: Path) -> None:
+    sources = {
+        "project/runtime/task_registry.json": template_root / "scaffold/project/runtime/task_registry.json.template",
+        "project/runtime/work_queue.json": template_root / "scaffold/project/runtime/work_queue.json.template",
+        "project/runtime/event_log.jsonl": template_root / "scaffold/project/runtime/event_log.jsonl.template",
+    }
+    for rel, source in sources.items():
+        if not source.is_file():
+            fail(f"missing scaffold runtime template: {source}")
+        atomic_write_text(root / rel, source.read_text(encoding="utf-8"))
+    state = load_runtime_state(root)
+    write_queue_board(root, state)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -238,6 +253,10 @@ def build_parser() -> argparse.ArgumentParser:
     render_queue = subparsers.add_parser("render-queue")
     render_queue.add_argument("--root", required=True)
 
+    reset_runtime = subparsers.add_parser("reset-runtime-state")
+    reset_runtime.add_argument("--root", required=True)
+    reset_runtime.add_argument("--template-root", required=True)
+
     init_feedback_parser = subparsers.add_parser("init-feedback")
     init_feedback_parser.add_argument("--root", required=True)
     init_feedback_parser.add_argument("--task", required=True)
@@ -276,6 +295,11 @@ def main(argv: Sequence[str]) -> int:
         report, status = extract_policy_hints(root)
         sys.stdout.write(report)
         return status
+
+    if args.command == "reset-runtime-state":
+        reset_runtime_state(root, Path(args.template_root).resolve())
+        print("[workflow] runtime state reset")
+        return 0
 
     state = load_runtime_state(root)
 

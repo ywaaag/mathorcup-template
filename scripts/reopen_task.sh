@@ -63,25 +63,30 @@ done
 
 [[ -n "$TASK_ID" && -n "$NEXT_STATUS" && -n "$REASON" ]] || { usage; exit 2; }
 
-FROM_STATUS="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" status)"
-PREV_OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
+main() {
+    FROM_STATUS="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" status)"
+    PREV_OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
 
-args=(reopen-task --root "$TARGET_DIR" --task "$TASK_ID" --to "$NEXT_STATUS" --reason "$REASON" --actor "$ACTOR")
-[[ -n "$OWNER" ]] && args+=(--owner "$OWNER")
-args+=("${LOCK_ARGS[@]}")
+    args=(reopen-task --root "$TARGET_DIR" --task "$TASK_ID" --to "$NEXT_STATUS" --reason "$REASON" --actor "$ACTOR")
+    [[ -n "$OWNER" ]] && args+=(--owner "$OWNER")
+    args+=("${LOCK_ARGS[@]}")
 
-python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}"
+    python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}"
 
-CURRENT_OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
-event_owner="$CURRENT_OWNER"
-[[ -z "$event_owner" ]] && event_owner="$PREV_OWNER"
-event_args=(
-    --event-type task.reopened
-    --task "$TASK_ID"
-    --actor "$ACTOR"
-    --owner "$event_owner"
-    --from-status "$FROM_STATUS"
-    --to-status "$NEXT_STATUS"
-    --note "$REASON"
-)
-emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${event_args[@]}" >/dev/null
+    CURRENT_OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
+    event_owner="$CURRENT_OWNER"
+    [[ -z "$event_owner" ]] && event_owner="$PREV_OWNER"
+    event_args=(
+        --event-type task.reopened
+        --task "$TASK_ID"
+        --actor "$ACTOR"
+        --owner "$event_owner"
+        --from-status "$FROM_STATUS"
+        --to-status "$NEXT_STATUS"
+        --note "$REASON"
+    )
+    emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${event_args[@]}" >/dev/null
+    workflow_post_change_consistency "$SCRIPT_DIR" "$TARGET_DIR"
+}
+
+workflow_run_with_lock "$SCRIPT_DIR" "$TARGET_DIR" main

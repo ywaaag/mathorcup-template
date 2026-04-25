@@ -84,6 +84,8 @@ All roles should read from these sources before acting:
 - `owner` only means current active owner while a task is in `in_progress`.
 - Once a task leaves `in_progress`, `owner` should be cleared and the latest actor should be derived from `event_log.jsonl` or `work_queue.json -> history`.
 - Main brain should inspect, dispatch, reopen, cancel, and close tasks through workflow scripts rather than freehand status edits.
+- State-changing workflow scripts acquire a rendered-instance write lock at `project/runtime/.workflow.lock`, use atomic writes for structured registry / queue JSON and the generated queue board, and run a post-change consistency check before returning success.
+- Read-only/advisory commands such as `doctor.sh`, `main_brain_summary.sh`, `recommend_tasks.sh`, `check_state_consistency.sh`, and `extract_policy_hints.sh` do not acquire the write lock or change control-plane state.
 - Key scripts emit events and then run:
   - `bash scripts/process_callbacks.sh`
 - Recommended semi-automatic dispatch path:

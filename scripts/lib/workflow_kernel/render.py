@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, Tuple
 
-from workflow_kernel.schema import TASK_STATUSES, queue_items, task_map
+from workflow_kernel.schema import TASK_STATUSES, atomic_write_text, queue_items, task_map
 
 
 def list_tasks(
@@ -90,4 +90,4 @@ def render_queue_board(root: Path, state: Dict[str, Any]) -> str:
 
 def write_queue_board(root: Path, state: Dict[str, Any]) -> None:
     board = root / "project/workflow/MAIN_BRAIN_QUEUE.md"
-    board.write_text(render_queue_board(root, state), encoding="utf-8")
+    atomic_write_text(board, render_queue_board(root, state))

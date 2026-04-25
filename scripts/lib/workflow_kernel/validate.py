@@ -400,9 +400,9 @@ def validate_feedback(root: Path, state: Dict[str, Any]) -> None:
         task_id = task["task_id"]
         status = task["status"]
         if status in {"review", "done"}:
-            check_feedback(root, state, task_id=task_id, file_path=None, require_exists=True)
+            check_feedback(root, state, task_id=task_id, file_path=None, require_exists=True, require_content=True)
         else:
-            check_feedback(root, state, task_id=task_id, file_path=None, require_exists=False)
+            check_feedback(root, state, task_id=task_id, file_path=None, require_exists=False, require_content=False)
 
 
 def validate_retrospectives(root: Path, state: Dict[str, Any]) -> None:
@@ -411,6 +411,6 @@ def validate_retrospectives(root: Path, state: Dict[str, Any]) -> None:
         status = task["status"]
         accepted = bool(task["accepted_by_main_brain"])
         if status == "done" or accepted:
-            check_retrospective(root, state, task_id=task_id, file_path=None, require_exists=True)
+            check_retrospective(root, state, task_id=task_id, file_path=None, require_exists=True, require_content=True)
         else:
-            check_retrospective(root, state, task_id=task_id, file_path=None, require_exists=False)
+            check_retrospective(root, state, task_id=task_id, file_path=None, require_exists=False, require_content=False)

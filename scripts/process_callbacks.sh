@@ -71,4 +71,11 @@ args=(process --root "$TARGET_DIR")
 [[ "$LATEST" == true ]] && args+=(--latest)
 [[ "$DRY_RUN" == true ]] && args+=(--dry-run)
 
-python3 "$SCRIPT_DIR/lib/workflow_events.py" "${args[@]}"
+main() {
+    python3 "$SCRIPT_DIR/lib/workflow_events.py" "${args[@]}"
+    if [[ "$DRY_RUN" == false ]]; then
+        workflow_post_change_consistency "$SCRIPT_DIR" "$TARGET_DIR"
+    fi
+}
+
+workflow_run_with_lock "$SCRIPT_DIR" "$TARGET_DIR" main

@@ -35,38 +35,36 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-status_info "resetting MEMORY.md from scaffold"
-bash "$SCRIPT_DIR/render_templates.sh" \
-    --target "$TARGET_DIR" \
-    --force \
-    --include-state \
-    --only MEMORY.md.template >/dev/null
-status_ok "MEMORY.md reset"
+main() {
+    status_info "resetting MEMORY.md from scaffold"
+    bash "$SCRIPT_DIR/render_templates.sh" \
+        --target "$TARGET_DIR" \
+        --force \
+        --include-state \
+        --only MEMORY.md.template >/dev/null
+    status_ok "MEMORY.md reset"
 
-status_info "resetting task registry and queue board from scaffold"
-bash "$SCRIPT_DIR/render_templates.sh" \
-    --target "$TARGET_DIR" \
-    --force \
-    --include-state \
-    --only project/runtime/task_registry.json.template \
-    --only project/runtime/work_queue.json.template \
-    --only project/runtime/event_log.jsonl.template \
-    --only project/workflow/MAIN_BRAIN_QUEUE.md.template >/dev/null
-bash "$SCRIPT_DIR/render_task_registry.sh" --target "$TARGET_DIR" >/dev/null
-status_ok "task registry, event log, and queue board reset"
+    status_info "resetting task registry and queue board from scaffold"
+    python3 "$SCRIPT_DIR/lib/workflow_state.py" reset-runtime-state --root "$TARGET_DIR" --template-root "$ROOT_DIR" >/dev/null
+    status_ok "task registry, event log, and queue board reset"
 
-if [[ -d "$TARGET_DIR/project/output/handoff" ]]; then
-    find "$TARGET_DIR/project/output/handoff" -maxdepth 1 -type f -name 'P*.md' -delete
-    status_ok "cleared generated handoffs"
-fi
+    if [[ -d "$TARGET_DIR/project/output/handoff" ]]; then
+        find "$TARGET_DIR/project/output/handoff" -maxdepth 1 -type f -name 'P*.md' -delete
+        status_ok "cleared generated handoffs"
+    fi
 
-if [[ "$CLEAR_REVIEW" == true && -d "$TARGET_DIR/project/output/review" ]]; then
-    find "$TARGET_DIR/project/output/review" -maxdepth 1 -type f -name '*.md' ! -name 'WORKER_FEEDBACK_TEMPLATE.md' -delete
-    rm -rf "$TARGET_DIR/project/output/review/callback_runs" "$TARGET_DIR/project/output/review/exec_runs"
-    status_ok "cleared review notes"
-fi
+    if [[ "$CLEAR_REVIEW" == true && -d "$TARGET_DIR/project/output/review" ]]; then
+        find "$TARGET_DIR/project/output/review" -maxdepth 1 -type f -name '*.md' ! -name 'WORKER_FEEDBACK_TEMPLATE.md' -delete
+        rm -rf "$TARGET_DIR/project/output/review/callback_runs" "$TARGET_DIR/project/output/review/exec_runs"
+        status_ok "cleared review notes"
+    fi
 
-if [[ "$CLEAR_RETROSPECTIVES" == true && -d "$TARGET_DIR/project/output/retrospectives" ]]; then
-    find "$TARGET_DIR/project/output/retrospectives" -maxdepth 1 -type f -name '*.md' ! -name 'RETROSPECTIVE_TEMPLATE.md' -delete
-    status_ok "cleared retrospectives"
-fi
+    if [[ "$CLEAR_RETROSPECTIVES" == true && -d "$TARGET_DIR/project/output/retrospectives" ]]; then
+        find "$TARGET_DIR/project/output/retrospectives" -maxdepth 1 -type f -name '*.md' ! -name 'RETROSPECTIVE_TEMPLATE.md' -delete
+        status_ok "cleared retrospectives"
+    fi
+
+    workflow_post_change_consistency "$SCRIPT_DIR" "$TARGET_DIR"
+}
+
+workflow_run_with_lock "$SCRIPT_DIR" "$TARGET_DIR" main

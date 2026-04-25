@@ -53,16 +53,21 @@ done
 
 [[ -n "$TASK_ID" && -n "$REASON" ]] || { usage; exit 2; }
 
-FROM_STATUS="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" status)"
-OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
+main() {
+    FROM_STATUS="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" status)"
+    OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
 
-python3 "$SCRIPT_DIR/lib/workflow_state.py" cancel-task --root "$TARGET_DIR" --task "$TASK_ID" --reason "$REASON" --actor "$ACTOR" --to "$NEXT_STATUS"
+    python3 "$SCRIPT_DIR/lib/workflow_state.py" cancel-task --root "$TARGET_DIR" --task "$TASK_ID" --reason "$REASON" --actor "$ACTOR" --to "$NEXT_STATUS"
 
-emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" \
-    --event-type task.cancelled \
-    --task "$TASK_ID" \
-    --actor "$ACTOR" \
-    --owner "$OWNER" \
-    --from-status "$FROM_STATUS" \
-    --to-status "$NEXT_STATUS" \
-    --note "$REASON" >/dev/null
+    emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" \
+        --event-type task.cancelled \
+        --task "$TASK_ID" \
+        --actor "$ACTOR" \
+        --owner "$OWNER" \
+        --from-status "$FROM_STATUS" \
+        --to-status "$NEXT_STATUS" \
+        --note "$REASON" >/dev/null
+    workflow_post_change_consistency "$SCRIPT_DIR" "$TARGET_DIR"
+}
+
+workflow_run_with_lock "$SCRIPT_DIR" "$TARGET_DIR" main

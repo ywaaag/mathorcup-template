@@ -53,25 +53,30 @@ done
 
 [[ -n "$TASK_ID" && -n "$NEXT_STATUS" ]] || { usage; exit 2; }
 
-FROM_STATUS="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" status)"
-OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
-feedback_path="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" feedback_path)"
-retro_path="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" retrospective_path)"
+main() {
+    FROM_STATUS="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" status)"
+    OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
+    feedback_path="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" feedback_path)"
+    retro_path="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" retrospective_path)"
 
-args=(close-task --root "$TARGET_DIR" --task "$TASK_ID" --to "$NEXT_STATUS")
-[[ -n "$ACCEPTED_BY" ]] && args+=(--accepted-by "$ACCEPTED_BY")
-[[ -n "$ACTOR" ]] && args+=(--actor "$ACTOR")
+    args=(close-task --root "$TARGET_DIR" --task "$TASK_ID" --to "$NEXT_STATUS")
+    [[ -n "$ACCEPTED_BY" ]] && args+=(--accepted-by "$ACCEPTED_BY")
+    [[ -n "$ACTOR" ]] && args+=(--actor "$ACTOR")
 
-python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}"
+    python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}"
 
-event_args=(
-    --event-type task.closed
-    --task "$TASK_ID"
-    --actor "${ACTOR:-${ACCEPTED_BY:-main_brain}}"
-    --owner "$OWNER"
-    --from-status "$FROM_STATUS"
-    --to-status "$NEXT_STATUS"
-    --artifact "$feedback_path"
-)
-[[ "$NEXT_STATUS" == "done" ]] && event_args+=(--artifact "$retro_path" --metadata "accepted_by=$ACCEPTED_BY")
-emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${event_args[@]}" >/dev/null
+    event_args=(
+        --event-type task.closed
+        --task "$TASK_ID"
+        --actor "${ACTOR:-${ACCEPTED_BY:-main_brain}}"
+        --owner "$OWNER"
+        --from-status "$FROM_STATUS"
+        --to-status "$NEXT_STATUS"
+        --artifact "$feedback_path"
+    )
+    [[ "$NEXT_STATUS" == "done" ]] && event_args+=(--artifact "$retro_path" --metadata "accepted_by=$ACCEPTED_BY")
+    emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${event_args[@]}" >/dev/null
+    workflow_post_change_consistency "$SCRIPT_DIR" "$TARGET_DIR"
+}
+
+workflow_run_with_lock "$SCRIPT_DIR" "$TARGET_DIR" main

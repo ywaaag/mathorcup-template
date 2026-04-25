@@ -32,6 +32,65 @@ require_cmd() {
     command -v "$1" >/dev/null 2>&1 || die "missing command: $1"
 }
 
+workflow_root_kind() {
+    local scripts_dir="$1"
+    local target_dir="$2"
+    python3 "$scripts_dir/lib/workflow_state.py" root-kind --root "$target_dir"
+}
+
+workflow_run_with_lock() {
+    local scripts_dir="$1"
+    local target_dir="$2"
+    shift 2
+
+    if [[ "${WORKFLOW_LOCK_HELD:-}" == "1" ]]; then
+        "$@"
+        return
+    fi
+
+    require_cmd flock
+
+    local root_kind
+    root_kind="$(workflow_root_kind "$scripts_dir" "$target_dir")"
+    if [[ "$root_kind" != "instance" ]]; then
+        die "workflow write lock requires a rendered instance root: $target_dir"
+    fi
+
+    local runtime_dir="$target_dir/project/runtime"
+    if [[ ! -d "$runtime_dir" ]]; then
+        die "workflow write lock missing runtime directory: $runtime_dir"
+    fi
+
+    local lock_file="$runtime_dir/.workflow.lock"
+    (
+        flock -x 200 || die "failed to acquire workflow write lock: $lock_file"
+        WORKFLOW_LOCK_HELD=1 "$@"
+    ) 200>"$lock_file"
+}
+
+workflow_post_change_consistency() {
+    local scripts_dir="$1"
+    local target_dir="$2"
+
+    if [[ "$(workflow_root_kind "$scripts_dir" "$target_dir")" != "instance" ]]; then
+        return 0
+    fi
+
+    local output_file
+    output_file="$(mktemp)"
+    set +e
+    bash "$scripts_dir/check_state_consistency.sh" --target "$target_dir" > "$output_file" 2>&1
+    local exit_code=$?
+    set -e
+    if [[ "$exit_code" -ne 0 ]]; then
+        echo "[workflow] post-change consistency check failed for $target_dir" >&2
+        cat "$output_file" >&2
+        rm -f "$output_file"
+        return "$exit_code"
+    fi
+    rm -f "$output_file"
+}
+
 workflow_task_field() {
     local scripts_dir="$1"
     local target_dir="$2"
@@ -40,7 +99,7 @@ workflow_task_field() {
     python3 "$scripts_dir/lib/workflow_state.py" task-field --root "$target_dir" --task "$task_id" --field "$field"
 }
 
-emit_workflow_event() {
+_emit_workflow_event_unlocked() {
     local scripts_dir="$1"
     local target_dir="$2"
     shift 2
@@ -49,6 +108,27 @@ emit_workflow_event() {
     event_id="$(python3 "$scripts_dir/lib/workflow_events.py" emit --root "$target_dir" "$@")"
     bash "$scripts_dir/process_callbacks.sh" --target "$target_dir" --event-id "$event_id" >/dev/null
     printf '%s\n' "$event_id"
+}
+
+_emit_workflow_event_and_check() {
+    local scripts_dir="$1"
+    local target_dir="$2"
+    shift 2
+
+    _emit_workflow_event_unlocked "$scripts_dir" "$target_dir" "$@"
+    workflow_post_change_consistency "$scripts_dir" "$target_dir"
+}
+
+emit_workflow_event() {
+    local scripts_dir="$1"
+    local target_dir="$2"
+    shift 2
+
+    if [[ "${WORKFLOW_LOCK_HELD:-}" == "1" ]]; then
+        _emit_workflow_event_unlocked "$scripts_dir" "$target_dir" "$@"
+    else
+        workflow_run_with_lock "$scripts_dir" "$target_dir" _emit_workflow_event_and_check "$scripts_dir" "$target_dir" "$@"
+    fi
 }
 
 load_kv_env_if_unset() {

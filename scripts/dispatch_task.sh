@@ -67,63 +67,68 @@ if [[ "$NO_CLAIM" == false && -z "$OWNER" ]]; then
     exit 2
 fi
 
-if [[ "$NO_CLAIM" == false ]]; then
-    bash "$SCRIPT_DIR/claim_task.sh" \
-        --task "$TASK_ID" \
-        --owner "$OWNER" \
-        --actor "$ACTOR" \
-        "${LOCK_ARGS[@]}" \
-        --target "$TARGET_DIR"
-fi
+main() {
+    if [[ "$NO_CLAIM" == false ]]; then
+        bash "$SCRIPT_DIR/claim_task.sh" \
+            --task "$TASK_ID" \
+            --owner "$OWNER" \
+            --actor "$ACTOR" \
+            "${LOCK_ARGS[@]}" \
+            --target "$TARGET_DIR"
+    fi
 
-python3 "$SCRIPT_DIR/lib/workflow_state.py" render-queue --root "$TARGET_DIR" >/dev/null
-packet="$(python3 "$SCRIPT_DIR/lib/workflow_state.py" task-packet --root "$TARGET_DIR" --task "$TASK_ID")"
-ROLE_NAME="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" role)"
-CURRENT_OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
-if [[ -z "$OWNER" ]]; then
-    OWNER="$CURRENT_OWNER"
-fi
+    python3 "$SCRIPT_DIR/lib/workflow_state.py" render-queue --root "$TARGET_DIR" >/dev/null
+    packet="$(python3 "$SCRIPT_DIR/lib/workflow_state.py" task-packet --root "$TARGET_DIR" --task "$TASK_ID")"
+    ROLE_NAME="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" role)"
+    CURRENT_OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
+    if [[ -z "$OWNER" ]]; then
+        OWNER="$CURRENT_OWNER"
+    fi
 
-if [[ -n "$PACKET_OUT" ]]; then
-    mkdir -p "$(dirname "$PACKET_OUT")"
-    printf '%s' "$packet" > "$PACKET_OUT"
-fi
+    if [[ -n "$PACKET_OUT" ]]; then
+        mkdir -p "$(dirname "$PACKET_OUT")"
+        printf '%s' "$packet" > "$PACKET_OUT"
+    fi
 
-dispatch_event_args=(
-    --event-type task.dispatched
-    --task "$TASK_ID"
-    --actor "$ACTOR"
-    --owner "$OWNER"
-    --from-status in_progress
-    --to-status in_progress
-    --metadata "role=$ROLE_NAME"
-    --note "task dispatched and packet ready for worker handoff"
-)
-emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${dispatch_event_args[@]}" >/dev/null
+    dispatch_event_args=(
+        --event-type task.dispatched
+        --task "$TASK_ID"
+        --actor "$ACTOR"
+        --owner "$OWNER"
+        --from-status in_progress
+        --to-status in_progress
+        --metadata "role=$ROLE_NAME"
+        --note "task dispatched and packet ready for worker handoff"
+    )
+    emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${dispatch_event_args[@]}" >/dev/null
 
-packet_event_args=(
-    --event-type task.packet_generated
-    --task "$TASK_ID"
-    --actor "$ACTOR"
-    --owner "$OWNER"
-    --metadata "role=$ROLE_NAME"
-)
-if [[ -n "$PACKET_OUT" ]]; then
-    packet_event_args+=(--artifact "$PACKET_OUT")
-else
-    packet_event_args+=(--note "packet generated to stdout only")
-fi
-emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${packet_event_args[@]}" >/dev/null
+    packet_event_args=(
+        --event-type task.packet_generated
+        --task "$TASK_ID"
+        --actor "$ACTOR"
+        --owner "$OWNER"
+        --metadata "role=$ROLE_NAME"
+    )
+    if [[ -n "$PACKET_OUT" ]]; then
+        packet_event_args+=(--artifact "$PACKET_OUT")
+    else
+        packet_event_args+=(--note "packet generated to stdout only")
+    fi
+    emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${packet_event_args[@]}" >/dev/null
+    workflow_post_change_consistency "$SCRIPT_DIR" "$TARGET_DIR"
 
-if [[ "$NO_CLAIM" == true ]]; then
-    echo "[dispatch] claim skipped for task $TASK_ID"
-else
-    echo "[dispatch] claimed task $TASK_ID for owner $OWNER"
-fi
-echo "[dispatch] queue board refreshed"
-echo "[dispatch] canonical feedback skeleton path: ensured via task.dispatched callback when missing"
-if [[ -n "$PACKET_OUT" ]]; then
-    echo "[dispatch] packet written to $PACKET_OUT"
-fi
-echo ""
-printf '%s' "$packet"
+    if [[ "$NO_CLAIM" == true ]]; then
+        echo "[dispatch] claim skipped for task $TASK_ID"
+    else
+        echo "[dispatch] claimed task $TASK_ID for owner $OWNER"
+    fi
+    echo "[dispatch] queue board refreshed"
+    echo "[dispatch] canonical feedback skeleton path: ensured via task.dispatched callback when missing"
+    if [[ -n "$PACKET_OUT" ]]; then
+        echo "[dispatch] packet written to $PACKET_OUT"
+    fi
+    echo ""
+    printf '%s' "$packet"
+}
+
+workflow_run_with_lock "$SCRIPT_DIR" "$TARGET_DIR" main

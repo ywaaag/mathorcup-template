@@ -171,6 +171,7 @@ def check_feedback(
     task_id: Optional[str],
     file_path: Optional[str],
     require_exists: bool,
+    require_content: bool = True,
 ) -> Path:
     if task_id:
         task = task_from_id(state, task_id)
@@ -184,10 +185,11 @@ def check_feedback(
             fail(f"feedback file does not exist: {path}")
         return path
     lines = require_headings(path, FEEDBACK_HEADINGS, f"feedback file {path.name}")
-    require_effective_sections(path, lines, FEEDBACK_REQUIRED_CONTENT_HEADINGS, "feedback")
-    task_id_values = [line.strip() for line in lines if line.strip().startswith("- ")]
-    if task_id and f"- {task_id}" not in task_id_values:
-        fail(f"feedback file {path.name} does not contain task id '{task_id}'")
+    if require_content:
+        require_effective_sections(path, lines, FEEDBACK_REQUIRED_CONTENT_HEADINGS, "feedback")
+        task_id_values = [line.strip() for line in lines if line.strip().startswith("- ")]
+        if task_id and f"- {task_id}" not in task_id_values:
+            fail(f"feedback file {path.name} does not contain task id '{task_id}'")
     return path
 
 
@@ -198,6 +200,7 @@ def check_retrospective(
     task_id: Optional[str],
     file_path: Optional[str],
     require_exists: bool,
+    require_content: bool = True,
 ) -> Path:
     if task_id:
         task = task_from_id(state, task_id)
@@ -211,8 +214,9 @@ def check_retrospective(
             fail(f"retrospective file does not exist: {path}")
         return path
     lines = require_headings(path, RETRO_HEADINGS, f"retrospective file {path.name}")
-    require_effective_sections(path, lines, RETRO_REQUIRED_CONTENT_HEADINGS, "retrospective")
-    task_id_values = [line.strip() for line in lines if line.strip().startswith("- ")]
-    if task_id and f"- {task_id}" not in task_id_values:
-        fail(f"retrospective file {path.name} does not contain task id '{task_id}'")
+    if require_content:
+        require_effective_sections(path, lines, RETRO_REQUIRED_CONTENT_HEADINGS, "retrospective")
+        task_id_values = [line.strip() for line in lines if line.strip().startswith("- ")]
+        if task_id and f"- {task_id}" not in task_id_values:
+            fail(f"retrospective file {path.name} does not contain task id '{task_id}'")
     return path

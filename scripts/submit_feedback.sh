@@ -56,22 +56,27 @@ elif [[ "$FEEDBACK_ONLY" == true ]]; then
     args+=(--feedback-only)
 fi
 
-output="$(python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}")"
-printf '%s\n' "$output"
+main() {
+    output="$(python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}")"
+    printf '%s\n' "$output"
 
-OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
-feedback_path="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" feedback_path)"
-retro_path="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" retrospective_path)"
+    OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
+    feedback_path="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" feedback_path)"
+    retro_path="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" retrospective_path)"
 
-event_args=(
-    --event-type feedback.initialized
-    --task "$TASK_ID"
-    --actor main_brain
-    --owner "$OWNER"
-    --artifact "$feedback_path"
-    --metadata "with_retrospective=$WITH_RETROSPECTIVE"
-)
-if [[ "$WITH_RETROSPECTIVE" == true ]]; then
-    event_args+=(--artifact "$retro_path")
-fi
-emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${event_args[@]}" >/dev/null
+    event_args=(
+        --event-type feedback.initialized
+        --task "$TASK_ID"
+        --actor main_brain
+        --owner "$OWNER"
+        --artifact "$feedback_path"
+        --metadata "with_retrospective=$WITH_RETROSPECTIVE"
+    )
+    if [[ "$WITH_RETROSPECTIVE" == true ]]; then
+        event_args+=(--artifact "$retro_path")
+    fi
+    emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${event_args[@]}" >/dev/null
+    workflow_post_change_consistency "$SCRIPT_DIR" "$TARGET_DIR"
+}
+
+workflow_run_with_lock "$SCRIPT_DIR" "$TARGET_DIR" main
