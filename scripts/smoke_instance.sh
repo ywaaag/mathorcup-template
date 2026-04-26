@@ -21,6 +21,9 @@ HANDOFF_REL="project/output/handoff/P1_smoke_handoff_${DATE_STAMP}.md"
 HANDOFF_INDEX_VERIFIED=false
 HANDOFF_EVENT_VERIFIED=false
 HANDOFF_INTAKE_PROBE_VERIFIED=false
+JSON_QUERY_REGRESSION_VERIFIED=false
+JSON_STDOUT_FILE=""
+JSON_STDERR_FILE=""
 
 usage() {
     cat <<'EOF'
@@ -357,15 +360,229 @@ check_handoff_intake_missing_indexed_failure() {
     set -e
 
     [[ "$exit_code" -ne 0 ]]
+    [[ ! -s "$stdout_file" ]]
     grep -F "missing file:" "$stderr_file" >/dev/null
     grep -F "$HANDOFF_INTAKE_PROBE_INDEXED_REL" "$stderr_file" >/dev/null
 
     echo "[probe] missing_indexed_exit_code: $exit_code"
+    echo "[probe] missing_indexed_stdout: <empty>"
     echo "[probe] missing_indexed_stderr:"
     cat "$stderr_file"
 
     rm -f "$stdout_file" "$stderr_file"
     HANDOFF_INTAKE_PROBE_VERIFIED=true
+}
+
+check_handoff_intake_shortcut_json_rejection() {
+    local mode="$1"
+    local stdout_file stderr_file exit_code command_text
+    stdout_file="$(mktemp)"
+    stderr_file="$(mktemp)"
+
+    local args=()
+    if [[ "$mode" == "latest" ]]; then
+        args+=(--latest --json)
+    else
+        args+=(--files --json)
+    fi
+
+    command_text="$(quote_command bash "$SCRIPT_DIR/check_handoff_intake.sh" "${args[@]}" --target "$HANDOFF_INTAKE_PROBE_DIR")"
+    set +e
+    bash "$SCRIPT_DIR/check_handoff_intake.sh" "${args[@]}" --target "$HANDOFF_INTAKE_PROBE_DIR" >"$stdout_file" 2>"$stderr_file"
+    exit_code=$?
+    set -e
+
+    [[ "$exit_code" -eq 2 ]]
+    [[ ! -s "$stdout_file" ]]
+    grep -F "cannot be combined with --latest or --files" "$stderr_file" >/dev/null
+
+    echo "[probe] command: $command_text"
+    echo "[probe] exit_code: $exit_code"
+    echo "[probe] result: PASS"
+    echo "[probe] stdout: <empty>"
+    echo "[probe] stderr:"
+    cat "$stderr_file"
+
+    rm -f "$stdout_file" "$stderr_file"
+}
+
+cleanup_json_probe_capture() {
+    rm -f "${JSON_STDOUT_FILE:-}" "${JSON_STDERR_FILE:-}"
+    JSON_STDOUT_FILE=""
+    JSON_STDERR_FILE=""
+}
+
+summarize_json_payload() {
+    local payload_file="$1"
+    python3 - "$payload_file" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+keys = ",".join(sorted(payload)[:12])
+print(
+    "[probe] stdout_json_summary: "
+    f"schema_version={payload.get('schema_version', '')} "
+    f"status={payload.get('status', '')} "
+    f"read_only={payload.get('read_only', '<missing>')} "
+    f"keys={keys}"
+)
+PY
+}
+
+run_json_probe_keep() {
+    local label="$1"
+    shift
+    local stdout_file stderr_file json_error_file command_text exit_code summary
+    stdout_file="$(mktemp)"
+    stderr_file="$(mktemp)"
+    json_error_file="$(mktemp)"
+    command_text="$(quote_command "$@")"
+
+    set +e
+    "$@" >"$stdout_file" 2>"$stderr_file"
+    exit_code=$?
+    set -e
+
+    echo "[probe] label: $label"
+    echo "[probe] command: $command_text"
+    echo "[probe] exit_code: $exit_code"
+
+    if [[ "$exit_code" -ne 0 ]]; then
+        echo "[probe] result: FAIL"
+        echo "[probe] stderr:"
+        cat "$stderr_file"
+        rm -f "$json_error_file"
+        JSON_STDOUT_FILE="$stdout_file"
+        JSON_STDERR_FILE="$stderr_file"
+        return 1
+    fi
+    if ! python3 -m json.tool <"$stdout_file" >/dev/null 2>"$json_error_file"; then
+        echo "[probe] result: FAIL"
+        echo "[probe] json_tool_stderr:"
+        cat "$json_error_file"
+        rm -f "$json_error_file"
+        JSON_STDOUT_FILE="$stdout_file"
+        JSON_STDERR_FILE="$stderr_file"
+        return 1
+    fi
+    if ! summary="$(summarize_json_payload "$stdout_file")"; then
+        echo "[probe] result: FAIL"
+        rm -f "$json_error_file"
+        JSON_STDOUT_FILE="$stdout_file"
+        JSON_STDERR_FILE="$stderr_file"
+        return 1
+    fi
+
+    echo "[probe] result: PASS"
+    echo "$summary"
+    if [[ -s "$stderr_file" ]]; then
+        echo "[probe] stderr_summary:"
+        tail -n 20 "$stderr_file"
+    else
+        echo "[probe] stderr: <empty>"
+    fi
+
+    rm -f "$json_error_file"
+    JSON_STDOUT_FILE="$stdout_file"
+    JSON_STDERR_FILE="$stderr_file"
+}
+
+assert_handoff_intake_json_payload() {
+    local indexed_rel="$1"
+    local unindexed_rel="$2"
+    python3 - "$JSON_STDOUT_FILE" "$indexed_rel" "$unindexed_rel" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+indexed_rel = sys.argv[2]
+unindexed_rel = sys.argv[3]
+indexed_files = payload.get("indexed_files", [])
+warnings = payload.get("warnings", [])
+
+assert payload.get("read_only") is True
+assert payload.get("indexed_latest") == indexed_rel
+assert indexed_rel in indexed_files
+assert unindexed_rel not in indexed_files
+assert any(unindexed_rel in warning for warning in warnings)
+print(
+    "[probe] handoff_intake_json_semantics: "
+    f"indexed_files={len(indexed_files)} warnings={len(warnings)} unindexed_only_warning=true"
+)
+PY
+}
+
+assert_adjudication_json_payload() {
+    local output_rel="$1"
+    python3 - "$JSON_STDOUT_FILE" "$TARGET_DIR" "$output_rel" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+root = Path(sys.argv[2])
+output_rel = sys.argv[3]
+artifact = payload.get("artifact_written", {})
+
+assert payload.get("read_only") is False
+assert artifact.get("path") == output_rel
+assert (root / output_rel).is_file()
+print(f"[probe] adjudication_json_semantics: artifact_written={output_rel} read_only=false")
+PY
+}
+
+check_json_query_regression() {
+    run_json_probe_keep "doctor_json_flag" bash "$SCRIPT_DIR/doctor.sh" --target "$TARGET_DIR" --json || return 1
+    cleanup_json_probe_capture
+    run_json_probe_keep "doctor_format_json" bash "$SCRIPT_DIR/doctor.sh" --target "$TARGET_DIR" --format json || return 1
+    cleanup_json_probe_capture
+
+    run_json_probe_keep "check_state_consistency_json_flag" bash "$SCRIPT_DIR/check_state_consistency.sh" --target "$TARGET_DIR" --json || return 1
+    cleanup_json_probe_capture
+    run_json_probe_keep "check_state_consistency_format_json" bash "$SCRIPT_DIR/check_state_consistency.sh" --target "$TARGET_DIR" --format json || return 1
+    cleanup_json_probe_capture
+
+    run_json_probe_keep "main_brain_summary_json_flag" bash "$SCRIPT_DIR/main_brain_summary.sh" --target "$TARGET_DIR" --json || return 1
+    cleanup_json_probe_capture
+    run_json_probe_keep "main_brain_summary_format_json" bash "$SCRIPT_DIR/main_brain_summary.sh" --target "$TARGET_DIR" --format json || return 1
+    cleanup_json_probe_capture
+
+    run_json_probe_keep "show_task_json_flag" bash "$SCRIPT_DIR/show_task.sh" --task TASK_MAIN_SYNC --target "$TARGET_DIR" --json || return 1
+    cleanup_json_probe_capture
+    run_json_probe_keep "show_task_format_json" bash "$SCRIPT_DIR/show_task.sh" --task TASK_MAIN_SYNC --target "$TARGET_DIR" --format json || return 1
+    cleanup_json_probe_capture
+
+    run_json_probe_keep "list_history_json_flag" bash "$SCRIPT_DIR/list_history.sh" --task TASK_MAIN_SYNC --target "$TARGET_DIR" --json || return 1
+    cleanup_json_probe_capture
+    run_json_probe_keep "list_history_format_json" bash "$SCRIPT_DIR/list_history.sh" --task TASK_MAIN_SYNC --target "$TARGET_DIR" --format json || return 1
+    cleanup_json_probe_capture
+
+    run_json_probe_keep "recommend_tasks_json_flag" bash "$SCRIPT_DIR/recommend_tasks.sh" --target "$TARGET_DIR" --json || return 1
+    cleanup_json_probe_capture
+    run_json_probe_keep "recommend_tasks_format_json" bash "$SCRIPT_DIR/recommend_tasks.sh" --target "$TARGET_DIR" --format json || return 1
+    cleanup_json_probe_capture
+
+    run_json_probe_keep "check_handoff_intake_json_flag" bash "$SCRIPT_DIR/check_handoff_intake.sh" --target "$HANDOFF_INTAKE_PROBE_DIR" --json || return 1
+    assert_handoff_intake_json_payload "$HANDOFF_INTAKE_PROBE_INDEXED_REL" "$HANDOFF_INTAKE_PROBE_UNINDEXED_REL" || return 1
+    cleanup_json_probe_capture
+    run_json_probe_keep "check_handoff_intake_format_json" bash "$SCRIPT_DIR/check_handoff_intake.sh" --target "$HANDOFF_INTAKE_PROBE_DIR" --format json || return 1
+    assert_handoff_intake_json_payload "$HANDOFF_INTAKE_PROBE_INDEXED_REL" "$HANDOFF_INTAKE_PROBE_UNINDEXED_REL" || return 1
+    cleanup_json_probe_capture
+
+    local adjudication_json_rel="project/output/review/TASK_MAIN_SYNC_adjudication_json_flag.md"
+    run_json_probe_keep "adjudicate_task_json_flag" bash "$SCRIPT_DIR/adjudicate_task.sh" --task TASK_MAIN_SYNC --target "$TARGET_DIR" --output "$adjudication_json_rel" --note "smoke json flag regression" --json || return 1
+    assert_adjudication_json_payload "$adjudication_json_rel" || return 1
+    cleanup_json_probe_capture
+
+    local adjudication_format_rel="project/output/review/TASK_MAIN_SYNC_adjudication_format_json.md"
+    run_json_probe_keep "adjudicate_task_format_json" bash "$SCRIPT_DIR/adjudicate_task.sh" --task TASK_MAIN_SYNC --target "$TARGET_DIR" --output "$adjudication_format_rel" --note "smoke format json regression" --format json || return 1
+    assert_adjudication_json_payload "$adjudication_format_rel" || return 1
+    cleanup_json_probe_capture
+
+    JSON_QUERY_REGRESSION_VERIFIED=true
 }
 
 finish_report() {
@@ -397,6 +614,7 @@ finish_report() {
         echo "- handoff_index_updated: $handoff_index_updated"
         echo "- handoff_event_recorded: $handoff_event_recorded"
         echo "- handoff_intake_probe_verified: $HANDOFF_INTAKE_PROBE_VERIFIED"
+        echo "- json_query_regression_verified: $JSON_QUERY_REGRESSION_VERIFIED"
         echo "- reset_after_validate_passed: $reset_validate_passed"
         echo "- kept_temp_dir: $([[ "$KEEP_TEMP" == true || "$TARGET_PROVIDED" == true || "$OVERALL_STATUS" -ne 0 ]] && echo true || echo false)"
         echo "- overall_status: $([[ "$OVERALL_STATUS" -eq 0 ]] && echo PASS || echo FAIL)"
@@ -461,6 +679,9 @@ run_required "handoff_intake_probe_setup" prepare_handoff_intake_probe
 run_required "handoff_intake_default_report" check_handoff_intake_default_probe
 run_required "handoff_intake_latest_shortcut" check_handoff_intake_shortcut_probe latest
 run_required "handoff_intake_files_shortcut" check_handoff_intake_shortcut_probe files
+run_required "handoff_intake_latest_json_rejected" check_handoff_intake_shortcut_json_rejection latest
+run_required "handoff_intake_files_json_rejected" check_handoff_intake_shortcut_json_rejection files
+run_required "json_query_regression" check_json_query_regression
 run_required "handoff_intake_missing_indexed_failure" check_handoff_intake_missing_indexed_failure
 run_required "extract_policy_hints" bash "$SCRIPT_DIR/extract_policy_hints.sh" --target "$TARGET_DIR"
 run_required "paper_print_config" bash "$SCRIPT_DIR/paper.sh" --target "$TARGET_DIR" print-config
