@@ -17,8 +17,11 @@ Use this checklist before accepting a worker result:
   - `bash scripts/doctor.sh --target <dir> --json`
   - `bash scripts/check_state_consistency.sh --target <dir> --json`
   - `bash scripts/main_brain_summary.sh --target <dir> --json`
+  - `bash scripts/show_task.sh --task <task_id> --target <dir> --json`
   - `bash scripts/list_history.sh --task <task_id> --target <dir> --json`
   - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir> --json`
+  - `bash scripts/recommend_tasks.sh --target <dir> --json`
+  - `bash scripts/check_handoff_intake.sh --target <dir> --json`
 
 4. Acceptance Artifacts
 - If the task touched paper/build, were the host-visible acceptance artifacts refreshed?

@@ -55,7 +55,7 @@
 
 开始前先执行：
 - `bash scripts/validate_agent_docs.sh`
-- 需要机器可消费验收面时，使用 `bash scripts/doctor.sh --target <dir> --json`、`bash scripts/check_state_consistency.sh --target <dir> --json`、`bash scripts/main_brain_summary.sh --target <dir> --json`、`bash scripts/list_history.sh --task <task_id> --target <dir> --json` 和 `bash scripts/adjudicate_task.sh --task <task_id> --target <dir> --json`；默认文本输出仍给人读
+- 需要机器可消费验收面时，使用 `bash scripts/doctor.sh --target <dir> --json`、`bash scripts/check_state_consistency.sh --target <dir> --json`、`bash scripts/main_brain_summary.sh --target <dir> --json`、`bash scripts/show_task.sh --task <task_id> --target <dir> --json`、`bash scripts/list_history.sh --task <task_id> --target <dir> --json`、`bash scripts/adjudicate_task.sh --task <task_id> --target <dir> --json`、`bash scripts/recommend_tasks.sh --target <dir> --json` 和 `bash scripts/check_handoff_intake.sh --target <dir> --json`；默认文本输出仍给人读
 
 完成后必须：
 - 回填 task 对应的 feedback / retrospective 文件
@@ -170,8 +170,10 @@ See:
   - `bash scripts/doctor.sh --target <dir>`
   - `bash scripts/doctor.sh --target <dir> --json` if a tool needs structured runtime, harness, validation, and container warning fields
   - `bash scripts/main_brain_summary.sh --target <dir>`
+  - `bash scripts/show_task.sh --task <task_id> --target <dir> --json` if a tool needs structured task scope, artifacts, events, and recommended commands
   - `bash scripts/list_open_tasks.sh --open-only`
   - `bash scripts/check_handoff_intake.sh --target <dir>` when the next worker will consume code-brain handoffs
+  - `bash scripts/check_handoff_intake.sh --target <dir> --json` when a tool needs structured indexed handoff intake
   - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`
   - dispatch 会通过 `task.dispatched` callback 自动补 feedback skeleton
   - `bash scripts/show_task.sh --task <task_id>` if main brain wants the current audit summary before or after dispatch

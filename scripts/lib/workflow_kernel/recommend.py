@@ -221,6 +221,114 @@ def template_source_notice(root: Path) -> str:
     )
 
 
+def template_source_payload(root: Path, owner_prefix: str) -> Dict[str, Any]:
+    return {
+        "schema_version": "recommend_tasks.v1",
+        "generated_at": current_timestamp(),
+        "root": str(root),
+        "root_kind": "template_source",
+        "read_only": True,
+        "owner_prefix": owner_prefix,
+        "safe_to_dispatch": [],
+        "blocked": [],
+        "active_conflicts": [],
+        "suggested_commands": [
+            'tmpdir="$(mktemp -d)"',
+            'bash scripts/setup.sh demo --render-only --target "$tmpdir"',
+            'bash scripts/recommend_tasks.sh --target "$tmpdir"',
+        ],
+        "ok": True,
+        "status": "TEMPLATE_SOURCE",
+    }
+
+
+def current_timestamp() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def recommend_tasks_payload(root: Path, owner_prefix: str, lock_entries: Sequence[str]) -> Dict[str, Any]:
+    root_kind = detect_root_kind(root)
+    if root_kind == "template_source":
+        return template_source_payload(root, owner_prefix)
+
+    state = load_runtime_state(root)
+    roles = role_map(state)
+    tasks_by_id = task_map(state)
+    active = queue_items(state)
+    active_ids = {item.get("task_id", "") for item in active}
+    lock_overrides = parse_task_locks(lock_entries)
+
+    safe: List[Dict[str, Any]] = []
+    blocked: List[tuple[Dict[str, Any], List[str]]] = []
+    effective_locks: Dict[str, List[str]] = {}
+
+    for task in state["registry"].get("tasks", []):
+        task_locks = lock_paths_for_task(task, lock_overrides)
+        effective_locks[task["task_id"]] = task_locks
+        reasons = evaluate_task(
+            task,
+            roles=roles,
+            tasks=tasks_by_id,
+            active=active,
+            active_ids=active_ids,
+            locks=task_locks,
+        )
+        if reasons:
+            blocked.append((task, reasons))
+        else:
+            safe.append(task)
+
+    safe_items = [
+        {
+            "task_id": task["task_id"],
+            "role": task["role"],
+            "title": task.get("title", ""),
+            "locks": effective_locks[task["task_id"]],
+            "command": dispatch_command(task, root, owner_prefix, effective_locks[task["task_id"]]),
+        }
+        for task in safe
+    ]
+    blocked_items = [
+        {
+            "task_id": task.get("task_id", "<unknown>"),
+            "role": task.get("role", ""),
+            "title": task.get("title", ""),
+            "reasons": reasons,
+        }
+        for task, reasons in blocked
+    ]
+    active_conflicts = [
+        {
+            "task_id": item.get("task_id", ""),
+            "role": item.get("role", ""),
+            "owner": item.get("owner", ""),
+            "locked_paths": item.get("locked_paths", []),
+        }
+        for item in active
+    ]
+    batch_subset = build_batch_subset(safe, effective_locks, roles)
+    suggested_commands = [item["command"] for item in safe_items]
+    if len(batch_subset) >= 2:
+        suggested_commands.append(batch_command(batch_subset, root, owner_prefix, effective_locks))
+
+    return {
+        "schema_version": "recommend_tasks.v1",
+        "generated_at": current_timestamp(),
+        "root": str(root),
+        "root_kind": root_kind,
+        "read_only": True,
+        "owner_prefix": owner_prefix,
+        "safe_to_dispatch": safe_items,
+        "blocked": blocked_items,
+        "active_conflicts": active_conflicts,
+        "suggested_commands": suggested_commands,
+        "ok": True,
+        "status": "OK",
+    }
+
+
 def recommend_tasks_report(root: Path, owner_prefix: str, lock_entries: Sequence[str]) -> str:
     if detect_root_kind(root) == "template_source":
         return template_source_notice(root)

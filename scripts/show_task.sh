@@ -6,9 +6,10 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 TARGET_DIR="$ROOT_DIR"
 TASK_ID=""
+OUTPUT_FORMAT="text"
 
 usage() {
-    echo "Usage: bash scripts/show_task.sh --task <task_id> [--target <dir>]" >&2
+    echo "Usage: bash scripts/show_task.sh --task <task_id> [--target <dir>] [--json|--format text|json]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -20,6 +21,23 @@ while [[ $# -gt 0 ]]; do
         --target|--root)
             TARGET_DIR="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$2")"
             shift 2
+            ;;
+        --json)
+            OUTPUT_FORMAT="json"
+            shift
+            ;;
+        --format)
+            case "$2" in
+                text|json)
+                    OUTPUT_FORMAT="$2"
+                    shift 2
+                    ;;
+                *)
+                    usage
+                    echo "unknown format: $2" >&2
+                    exit 2
+                    ;;
+            esac
             ;;
         -h|--help)
             usage
@@ -35,4 +53,9 @@ done
 
 [[ -n "$TASK_ID" ]] || { usage; exit 2; }
 
-python3 "$SCRIPT_DIR/lib/workflow_audit.py" show-task --root "$TARGET_DIR" --task "$TASK_ID"
+args=(show-task --root "$TARGET_DIR" --task "$TASK_ID")
+if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+    args+=(--json)
+fi
+
+python3 "$SCRIPT_DIR/lib/workflow_audit.py" "${args[@]}"

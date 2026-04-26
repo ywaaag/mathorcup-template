@@ -292,7 +292,16 @@ def next_step_hints(root: Path, task: Dict[str, Any], feedback: Dict[str, Any], 
     return hints
 
 
-def show_task(root: Path, task_id: str) -> str:
+def artifact_payload(root: Path, info: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "path": relref(root, info["path"]),
+        "exists": bool(info["exists"]),
+        "state": info["state"],
+        "valid": bool(info.get("valid", False)),
+    }
+
+
+def show_task_payload(root: Path, task_id: str) -> Dict[str, Any]:
     ensure_instance_root(root)
     state = load_runtime_state(root)
     task = task_from_id(state, task_id)
@@ -303,13 +312,62 @@ def show_task(root: Path, task_id: str) -> str:
     callbacks = latest_callback_paths(root, task_id, limit=6)
     exec_artifacts = collect_exec_artifacts(root, task_id, latest=6)
     adjudications = collect_adjudication_artifacts(root, task_id)
+    hints = next_step_hints(root, task, feedback, retro, events)
+
+    return {
+        "schema_version": "show_task.v1",
+        "generated_at": current_timestamp(),
+        "root": str(root),
+        "root_kind": "instance",
+        "task": {
+            **task_summary(task),
+            "input_refs": task.get("input_refs", []),
+            "output_refs": task.get("output_refs", []),
+            "feedback_path": task.get("feedback_path", ""),
+            "retrospective_path": task.get("retrospective_path", ""),
+        },
+        "role": task["role"],
+        "task_status": task["status"],
+        "owner": task.get("owner") or "",
+        "allowed_paths": task.get("allowed_paths", []),
+        "forbidden_paths": task.get("forbidden_paths", []),
+        "queue": {
+            "claimed": queue_item is not None,
+            "owner": queue_item.get("owner", "") if queue_item else "",
+            "locked_paths": queue_item.get("locked_paths", []) if queue_item else [],
+        },
+        "feedback": artifact_payload(root, feedback),
+        "retrospective": artifact_payload(root, retro),
+        "acceptance_artifacts": {
+            "adjudication_artifacts": adjudications[-4:],
+            "callback_artifacts": callbacks,
+            "exec_artifacts": exec_artifacts,
+        },
+        "recent_events": events[-6:],
+        "recommended_commands": hints,
+        "read_only": True,
+        "ok": True,
+        "status": "OK",
+    }
+
+
+def show_task(root: Path, task_id: str) -> str:
+    payload = show_task_payload(root, task_id)
+    task = payload["task"]
+    queue = payload["queue"]
+    feedback = payload["feedback"]
+    retro = payload["retrospective"]
+    events = payload["recent_events"]
+    callbacks = payload["acceptance_artifacts"]["callback_artifacts"]
+    exec_artifacts = payload["acceptance_artifacts"]["exec_artifacts"]
+    adjudications = payload["acceptance_artifacts"]["adjudication_artifacts"]
 
     lines = [
         f"Task: {task['task_id']}",
         f"  role: {task['role']}",
         f"  title: {task['title']}",
         f"  status: {task['status']}",
-        f"  active_owner: {task['owner'] or '-'}",
+        f"  active_owner: {task['active_owner'] or '-'}",
         f"  last_actor: {last_actor(events)}",
         f"  last_active_owner: {last_nonempty_owner(events)}",
         f"  parallel_ok: {'yes' if task['parallel_ok'] else 'no'}",
@@ -318,18 +376,18 @@ def show_task(root: Path, task_id: str) -> str:
         "Scope:",
         "  allowed_paths:",
     ]
-    for path in task["allowed_paths"]:
+    for path in payload["allowed_paths"]:
         lines.append(f"    - {path}")
     lines.append("  forbidden_paths:")
-    for path in task["forbidden_paths"]:
+    for path in payload["forbidden_paths"]:
         lines.append(f"    - {path}")
 
     lines.extend(["", "Queue / Lock:"])
-    if queue_item:
+    if queue["claimed"]:
         lines.append("  claimed: yes")
-        lines.append(f"  queue_owner: {queue_item['owner']}")
+        lines.append(f"  queue_owner: {queue['owner']}")
         lines.append("  locked_paths:")
-        for path in queue_item.get("locked_paths", []):
+        for path in queue.get("locked_paths", []):
             lines.append(f"    - {path}")
     else:
         lines.append("  claimed: no")
@@ -339,8 +397,8 @@ def show_task(root: Path, task_id: str) -> str:
         [
             "",
             "Artifacts:",
-            f"  feedback: {relref(root, feedback['path'])} [{feedback['state']}]",
-            f"  retrospective: {relref(root, retro['path'])} [{retro['state']}]",
+            f"  feedback: {feedback['path']} [{feedback['state']}]",
+            f"  retrospective: {retro['path']} [{retro['state']}]",
         ]
     )
     if adjudications:
@@ -376,7 +434,7 @@ def show_task(root: Path, task_id: str) -> str:
             lines.append(f"  - {ref}")
 
     lines.extend(["", "Next Step Hints:"])
-    hints = next_step_hints(root, task, feedback, retro, events)
+    hints = payload["recommended_commands"]
     if not hints:
         lines.append("  - no automatic hint")
     else:
@@ -970,6 +1028,8 @@ def build_parser() -> argparse.ArgumentParser:
     show_task_parser = subparsers.add_parser("show-task")
     show_task_parser.add_argument("--root", required=True)
     show_task_parser.add_argument("--task", required=True)
+    show_task_parser.add_argument("--json", action="store_true")
+    show_task_parser.add_argument("--format", choices=["text", "json"], default="text")
 
     list_history_parser = subparsers.add_parser("list-history")
     list_history_parser.add_argument("--root", required=True)
@@ -1002,7 +1062,10 @@ def main(argv: Sequence[str]) -> int:
     root = Path(args.root).resolve()
 
     if args.command == "show-task":
-        sys.stdout.write(show_task(root, args.task))
+        if args.json or args.format == "json":
+            print(json.dumps(show_task_payload(root, args.task), ensure_ascii=True, indent=2))
+        else:
+            sys.stdout.write(show_task(root, args.task))
         return 0
 
     if args.command == "list-history":

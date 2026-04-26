@@ -11,6 +11,7 @@ from workflow_kernel.audit_index import (
     check_feedback,
     check_handoff,
     check_retrospective,
+    handoff_intake_payload,
     init_feedback_files,
     inspect_handoff_intake,
     render_handoff_intake_report,
@@ -19,7 +20,7 @@ from workflow_kernel.audit_index import (
 from workflow_kernel.consistency import state_consistency_payload, state_consistency_report
 from workflow_kernel.packet import make_task_packet
 from workflow_kernel.policy_hints import extract_policy_hints
-from workflow_kernel.recommend import recommend_tasks_report
+from workflow_kernel.recommend import recommend_tasks_payload, recommend_tasks_report
 from workflow_kernel.render import list_tasks, write_queue_board
 from workflow_kernel.schema import (
     FEEDBACK_HEADINGS,
@@ -203,6 +204,8 @@ def build_parser() -> argparse.ArgumentParser:
     recommend_tasks_parser.add_argument("--root", required=True)
     recommend_tasks_parser.add_argument("--owner-prefix", default="recommended")
     recommend_tasks_parser.add_argument("--lock", action="append", default=[])
+    recommend_tasks_parser.add_argument("--json", action="store_true")
+    recommend_tasks_parser.add_argument("--format", choices=["text", "json"], default="text")
 
     main_summary_parser = subparsers.add_parser("main-summary")
     main_summary_parser.add_argument("--root", required=True)
@@ -270,6 +273,8 @@ def build_parser() -> argparse.ArgumentParser:
     handoff_intake_parser.add_argument("--root", required=True)
     handoff_intake_parser.add_argument("--latest", action="store_true")
     handoff_intake_parser.add_argument("--files", action="store_true")
+    handoff_intake_parser.add_argument("--json", action="store_true")
+    handoff_intake_parser.add_argument("--format", choices=["text", "json"], default="text")
 
     submit_handoff_parser = subparsers.add_parser("submit-handoff")
     submit_handoff_parser.add_argument("--root", required=True)
@@ -306,7 +311,10 @@ def main(argv: Sequence[str]) -> int:
         return 0
 
     if args.command == "recommend-tasks":
-        sys.stdout.write(recommend_tasks_report(root, args.owner_prefix, args.lock))
+        if args.json or args.format == "json":
+            print(json.dumps(recommend_tasks_payload(root, args.owner_prefix, args.lock), ensure_ascii=True, indent=2))
+        else:
+            sys.stdout.write(recommend_tasks_report(root, args.owner_prefix, args.lock))
         return 0
 
     if args.command == "main-summary":
@@ -406,6 +414,11 @@ def main(argv: Sequence[str]) -> int:
     if args.command == "handoff-intake":
         if args.latest and args.files:
             fail("--latest and --files cannot be used together")
+        if (args.json or args.format == "json") and (args.latest or args.files):
+            fail("--json/--format json cannot be combined with --latest or --files; shortcut stdout must stay indexed paths only")
+        if args.json or args.format == "json":
+            print(json.dumps(handoff_intake_payload(root), ensure_ascii=True, indent=2))
+            return 0
         report = inspect_handoff_intake(root)
         if args.latest:
             for warning in report["warnings"]:

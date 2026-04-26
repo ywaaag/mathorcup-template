@@ -106,6 +106,7 @@ All roles should read from these sources before acting:
   - `bash scripts/check_retrospective.sh --task <task_id> --target <dir>` when closing as done
   - `bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>` or `bash scripts/reopen_task.sh --target <dir>` / `bash scripts/cancel_task.sh --target <dir>`
 - `recommend_tasks.sh` is advisory-only. It reads only `project/spec/agent_roles.json`, `project/runtime/task_registry.json`, and `project/runtime/work_queue.json`, then prints safe-to-dispatch candidates, blocked reasons, and suggested dispatch commands. It never claims tasks or rewrites runtime state.
+- `recommend_tasks.sh --target <dir> --json` is the structured read-only dispatch recommendation surface for tools. It includes `schema_version`, `generated_at`, `root`, `root_kind`, `read_only`, `owner_prefix`, `safe_to_dispatch`, `blocked`, `active_conflicts`, `suggested_commands`, `ok`, and `status`.
 - `main_brain_summary.sh` is advisory-only. It reads rendered instance runtime/config state, prints a one-page main-brain decision panel, and never dispatches, closes, reopens, cancels, or rewrites runtime state. It should be the first main-brain screen after `doctor.sh`.
 - `main_brain_summary.sh --target <dir> --json` is the structured read-only decision surface for tools. It keeps the same source facts as the text output and must include `schema_version`, `generated_at`, `root`, `root_kind`, `status`, structured sections, and recommended commands.
 - `doctor.sh --target <dir> --json` is the structured read-only environment and harness surface for tools. Container absence is a structured warning, not a logic failure.
@@ -254,7 +255,10 @@ The required body sections in these files must be filled with concrete content b
 - `main_brain_summary.sh` should be the first one-page decision surface after `doctor.sh`; it summarizes runtime facts, queue counts, active tasks, review gates, missing gates, recent events, and recommended next commands.
 - `main_brain_summary.sh` must expose the review/done close gate, including `check_handoff_intake.sh --target <dir>`, `check_worker_feedback.sh --task <task_id> --target <dir>`, `check_retrospective.sh --task <task_id> --target <dir>`, and `close_task.sh --task <task_id> --to review|done --target <dir>`.
 - Machine consumers may use `bash scripts/main_brain_summary.sh --target <dir> --json`; human readers should continue using the default text output.
+- Machine consumers may use `bash scripts/show_task.sh --task <task_id> --target <dir> --json` for structured task scope, artifacts, recent events, and recommended commands.
 - Machine consumers may use `bash scripts/list_history.sh --task <task_id> --target <dir> --json` for structured event, queue, callback, exec, and adjudication artifact history.
+- Machine consumers may use `bash scripts/recommend_tasks.sh --target <dir> --json` for structured dispatch candidates and blocked reasons.
+- Machine consumers may use `bash scripts/check_handoff_intake.sh --target <dir> --json` for structured indexed handoff intake; `--latest` and `--files` remain path-only shortcuts and reject JSON mode.
 - `validate_agent_docs.sh --state-consistency-only` or `check_state_consistency.sh` should be the next read-only gate before dispatch or close-level decisions.
 - `recommend_tasks.sh` should be treated as the advisory surface before `dispatch_task.sh`, not as a substitute for dispatch itself.
 - `extract_policy_hints.sh` should be run after feedback / retrospective accumulation when the main brain wants a candidate lesson summary; it is not a control-plane source of truth.

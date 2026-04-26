@@ -10,10 +10,11 @@ source "$SCRIPT_DIR/lib/common.sh"
 TARGET_DIR="$ROOT_DIR"
 OWNER_PREFIX="recommended"
 LOCK_ARGS=()
+OUTPUT_FORMAT="text"
 
 usage() {
     cat <<'EOF'
-Usage: bash scripts/recommend_tasks.sh [--target <dir>|--root <dir>] [--owner-prefix <prefix>] [--lock <task_id:path>]...
+Usage: bash scripts/recommend_tasks.sh [--target <dir>|--root <dir>] [--owner-prefix <prefix>] [--lock <task_id:path>]... [--json|--format text|json]
 
 Advisory-only: reads project/spec/agent_roles.json, project/runtime/task_registry.json,
 and project/runtime/work_queue.json from a rendered instance and prints dispatch suggestions.
@@ -34,6 +35,22 @@ while [[ $# -gt 0 ]]; do
             LOCK_ARGS+=(--lock "$2")
             shift 2
             ;;
+        --json)
+            OUTPUT_FORMAT="json"
+            shift
+            ;;
+        --format)
+            case "$2" in
+                text|json)
+                    OUTPUT_FORMAT="$2"
+                    shift 2
+                    ;;
+                *)
+                    usage >&2
+                    die "unknown format: $2"
+                    ;;
+            esac
+            ;;
         -h|--help)
             usage
             exit 0
@@ -45,7 +62,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-python3 "$SCRIPT_DIR/lib/workflow_state.py" recommend-tasks \
-    --root "$TARGET_DIR" \
-    --owner-prefix "$OWNER_PREFIX" \
-    "${LOCK_ARGS[@]}"
+args=(recommend-tasks --root "$TARGET_DIR" --owner-prefix "$OWNER_PREFIX")
+if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+    args+=(--json)
+fi
+args+=("${LOCK_ARGS[@]}")
+
+python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}"

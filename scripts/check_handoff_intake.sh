@@ -6,10 +6,11 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 TARGET_DIR="$ROOT_DIR"
 MODE="report"
+OUTPUT_FORMAT="text"
 
 usage() {
     cat <<'EOF'
-Usage: bash scripts/check_handoff_intake.sh [--target <dir>] [--latest|--files]
+Usage: bash scripts/check_handoff_intake.sh [--target <dir>] [--latest|--files] [--json|--format text|json]
 
 Read-only handoff intake guard for rendered instances.
 - Default report mode is the human / Agent intake guard before consuming handoffs
@@ -19,6 +20,7 @@ Read-only handoff intake guard for rendered instances.
 - Never includes unindexed handoffs in the default consumable result
 - --latest and --files are shortcuts for retrieving indexed paths only
 - In shortcut modes, stdout contains only indexed paths; warnings are printed to stderr
+- JSON output is available only in default report mode; shortcut modes stay path-only
 EOF
 }
 
@@ -36,6 +38,23 @@ while [[ $# -gt 0 ]]; do
             MODE="files"
             shift
             ;;
+        --json)
+            OUTPUT_FORMAT="json"
+            shift
+            ;;
+        --format)
+            case "$2" in
+                text|json)
+                    OUTPUT_FORMAT="$2"
+                    shift 2
+                    ;;
+                *)
+                    usage >&2
+                    echo "[check_handoff_intake] ERROR: unknown format: $2" >&2
+                    exit 2
+                    ;;
+            esac
+            ;;
         -h|--help)
             usage
             exit 0
@@ -48,11 +67,19 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if [[ "$OUTPUT_FORMAT" == "json" && "$MODE" != "report" ]]; then
+    echo "[check_handoff_intake] ERROR: --json/--format json cannot be combined with --latest or --files; shortcut stdout must stay indexed paths only" >&2
+    exit 2
+fi
+
 args=(handoff-intake --root "$TARGET_DIR")
 if [[ "$MODE" == "latest" ]]; then
     args+=(--latest)
 elif [[ "$MODE" == "files" ]]; then
     args+=(--files)
+fi
+if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+    args+=(--json)
 fi
 
 python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}"

@@ -106,7 +106,10 @@
   - `bash scripts/doctor.sh --target <dir> --json`
   - `bash scripts/check_state_consistency.sh --target <dir> --json`
   - `bash scripts/main_brain_summary.sh --target <dir> --json`
+  - `bash scripts/show_task.sh --task <task_id> --target <dir> --json`
   - `bash scripts/list_history.sh --task <task_id> --target <dir> --json`
+  - `bash scripts/recommend_tasks.sh --target <dir> --json`
+  - `bash scripts/check_handoff_intake.sh --target <dir> --json`
 - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir> --json` still writes the adjudication artifact, but stdout is structured JSON with the artifact path, decision, inputs, and recommended next step.
 - Structured audit JSON must include `schema_version`, `generated_at`, `root`, `root_kind`, `ok` or `status`, and queryable sections/findings/commands instead of a Markdown blob.
 
@@ -117,6 +120,7 @@
 - Use `bash scripts/check_handoff_intake.sh --latest --target <instance_dir>` when only the latest indexed handoff path is needed.
 - Use `bash scripts/check_handoff_intake.sh --files --target <instance_dir>` when only indexed handoff file paths are needed.
 - Shortcut modes print only indexed paths to stdout and send warnings to stderr; use the default report before full handoff consumption.
+- `--json` / `--format json` is only for the default `check_handoff_intake.sh` report mode; it is rejected with `--latest` or `--files` so shortcut stdout stays path-only.
 - `project/output/handoff/P*.md` files that exist on disk but are not indexed should be treated as warnings, not default inputs.
 - Use `bash scripts/check_handoff_intake.sh --target <instance_dir>` before consuming any handoff so the default intake surface stays indexed-only.
 - Main brain must inspect indexed handoff intake before any review/done decision:

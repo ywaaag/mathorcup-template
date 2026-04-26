@@ -403,6 +403,29 @@ def inspect_handoff_intake(root: Path) -> Dict[str, Any]:
     }
 
 
+def handoff_intake_payload(root: Path) -> Dict[str, Any]:
+    root_kind = detect_root_kind(root)
+    report = inspect_handoff_intake(root)
+    return {
+        "schema_version": "handoff_intake.v1",
+        "generated_at": current_timestamp(),
+        "root": str(root),
+        "root_kind": root_kind,
+        "read_only": True,
+        "indexed_latest": report["latest"],
+        "indexed_files": report["files"],
+        "warnings": report["warnings"],
+        "ok": True,
+        "status": "OK",
+    }
+
+
+def current_timestamp() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
 def render_handoff_intake_report(report: Dict[str, Any]) -> str:
     lines = [
         "[workflow] indexed latest: " + (report["latest"] or "none"),

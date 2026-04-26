@@ -281,8 +281,11 @@ def validate_contracts(root: Path) -> None:
             "check_state_consistency.sh --target <dir> --json",
             "main_brain_summary.sh --target <dir> --json",
             "doctor.sh --target <dir> --json",
+            "show_task.sh --task <task_id> --target <dir> --json",
             "list_history.sh --task <task_id> --target <dir> --json",
             "adjudicate_task.sh --task <task_id> --target <dir> --json",
+            "recommend_tasks.sh --target <dir> --json",
+            "check_handoff_intake.sh --target <dir> --json",
             "schema_version",
             "generated_at",
         ],
@@ -294,8 +297,11 @@ def validate_contracts(root: Path) -> None:
             "check_state_consistency.sh --target <dir> --json",
             "main_brain_summary.sh --target <dir> --json",
             "doctor.sh --target <dir> --json",
+            "show_task.sh --task <task_id> --target <dir> --json",
             "list_history.sh --task <task_id> --target <dir> --json",
             "adjudicate_task.sh --task <task_id> --target <dir> --json",
+            "recommend_tasks.sh --target <dir> --json",
+            "check_handoff_intake.sh --target <dir> --json",
         ],
         "runtime_contract.md",
     )
@@ -305,8 +311,11 @@ def validate_contracts(root: Path) -> None:
             "check_state_consistency.sh --target <dir> --json",
             "main_brain_summary.sh --target <dir> --json",
             "doctor.sh --target <dir> --json",
+            "show_task.sh --task <task_id> --target <dir> --json",
             "list_history.sh --task <task_id> --target <dir> --json",
             "adjudicate_task.sh --task <task_id> --target <dir> --json",
+            "recommend_tasks.sh --target <dir> --json",
+            "check_handoff_intake.sh --target <dir> --json",
         ],
         "prompt_template_library.md",
     )
@@ -351,8 +360,10 @@ def validate_contracts(root: Path) -> None:
     )
     from workflow_kernel.consistency import state_consistency_payload
     from workflow_kernel.doctor import doctor_payload
+    from workflow_kernel.audit_index import handoff_intake_payload
+    from workflow_kernel.recommend import recommend_tasks_payload
     from workflow_kernel.summary import main_summary_payload, main_summary_report
-    from workflow_audit import adjudication_payload, list_history_payload
+    from workflow_audit import adjudication_payload, list_history_payload, show_task_payload
 
     summary = main_summary_report(root)
     require_text_contains(
@@ -438,6 +449,66 @@ def validate_contracts(root: Path) -> None:
             "read_only",
         ],
         "adjudicate_task.sh --json output",
+    )
+    show_task = show_task_payload(root, "TASK_MAIN_SYNC")
+    require_payload_keys(
+        show_task,
+        [
+            "schema_version",
+            "generated_at",
+            "root",
+            "root_kind",
+            "task",
+            "role",
+            "task_status",
+            "owner",
+            "allowed_paths",
+            "forbidden_paths",
+            "feedback",
+            "retrospective",
+            "acceptance_artifacts",
+            "recommended_commands",
+            "read_only",
+            "ok",
+            "status",
+        ],
+        "show_task.sh --json output",
+    )
+    recommendations = recommend_tasks_payload(root, "recommended", [])
+    require_payload_keys(
+        recommendations,
+        [
+            "schema_version",
+            "generated_at",
+            "root",
+            "root_kind",
+            "read_only",
+            "owner_prefix",
+            "safe_to_dispatch",
+            "blocked",
+            "active_conflicts",
+            "suggested_commands",
+            "ok",
+            "status",
+        ],
+        "recommend_tasks.sh --json output",
+    )
+    handoff_intake = handoff_intake_payload(root)
+    require_payload_keys(
+        handoff_intake,
+        [
+            "schema_version",
+            "generated_at",
+            "root",
+            "root_kind",
+            "read_only",
+            "indexed_latest",
+            "indexed_files",
+            "warnings",
+            "ok",
+            "status",
+        ],
+        "check_handoff_intake.sh --json output",
     )
 
 
