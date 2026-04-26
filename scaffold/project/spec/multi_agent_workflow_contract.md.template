@@ -15,14 +15,15 @@ All roles should read from these sources before acting:
 2. `AGENTS.md` or `project/paper/AGENTS.md`
 3. `MEMORY.md`
 4. `project/spec/runtime_contract.md`
-5. `project/spec/agent_roles.json`
-6. `project/spec/callback_hooks.json`
-7. `project/runtime/event_log.jsonl`
-8. `project/runtime/task_registry.json`
-9. `project/runtime/work_queue.json`
-10. Indexed handoffs in `project/output/handoff/`
-11. `project/workflow/`
-12. `project/output/review/` and `project/output/retrospectives/` when relevant
+5. `project/spec/query_schema_contract.md`
+6. `project/spec/agent_roles.json`
+7. `project/spec/callback_hooks.json`
+8. `project/runtime/event_log.jsonl`
+9. `project/runtime/task_registry.json`
+10. `project/runtime/work_queue.json`
+11. Indexed handoffs in `project/output/handoff/`
+12. `project/workflow/`
+13. `project/output/review/` and `project/output/retrospectives/` when relevant
 
 `.codex/requirements.toml` is a native front door and behavior summary only. It does not replace repo truth in `.env`, `project/paper/runtime/paper.env`, `MEMORY.md`, `task_registry.json`, `work_queue.json`, or `event_log.jsonl`.
 
@@ -87,6 +88,7 @@ All roles should read from these sources before acting:
 - State-changing workflow scripts acquire a rendered-instance write lock at `project/runtime/.workflow.lock`, use atomic writes for structured registry / queue JSON and the generated queue board, and run a post-change consistency check before returning success.
 - Read-only/advisory commands such as `doctor.sh`, `main_brain_summary.sh`, `recommend_tasks.sh`, `check_state_consistency.sh`, and `extract_policy_hints.sh` do not acquire the write lock or change control-plane state.
 - Machine consumers may add `--json` or `--format json` to read-only/advisory commands that expose structured output; default text output remains the human-facing compatibility path.
+- Structured JSON contracts, schema names, required top-level keys, `read_only` semantics, shortcut stdout rules, and adjudication write behavior are defined in `project/spec/query_schema_contract.md`.
 - `bash scripts/check_handoff_intake.sh --target <dir>` is also read-only/advisory. It reads only `MEMORY.md -> ## Handoff Index`, validates indexed handoffs, and warns about unindexed disk handoffs without promoting them into the default intake set.
 - Before a main-brain review/done decision, run `bash scripts/check_handoff_intake.sh --target <dir>` and use only the indexed surface as consumable handoff input.
 - Key scripts emit events and then run:

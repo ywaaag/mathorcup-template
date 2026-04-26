@@ -14,14 +14,17 @@ Use this checklist before accepting a worker result:
 - Indexed handoff intake checked first:
   - `bash scripts/check_handoff_intake.sh --target <dir>`
 - Optional structured read-only checks for machine-assisted review:
+  - First read `project/spec/query_schema_contract.md`; it defines the JSON `schema_version`, required keys, `read_only` semantics, and shortcut stdout rules.
   - `bash scripts/doctor.sh --target <dir> --json`
   - `bash scripts/check_state_consistency.sh --target <dir> --json`
   - `bash scripts/main_brain_summary.sh --target <dir> --json`
   - `bash scripts/show_task.sh --task <task_id> --target <dir> --json`
   - `bash scripts/list_history.sh --task <task_id> --target <dir> --json`
-  - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir> --json`
   - `bash scripts/recommend_tasks.sh --target <dir> --json`
   - `bash scripts/check_handoff_intake.sh --target <dir> --json`
+- Structured adjudication:
+  - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir> --json`
+  - This is not read-only; it writes `artifact_written.path` under `project/output/review/` by default.
 
 4. Acceptance Artifacts
 - If the task touched paper/build, were the host-visible acceptance artifacts refreshed?

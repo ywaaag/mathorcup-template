@@ -1,0 +1,260 @@
+# Query Schema Contract
+
+## Purpose
+
+- Define the structured JSON contract for workflow query surfaces.
+- Keep default text output as the human-compatible path.
+- Keep machine consumers on explicit `--json` or `--format json`.
+- Document side effects so tools do not mistake write surfaces for read-only queries.
+
+## Global Compatibility Rules
+
+- Default text output remains the human / Agent compatibility path.
+- `--json` and `--format json` must print parseable JSON to stdout.
+- JSON stdout must not include stderr warnings, progress lines, or Markdown text.
+- Warning and diagnostic text belongs on stderr when JSON stdout is enabled.
+- Every JSON payload must include `schema_version`, `generated_at`, `root`, and `root_kind` unless a surface-specific legacy shape below says otherwise.
+- Query-style surfaces must include `read_only`.
+- `ok` is a boolean machine summary when present.
+- `status` is the compact status string for humans and tools; `OK` / `PASS` means no blocking issue, `WARN` means non-blocking warning, and `FAIL` means a blocking issue or nonzero gate.
+- Container absence in `doctor.v1` is `WARN`, not workflow logic failure, when contract validation still passes.
+- `check_handoff_intake.sh --latest` stdout prints only the latest indexed path.
+- `check_handoff_intake.sh --files` stdout prints only indexed paths, one per line.
+- Shortcut warnings for `check_handoff_intake.sh --latest` and `--files` go to stderr.
+- `check_handoff_intake.sh --latest --json`, `--latest --format json`, `--files --json`, and `--files --format json` must be rejected with exit 2 and empty stdout.
+- `adjudicate_task.sh --json` and `adjudicate_task.sh --format json` are not read-only. They write an adjudication artifact and report it through `artifact_written`.
+
+## Surfaces
+
+### doctor.v1
+
+- CLI:
+  - `bash scripts/doctor.sh --target <dir> --json`
+  - `bash scripts/doctor.sh --target <dir> --format json`
+- `read_only`: `true`
+- `schema_version`: `doctor.v1`
+- Required top-level keys:
+  - `schema_version`
+  - `generated_at`
+  - `root`
+  - `root_kind`
+  - `read_only`
+  - `runtime_config`
+  - `tooling`
+  - `event_harness`
+  - `codex_native_bridge`
+  - `validation`
+  - `container_state`
+  - `container_tool_baseline`
+  - `ok`
+  - `status`
+  - `warnings`
+- Status / ok semantics:
+  - `ok` mirrors validator / contract success.
+  - `status=OK` when validation passes and no warnings exist.
+  - `status=WARN` when validation passes but warnings exist.
+  - `status=FAIL` when validation fails.
+  - Missing or stopped container is a warning when validation still passes.
+- Side effects / writes:
+  - No workflow state writes.
+  - May probe local tools and Docker state.
+
+### state_consistency.v1
+
+- CLI:
+  - `bash scripts/check_state_consistency.sh --target <dir> --json`
+  - `bash scripts/check_state_consistency.sh --target <dir> --format json`
+- `read_only`: `true`
+- `schema_version`: `state_consistency.v1`
+- Required top-level keys:
+  - `schema_version`
+  - `generated_at`
+  - `root`
+  - `root_kind`
+  - `ok`
+  - `status`
+  - `read_only`
+  - `findings`
+  - `summary`
+- Status / ok semantics:
+  - `ok=true` and `status=PASS` when no error findings exist.
+  - `ok=false` and `status=FAIL` when error findings exist.
+  - Warning findings do not make the command a workflow repair tool.
+- Side effects / writes:
+  - No state repair.
+  - No event replay.
+  - No task transition.
+
+### main_brain_summary.v1
+
+- CLI:
+  - `bash scripts/main_brain_summary.sh --target <dir> --json`
+  - `bash scripts/main_brain_summary.sh --target <dir> --format json`
+- `read_only`: `true`
+- `schema_version`: `main_brain_summary.v1`
+- Required top-level keys:
+  - `schema_version`
+  - `generated_at`
+  - `root`
+  - `root_kind`
+  - `ok`
+  - `status`
+  - `read_only`
+  - `sections`
+  - `commands`
+- Status / ok semantics:
+  - `ok=true` and `status=OK` when no close-gate gaps are detected.
+  - `ok=false` and `status=WARN` when missing gate artifacts require main-brain attention.
+- Side effects / writes:
+  - No dispatch, close, reopen, cancel, or state writes.
+
+### show_task.v1
+
+- CLI:
+  - `bash scripts/show_task.sh --task <task_id> --target <dir> --json`
+  - `bash scripts/show_task.sh --task <task_id> --target <dir> --format json`
+- `read_only`: `true`
+- `schema_version`: `show_task.v1`
+- Required top-level keys:
+  - `schema_version`
+  - `generated_at`
+  - `root`
+  - `root_kind`
+  - `task`
+  - `role`
+  - `task_status`
+  - `owner`
+  - `allowed_paths`
+  - `forbidden_paths`
+  - `queue`
+  - `feedback`
+  - `retrospective`
+  - `acceptance_artifacts`
+  - `recent_events`
+  - `recommended_commands`
+  - `read_only`
+  - `ok`
+  - `status`
+- Status / ok semantics:
+  - `ok=true` and `status=OK` when the task can be read and summarized.
+- Side effects / writes:
+  - No artifact creation.
+  - No task transition.
+
+### task_history.v1
+
+- CLI:
+  - `bash scripts/list_history.sh --task <task_id> --target <dir> --json`
+  - `bash scripts/list_history.sh --task <task_id> --target <dir> --format json`
+- `read_only`: `true`
+- `schema_version`: `task_history.v1`
+- Required top-level keys:
+  - `schema_version`
+  - `generated_at`
+  - `root`
+  - `root_kind`
+  - `task`
+  - `filters`
+  - `events`
+  - `queue_history`
+  - `callback_artifacts`
+  - `exec_artifacts`
+  - `adjudication_artifacts`
+  - `read_only`
+  - `ok`
+  - `status`
+- Status / ok semantics:
+  - `ok=true` and `status=OK` when the history surface can be assembled.
+- Side effects / writes:
+  - No event or artifact writes.
+
+### task_adjudication.v1
+
+- CLI:
+  - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir> --json`
+  - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir> --format json`
+- `read_only`: `false`
+- `schema_version`: `task_adjudication.v1`
+- Required top-level keys:
+  - `schema_version`
+  - `generated_at`
+  - `root`
+  - `root_kind`
+  - `task`
+  - `mode`
+  - `decision`
+  - `note`
+  - `inputs_considered`
+  - `agreements`
+  - `disagreements`
+  - `missing_evidence`
+  - `additional_evidence`
+  - `recommended_next_step`
+  - `artifact_written`
+  - `read_only`
+  - `ok`
+  - `status`
+- Status / ok semantics:
+  - `ok=true` and `status=OK` when the adjudication draft was generated.
+- Side effects / writes:
+  - Writes a Markdown adjudication artifact under `project/output/review/` unless `--output <path>` overrides it.
+  - `artifact_written.path` is the rendered instance relative path to the written artifact.
+  - Does not close, reopen, cancel, or accept a task.
+
+### recommend_tasks.v1
+
+- CLI:
+  - `bash scripts/recommend_tasks.sh --target <dir> --json`
+  - `bash scripts/recommend_tasks.sh --target <dir> --format json`
+- `read_only`: `true`
+- `schema_version`: `recommend_tasks.v1`
+- Required top-level keys:
+  - `schema_version`
+  - `generated_at`
+  - `root`
+  - `root_kind`
+  - `read_only`
+  - `owner_prefix`
+  - `safe_to_dispatch`
+  - `blocked`
+  - `active_conflicts`
+  - `suggested_commands`
+  - `ok`
+  - `status`
+- Status / ok semantics:
+  - `ok=true` and `status=OK` when recommendations are computed for an instance.
+  - `status=TEMPLATE_SOURCE` is allowed only for template-source notices.
+- Side effects / writes:
+  - No claims, locks, queue edits, event writes, or dispatch.
+
+### handoff_intake.v1
+
+- CLI:
+  - `bash scripts/check_handoff_intake.sh --target <dir> --json`
+  - `bash scripts/check_handoff_intake.sh --target <dir> --format json`
+- `read_only`: `true`
+- `schema_version`: `handoff_intake.v1`
+- Required top-level keys:
+  - `schema_version`
+  - `generated_at`
+  - `root`
+  - `root_kind`
+  - `read_only`
+  - `indexed_latest`
+  - `indexed_files`
+  - `warnings`
+  - `ok`
+  - `status`
+- Status / ok semantics:
+  - `ok=true` and `status=OK` when indexed handoffs are valid and the intake surface is assembled.
+  - Unindexed valid handoff files are warnings and must not enter `indexed_files`.
+- Side effects / writes:
+  - No MEMORY edits.
+  - No handoff indexing.
+  - No task transition.
+
+## Non-Goals
+
+- This contract does not change payload structures.
+- This contract does not authorize SQLite, daemon scheduling, or background dispatch.
+- This contract does not replace text reports; it only defines the explicit JSON surfaces.

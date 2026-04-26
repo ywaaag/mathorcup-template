@@ -36,6 +36,8 @@
   - `project/runtime/event_log.jsonl`
 - Multi-Agent workflow and ownership:
   - `project/spec/multi_agent_workflow_contract.md`
+- Structured query JSON schemas:
+  - `project/spec/query_schema_contract.md`
 - Prompt/task packet templates:
   - `project/workflow/`
 - Codex native front door, not runtime truth:
@@ -112,6 +114,8 @@
   - `bash scripts/check_handoff_intake.sh --target <dir> --json`
 - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir> --json` still writes the adjudication artifact, but stdout is structured JSON with the artifact path, decision, inputs, and recommended next step.
 - Structured audit JSON must include `schema_version`, `generated_at`, `root`, `root_kind`, `ok` or `status`, and queryable sections/findings/commands instead of a Markdown blob.
+- The detailed JSON schema, `read_only`, stdout, and side-effect rules are defined in:
+  - `project/spec/query_schema_contract.md`
 
 ## Handoff And Acceptance Rules
 

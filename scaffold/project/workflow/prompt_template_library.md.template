@@ -26,10 +26,11 @@
 2. `MEMORY.md`
 3. `project/spec/runtime_contract.md`
 4. `project/spec/multi_agent_workflow_contract.md`
-5. 消费 handoff 前，先执行默认 intake guard：`bash scripts/check_handoff_intake.sh --target <dir>`
-6. 仅在只需要 indexed path 时，才使用 shortcut：`bash scripts/check_handoff_intake.sh --latest --target <dir>` 或 `bash scripts/check_handoff_intake.sh --files --target <dir>`；warning 仍走 stderr
-7. 当前已索引的 handoff（来自 `MEMORY.md -> ## Handoff Index`）
-8. [补充本轮特定文件]
+5. `project/spec/query_schema_contract.md`
+6. 消费 handoff 前，先执行默认 intake guard：`bash scripts/check_handoff_intake.sh --target <dir>`
+7. 仅在只需要 indexed path 时，才使用 shortcut：`bash scripts/check_handoff_intake.sh --latest --target <dir>` 或 `bash scripts/check_handoff_intake.sh --files --target <dir>`；warning 仍走 stderr
+8. 当前已索引的 handoff（来自 `MEMORY.md -> ## Handoff Index`）
+9. [补充本轮特定文件]
 
 当前容器：
 - `{{CONTAINER_NAME}}`
@@ -55,7 +56,8 @@
 
 开始前先执行：
 - `bash scripts/validate_agent_docs.sh`
-- 需要机器可消费验收面时，使用 `bash scripts/doctor.sh --target <dir> --json`、`bash scripts/check_state_consistency.sh --target <dir> --json`、`bash scripts/main_brain_summary.sh --target <dir> --json`、`bash scripts/show_task.sh --task <task_id> --target <dir> --json`、`bash scripts/list_history.sh --task <task_id> --target <dir> --json`、`bash scripts/adjudicate_task.sh --task <task_id> --target <dir> --json`、`bash scripts/recommend_tasks.sh --target <dir> --json` 和 `bash scripts/check_handoff_intake.sh --target <dir> --json`；默认文本输出仍给人读
+- 需要机器可消费验收面时，先按 `project/spec/query_schema_contract.md` 解释 JSON；使用 `bash scripts/doctor.sh --target <dir> --json`、`bash scripts/check_state_consistency.sh --target <dir> --json`、`bash scripts/main_brain_summary.sh --target <dir> --json`、`bash scripts/show_task.sh --task <task_id> --target <dir> --json`、`bash scripts/list_history.sh --task <task_id> --target <dir> --json`、`bash scripts/recommend_tasks.sh --target <dir> --json` 和 `bash scripts/check_handoff_intake.sh --target <dir> --json`；默认文本输出仍给人读
+- `bash scripts/adjudicate_task.sh --task <task_id> --target <dir> --json` 会写 adjudication artifact，不是 read-only；只有主脑需要结构化裁决草案时才运行
 
 完成后必须：
 - 回填 task 对应的 feedback / retrospective 文件

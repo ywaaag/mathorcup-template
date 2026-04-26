@@ -36,6 +36,111 @@ PHASE6_CLOSE_GATE_COMMANDS = [
     "bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>",
 ]
 
+QUERY_SCHEMA_CONTRACT_SURFACES = {
+    "doctor.v1": {
+        "cli": "bash scripts/doctor.sh --target <dir> --json",
+        "read_only": "`read_only`: `true`",
+        "keys": [
+            "runtime_config",
+            "tooling",
+            "event_harness",
+            "codex_native_bridge",
+            "validation",
+            "container_state",
+            "container_tool_baseline",
+            "warnings",
+        ],
+    },
+    "state_consistency.v1": {
+        "cli": "bash scripts/check_state_consistency.sh --target <dir> --json",
+        "read_only": "`read_only`: `true`",
+        "keys": ["findings", "summary"],
+    },
+    "main_brain_summary.v1": {
+        "cli": "bash scripts/main_brain_summary.sh --target <dir> --json",
+        "read_only": "`read_only`: `true`",
+        "keys": ["sections", "commands"],
+    },
+    "show_task.v1": {
+        "cli": "bash scripts/show_task.sh --task <task_id> --target <dir> --json",
+        "read_only": "`read_only`: `true`",
+        "keys": [
+            "task",
+            "role",
+            "task_status",
+            "owner",
+            "allowed_paths",
+            "forbidden_paths",
+            "queue",
+            "feedback",
+            "retrospective",
+            "acceptance_artifacts",
+            "recent_events",
+            "recommended_commands",
+        ],
+    },
+    "task_history.v1": {
+        "cli": "bash scripts/list_history.sh --task <task_id> --target <dir> --json",
+        "read_only": "`read_only`: `true`",
+        "keys": [
+            "task",
+            "filters",
+            "events",
+            "queue_history",
+            "callback_artifacts",
+            "exec_artifacts",
+            "adjudication_artifacts",
+        ],
+    },
+    "task_adjudication.v1": {
+        "cli": "bash scripts/adjudicate_task.sh --task <task_id> --target <dir> --json",
+        "read_only": "`read_only`: `false`",
+        "keys": [
+            "task",
+            "mode",
+            "decision",
+            "note",
+            "inputs_considered",
+            "agreements",
+            "disagreements",
+            "missing_evidence",
+            "additional_evidence",
+            "recommended_next_step",
+            "artifact_written",
+        ],
+    },
+    "recommend_tasks.v1": {
+        "cli": "bash scripts/recommend_tasks.sh --target <dir> --json",
+        "read_only": "`read_only`: `true`",
+        "keys": [
+            "owner_prefix",
+            "safe_to_dispatch",
+            "blocked",
+            "active_conflicts",
+            "suggested_commands",
+        ],
+    },
+    "handoff_intake.v1": {
+        "cli": "bash scripts/check_handoff_intake.sh --target <dir> --json",
+        "read_only": "`read_only`: `true`",
+        "keys": ["indexed_latest", "indexed_files", "warnings"],
+    },
+}
+
+QUERY_SCHEMA_COMMON_KEYS = ["schema_version", "generated_at", "root", "root_kind", "read_only", "ok", "status"]
+
+QUERY_SCHEMA_GLOBAL_RULES = [
+    "Default text output remains the human / Agent compatibility path.",
+    "`--json` and `--format json` must print parseable JSON to stdout.",
+    "JSON stdout must not include stderr warnings",
+    "Container absence in `doctor.v1` is `WARN`, not workflow logic failure",
+    "`check_handoff_intake.sh --latest` stdout prints only the latest indexed path.",
+    "`check_handoff_intake.sh --files` stdout prints only indexed paths",
+    "`check_handoff_intake.sh --latest --json`, `--latest --format json`, `--files --json`, and `--files --format json` must be rejected with exit 2 and empty stdout.",
+    "`adjudicate_task.sh --json` and `adjudicate_task.sh --format json` are not read-only.",
+    "`artifact_written`",
+]
+
 
 def require_text_contains(text: str, needles: Sequence[str], context: str) -> None:
     missing = [needle for needle in needles if needle not in text]
@@ -47,6 +152,31 @@ def require_payload_keys(payload: Dict[str, Any], keys: Sequence[str], context: 
     missing = [key for key in keys if key not in payload]
     if missing:
         fail(f"{context} missing structured output keys: {', '.join(missing)}")
+
+
+def require_payload_value(payload: Dict[str, Any], key: str, expected: Any, context: str) -> None:
+    if payload.get(key) != expected:
+        fail(f"{context} expected {key}={expected!r}, got {payload.get(key)!r}")
+
+
+def validate_query_schema_contract(path: Path) -> None:
+    if not path.is_file():
+        fail(f"missing file: {path.relative_to(path.parents[2]) if len(path.parents) > 2 else path}")
+    text = path.read_text(encoding="utf-8")
+    require_text_contains(text, QUERY_SCHEMA_GLOBAL_RULES, "query_schema_contract.md")
+    for schema_version, contract in QUERY_SCHEMA_CONTRACT_SURFACES.items():
+        required = [
+            f"### {schema_version}",
+            contract["cli"],
+            contract["read_only"],
+            f"`schema_version`: `{schema_version}`",
+            "Required top-level keys:",
+            "Status / ok semantics:",
+            "Side effects / writes:",
+        ]
+        required.extend(f"`{key}`" for key in QUERY_SCHEMA_COMMON_KEYS)
+        required.extend(f"`{key}`" for key in contract["keys"])
+        require_text_contains(text, required, f"query_schema_contract.md surface {schema_version}")
 
 
 def validate_requirements_toml(path: Path, *, context: str) -> None:
@@ -160,6 +290,7 @@ def validate_optional_hooks_json(path: Path, *, context: str) -> None:
 
 def validate_codex_bridge(root: Path, *, template_source: bool) -> None:
     if template_source:
+        validate_query_schema_contract(root / "scaffold/project/spec/query_schema_contract.md.template")
         validate_requirements_toml(root / ".codex/requirements.toml", context=".codex/requirements.toml")
         validate_skill_collection(root / ".codex/skills", context=".codex/skills", required_names=ROOT_CODEX_SKILLS)
         validate_optional_hooks_json(root / ".codex/hooks.json", context=".codex/hooks.json")
@@ -214,6 +345,7 @@ def validate_contracts(root: Path) -> None:
         "project/paper/AGENTS.md",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
+        "project/spec/query_schema_contract.md",
         "project/spec/callback_hooks.json",
         "project/workflow/prompt_template_library.md",
         "project/workflow/TASK_PACKET_TEMPLATE.md",
@@ -229,10 +361,12 @@ def validate_contracts(root: Path) -> None:
     paper_agents = (root / "project/paper/AGENTS.md").read_text(encoding="utf-8")
     root_agents = (root / "AGENTS.md").read_text(encoding="utf-8")
     workflow_contract = (root / "project/spec/multi_agent_workflow_contract.md").read_text(encoding="utf-8")
+    query_schema_contract_path = root / "project/spec/query_schema_contract.md"
     prompt_library = (root / "project/workflow/prompt_template_library.md").read_text(encoding="utf-8")
     task_packet_template = (root / "project/workflow/TASK_PACKET_TEMPLATE.md").read_text(encoding="utf-8")
     acceptance_template = (root / "project/workflow/MAIN_BRAIN_ACCEPTANCE_TEMPLATE.md").read_text(encoding="utf-8")
     paper_runtime_contract = (root / "project/paper/spec/paper_runtime_contract.md").read_text(encoding="utf-8")
+    validate_query_schema_contract(query_schema_contract_path)
     if "project/paper/runtime/paper.env" not in runtime_contract or ".env" not in runtime_contract:
         fail("runtime_contract.md must reference .env and project/paper/runtime/paper.env as config truth sources")
     if "project/spec/runtime_contract.md" not in root_agents or "project/spec/multi_agent_workflow_contract.md" not in root_agents:
@@ -273,6 +407,14 @@ def validate_contracts(root: Path) -> None:
         fail("TASK_PACKET_TEMPLATE.md must reference event_log.jsonl and callback_hooks.json")
     if "check_handoff_intake.sh" not in runtime_contract:
         fail("runtime_contract.md must reference scripts/check_handoff_intake.sh")
+    if "project/spec/query_schema_contract.md" not in runtime_contract:
+        fail("runtime_contract.md must reference project/spec/query_schema_contract.md")
+    if "project/spec/query_schema_contract.md" not in workflow_contract:
+        fail("multi_agent_workflow_contract.md must reference project/spec/query_schema_contract.md")
+    if "project/spec/query_schema_contract.md" not in prompt_library:
+        fail("prompt_template_library.md must reference project/spec/query_schema_contract.md")
+    if "project/spec/query_schema_contract.md" not in acceptance_template:
+        fail("MAIN_BRAIN_ACCEPTANCE_TEMPLATE.md must reference project/spec/query_schema_contract.md")
     if "check_handoff_intake.sh" not in paper_runtime_contract:
         fail("paper_runtime_contract.md must reference scripts/check_handoff_intake.sh")
     require_text_contains(
@@ -383,12 +525,16 @@ def validate_contracts(root: Path) -> None:
         ["schema_version", "generated_at", "root", "root_kind", "ok", "status", "findings"],
         "check_state_consistency.sh --json output",
     )
+    require_payload_value(state_payload, "schema_version", "state_consistency.v1", "check_state_consistency.sh --json output")
+    require_payload_value(state_payload, "read_only", True, "check_state_consistency.sh --json output")
     summary_payload = main_summary_payload(root)
     require_payload_keys(
         summary_payload,
         ["schema_version", "generated_at", "root", "root_kind", "ok", "status", "sections", "commands"],
         "main_brain_summary.sh --json output",
     )
+    require_payload_value(summary_payload, "schema_version", "main_brain_summary.v1", "main_brain_summary.sh --json output")
+    require_payload_value(summary_payload, "read_only", True, "main_brain_summary.sh --json output")
     scripts_dir = root / "scripts"
     doctor = doctor_payload(root, scripts_dir)
     require_payload_keys(
@@ -410,6 +556,8 @@ def validate_contracts(root: Path) -> None:
         ],
         "doctor.sh --json output",
     )
+    require_payload_value(doctor, "schema_version", "doctor.v1", "doctor.sh --json output")
+    require_payload_value(doctor, "read_only", True, "doctor.sh --json output")
     task_from_id(load_runtime_state(root), "TASK_MAIN_SYNC")
     history_payload = list_history_payload(root, "TASK_MAIN_SYNC", latest=20, event_type="", actor="")
     require_payload_keys(
@@ -429,6 +577,8 @@ def validate_contracts(root: Path) -> None:
         ],
         "list_history.sh --json output",
     )
+    require_payload_value(history_payload, "schema_version", "task_history.v1", "list_history.sh --json output")
+    require_payload_value(history_payload, "read_only", True, "list_history.sh --json output")
     adjudication = adjudication_payload(root, "TASK_MAIN_SYNC", inputs=[], mode="compare", output="", decision="manual", note="")
     require_payload_keys(
         adjudication,
@@ -450,6 +600,8 @@ def validate_contracts(root: Path) -> None:
         ],
         "adjudicate_task.sh --json output",
     )
+    require_payload_value(adjudication, "schema_version", "task_adjudication.v1", "adjudicate_task.sh --json output")
+    require_payload_value(adjudication, "read_only", False, "adjudicate_task.sh --json output")
     show_task = show_task_payload(root, "TASK_MAIN_SYNC")
     require_payload_keys(
         show_task,
@@ -474,6 +626,8 @@ def validate_contracts(root: Path) -> None:
         ],
         "show_task.sh --json output",
     )
+    require_payload_value(show_task, "schema_version", "show_task.v1", "show_task.sh --json output")
+    require_payload_value(show_task, "read_only", True, "show_task.sh --json output")
     recommendations = recommend_tasks_payload(root, "recommended", [])
     require_payload_keys(
         recommendations,
@@ -493,6 +647,8 @@ def validate_contracts(root: Path) -> None:
         ],
         "recommend_tasks.sh --json output",
     )
+    require_payload_value(recommendations, "schema_version", "recommend_tasks.v1", "recommend_tasks.sh --json output")
+    require_payload_value(recommendations, "read_only", True, "recommend_tasks.sh --json output")
     handoff_intake = handoff_intake_payload(root)
     require_payload_keys(
         handoff_intake,
@@ -510,6 +666,8 @@ def validate_contracts(root: Path) -> None:
         ],
         "check_handoff_intake.sh --json output",
     )
+    require_payload_value(handoff_intake, "schema_version", "handoff_intake.v1", "check_handoff_intake.sh --json output")
+    require_payload_value(handoff_intake, "read_only", True, "check_handoff_intake.sh --json output")
 
 
 def validate_paper_config(root: Path) -> None:
