@@ -14,6 +14,10 @@ KEEP_TEMP=false
 WITH_DOCKER=false
 WITH_EXEC=false
 KEEP_CONTAINER=false
+JUPYTER_PORT_ARG=""
+RSTUDIO_PORT_ARG=""
+REPORT_JUPYTER_PORT="${JUPYTER_PORT:-<target/default>}"
+REPORT_RSTUDIO_PORT="${RSTUDIO_PORT:-<target/default>}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 DATE_STAMP="$(date +%Y%m%d)"
 CONTAINER_NAME_ARG="realflow-${STAMP}"
@@ -38,6 +42,8 @@ Options:
   --with-exec              Enable exec_healthcheck.sh and run_exec_worker.sh. Requires --with-docker.
   --competition <name>     Competition name used for render-only setup. Default: realflow
   --container-name <name>  Container name for this run. Default includes a timestamp.
+  --jupyter-port <port>    Override JUPYTER_PORT for this rendered smoke instance.
+  --rstudio-port <port>    Override RSTUDIO_PORT for this rendered smoke instance.
   --target <dir>           Use an explicit rendered instance directory.
   --keep-temp              Keep the temporary rendered instance on success.
   --keep-container         Keep this run's container after completion.
@@ -69,6 +75,8 @@ append_report_header() {
 - rendered_instance: $TARGET_DIR
 - competition: $COMPETITION_NAME_ARG
 - container_name: $CONTAINER_NAME_ARG
+- jupyter_port: $REPORT_JUPYTER_PORT
+- rstudio_port: $REPORT_RSTUDIO_PORT
 - docker_enabled: $WITH_DOCKER
 - exec_enabled: $WITH_EXEC
 - keep_temp: $KEEP_TEMP
@@ -228,6 +236,14 @@ while [[ $# -gt 0 ]]; do
             CONTAINER_NAME_ARG="$2"
             shift 2
             ;;
+        --jupyter-port)
+            JUPYTER_PORT_ARG="$2"
+            shift 2
+            ;;
+        --rstudio-port)
+            RSTUDIO_PORT_ARG="$2"
+            shift 2
+            ;;
         --target)
             TARGET_DIR="$(abs_path "$2")"
             TARGET_PROVIDED=true
@@ -270,6 +286,16 @@ if [[ -z "$TARGET_DIR" ]]; then
 else
     mkdir -p "$TARGET_DIR"
 fi
+
+load_kv_env_if_unset "$TARGET_DIR/.env"
+if [[ -n "$JUPYTER_PORT_ARG" ]]; then
+    export JUPYTER_PORT="$JUPYTER_PORT_ARG"
+fi
+if [[ -n "$RSTUDIO_PORT_ARG" ]]; then
+    export RSTUDIO_PORT="$RSTUDIO_PORT_ARG"
+fi
+REPORT_JUPYTER_PORT="${JUPYTER_PORT:-8888}"
+REPORT_RSTUDIO_PORT="${RSTUDIO_PORT:-8787}"
 
 append_report_header
 

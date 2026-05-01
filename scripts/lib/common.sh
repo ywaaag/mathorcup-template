@@ -177,6 +177,133 @@ load_root_env() {
     export PROJECT_CONTAINER_DIR HOST_PROJECT_DIR
 }
 
+validate_tcp_port() {
+    local port="$1"
+    [[ "$port" =~ ^[0-9]+$ ]] || die "invalid TCP port: $port"
+    (( port >= 1 && port <= 65535 )) || die "TCP port out of range: $port"
+}
+
+port_available() {
+    local port="$1"
+    validate_tcp_port "$port"
+    python3 - "$port" <<'PY'
+import socket
+import sys
+
+port = int(sys.argv[1])
+
+checks = [
+    (socket.AF_INET, ("0.0.0.0", port)),
+    (socket.AF_INET, ("127.0.0.1", port)),
+]
+
+if socket.has_ipv6:
+    checks.append((socket.AF_INET6, ("::", port)))
+
+for family, address in checks:
+    sock = socket.socket(family, socket.SOCK_STREAM)
+    try:
+        if family == socket.AF_INET6:
+            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+        sock.bind(address)
+    except OSError:
+        sys.exit(1)
+    finally:
+        sock.close()
+sys.exit(0)
+PY
+}
+
+find_available_port() {
+    local start_port="$1"
+    local avoid_csv="${2:-}"
+    validate_tcp_port "$start_port"
+    python3 - "$start_port" "$avoid_csv" <<'PY'
+import socket
+import sys
+
+start = int(sys.argv[1])
+avoid = {int(item) for item in sys.argv[2].split(",") if item.strip()}
+
+def available(port: int) -> bool:
+    checks = [
+        (socket.AF_INET, ("0.0.0.0", port)),
+        (socket.AF_INET, ("127.0.0.1", port)),
+    ]
+    if socket.has_ipv6:
+        checks.append((socket.AF_INET6, ("::", port)))
+    for family, address in checks:
+        sock = socket.socket(family, socket.SOCK_STREAM)
+        try:
+            if family == socket.AF_INET6:
+                sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+            sock.bind(address)
+        except OSError:
+            return False
+        finally:
+            sock.close()
+    return True
+
+for port in range(start, 65536):
+    if port in avoid:
+        continue
+    if available(port):
+        print(port)
+        sys.exit(0)
+
+print(f"no available TCP port found at or above {start}", file=sys.stderr)
+sys.exit(1)
+PY
+}
+
+port_usage_report() {
+    local port="$1"
+    validate_tcp_port "$port"
+    echo "port: $port"
+    if command -v ss >/dev/null 2>&1; then
+        local ss_output
+        ss_output="$(ss -H -ltnp "( sport = :$port )" 2>/dev/null || true)"
+        if [[ -n "$ss_output" ]]; then
+            echo "ss:"
+            echo "$ss_output"
+        else
+            echo "ss: no listener details visible"
+        fi
+    fi
+    if command -v docker >/dev/null 2>&1; then
+        local docker_output
+        docker_output="$(docker ps --format '{{.Names}}\t{{.Ports}}' 2>/dev/null | grep -F ":$port->" || true)"
+        if [[ -n "$docker_output" ]]; then
+            echo "docker:"
+            echo "$docker_output"
+        fi
+    fi
+}
+
+preflight_host_ports() {
+    local target_dir="$1"
+    validate_tcp_port "$JUPYTER_PORT"
+    validate_tcp_port "$RSTUDIO_PORT"
+    if [[ "$JUPYTER_PORT" == "$RSTUDIO_PORT" ]]; then
+        die "JUPYTER_PORT and RSTUDIO_PORT must be different; both are $JUPYTER_PORT"
+    fi
+
+    local spec env_name host_port container_port
+    for spec in "JUPYTER_PORT:$JUPYTER_PORT:8888" "RSTUDIO_PORT:$RSTUDIO_PORT:8787"; do
+        IFS=: read -r env_name host_port container_port <<< "$spec"
+        if ! port_available "$host_port"; then
+            status_err "$env_name=$host_port is already occupied before Docker startup." >&2
+            port_usage_report "$host_port" >&2
+            {
+                echo "hint: choose a free host port, then either edit $target_dir/.env or run with an explicit override."
+                echo "hint: example: JUPYTER_PORT=18888 RSTUDIO_PORT=18787 bash scripts/bootstrap_container.sh --target \"$target_dir\""
+                echo "hint: container-side port remains $container_port; only the host port changes."
+            } >&2
+            exit 1
+        fi
+    done
+}
+
 load_paper_env() {
     local root_dir="${1:-$DEFAULT_ROOT_DIR}"
     root_dir="$(abs_path "$root_dir")"

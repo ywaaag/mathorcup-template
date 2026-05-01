@@ -2,6 +2,8 @@
 
 这是由 `mathorcup-template` 渲染出的实例仓库。
 
+说明：下面命令假设你是通过 `git clone` 模板后在同一目录原地实例化，因此 `scripts/` 仍在仓库内；如果只是模板维护者用 `--target` 渲染出的临时目录，请回到模板源仓库执行脚本并显式传 `--target <dir>`。
+
 ## 1. 先看什么
 
 - `AGENTS.md`
@@ -18,14 +20,14 @@
 ## 2. 初始化一个新实例
 
 ```bash
-bash scripts/setup.sh {{COMPETITION_NAME}}
+bash scripts/instantiate.sh {{COMPETITION_NAME}}
 ```
 
 常用变体：
 
 ```bash
 # 只渲染合同与运行配置，不碰容器
-bash scripts/setup.sh {{COMPETITION_NAME}} --render-only
+bash scripts/instantiate.sh {{COMPETITION_NAME}} --render-only
 
 # 容器已存在，只补依赖
 bash scripts/setup.sh --deps-only
@@ -126,7 +128,45 @@ bash scripts/run_exec_worker.sh --task TASK_REVIEW_CONSISTENCY --owner exec_revi
 8. 编译/验收杂务 Agent 只做 compile 和 host-visible acceptance。
 9. 重要踩坑点写入 `project/output/retrospectives/`。
 
-## 6. paper active entrypoint 怎么改
+## 6. 人类如何调用主脑工作流
+
+先看实例状态：
+
+```bash
+bash scripts/doctor.sh
+bash scripts/main_brain_summary.sh
+bash scripts/list_open_tasks.sh --open-only
+```
+
+派发一个任务：
+
+```bash
+bash scripts/dispatch_task.sh --task TASK_REVIEW_CONSISTENCY --owner alice
+```
+
+把生成的 task packet 发给另一个 Agent 会话，或用 `codex exec` 执行：
+
+```bash
+bash scripts/exec_healthcheck.sh
+bash scripts/run_exec_worker.sh --task TASK_REVIEW_CONSISTENCY --owner exec_review
+```
+
+worker 回传后由主脑验收：
+
+```bash
+bash scripts/show_task.sh --task TASK_REVIEW_CONSISTENCY
+bash scripts/list_history.sh --task TASK_REVIEW_CONSISTENCY
+bash scripts/check_worker_feedback.sh --task TASK_REVIEW_CONSISTENCY
+bash scripts/close_task.sh --task TASK_REVIEW_CONSISTENCY --to review
+```
+
+如果多个 worker 结论不一致，先生成裁决草案：
+
+```bash
+bash scripts/adjudicate_task.sh --task TASK_REVIEW_CONSISTENCY
+```
+
+## 7. paper active entrypoint 怎么改
 
 只改一个文件：
 

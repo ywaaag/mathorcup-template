@@ -64,6 +64,7 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scaffold/project/paper/spec/paper_runtime_contract.md.template",
     "scaffold/project/paper/runtime/paper.env.template",
     "scripts/setup.sh",
+    "scripts/instantiate.sh",
     "scripts/render_templates.sh",
     "scripts/validate_agent_docs.sh",
     "scripts/doctor.sh",

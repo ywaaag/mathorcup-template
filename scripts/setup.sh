@@ -8,6 +8,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 source "$SCRIPT_DIR/lib/common.sh"
 
 TARGET_DIR="$ROOT_DIR"
+TARGET_PROVIDED=false
 MODE="full"
 COMPETITION_ARG=""
 FORCE_RENDER=false
@@ -18,6 +19,9 @@ FULL_LATEX=false
 usage() {
     cat <<'EOF'
 Usage: bash scripts/setup.sh [competition_name] [options]
+
+For a fresh template-source clone, first run:
+  bash scripts/instantiate.sh <competition_name>
 
 Modes:
   --render-only
@@ -64,6 +68,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --target)
             TARGET_DIR="$(abs_path "$2")"
+            TARGET_PROVIDED=true
             shift 2
             ;;
         --force-render)
@@ -98,6 +103,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+SCRIPT_ROOT_KIND="$(workflow_root_kind "$SCRIPT_DIR" "$ROOT_DIR")"
+
+if [[ "$SCRIPT_ROOT_KIND" == "template_source" && "$TARGET_DIR" == "$ROOT_DIR" && "$MODE" != "doctor" ]]; then
+    die "setup.sh will not render/bootstrap the template-source root. Use bash scripts/instantiate.sh <competition_name> to convert this clone in place, or pass --target <temp_instance_dir> for render-only validation."
+fi
+
 if [[ -n "$COMPETITION_ARG" ]]; then
     export COMPETITION_NAME="$COMPETITION_ARG"
     export CONTAINER_NAME="${CONTAINER_NAME:-${COMPETITION_ARG}-dev}"
@@ -115,10 +126,21 @@ render_args=(--target "$TARGET_DIR")
 [[ "$REWRITE_CONFIG" == true ]] && render_args+=(--force --include-config)
 
 run_render() {
+    if [[ "$SCRIPT_ROOT_KIND" != "template_source" ]]; then
+        die "render mode requires scaffold/ from a template-source checkout. This looks like an instantiated repo; use bootstrap/deps/reset/doctor modes instead."
+    fi
     status_info "rendering scaffold into $TARGET_DIR"
     bash "$SCRIPT_DIR/render_templates.sh" "${render_args[@]}"
     if [[ -f "$TARGET_DIR/project/runtime/task_registry.json" && -f "$TARGET_DIR/project/runtime/work_queue.json" ]]; then
         bash "$SCRIPT_DIR/render_task_registry.sh" --target "$TARGET_DIR" >/dev/null
+    fi
+}
+
+run_render_if_template_source() {
+    if [[ "$SCRIPT_ROOT_KIND" == "template_source" ]]; then
+        run_render
+    else
+        status_skip "render skipped; instantiated repos no longer carry scaffold/"
     fi
 }
 
@@ -133,12 +155,12 @@ case "$MODE" in
         run_doctor
         ;;
     bootstrap)
-        run_render
+        run_render_if_template_source
         bash "$SCRIPT_DIR/bootstrap_container.sh" --target "$TARGET_DIR"
         run_doctor
         ;;
     deps)
-        run_render
+        run_render_if_template_source
         bash "$SCRIPT_DIR/bootstrap_container.sh" --target "$TARGET_DIR"
         deps_args=(--target "$TARGET_DIR")
         [[ "$FULL_LATEX" == true ]] && deps_args+=(--full-latex)
@@ -146,7 +168,7 @@ case "$MODE" in
         run_doctor
         ;;
     reset)
-        run_render
+        run_render_if_template_source
         bash "$SCRIPT_DIR/reset_state.sh" --target "$TARGET_DIR"
         run_doctor
         ;;
@@ -154,7 +176,7 @@ case "$MODE" in
         run_doctor
         ;;
     full)
-        run_render
+        run_render_if_template_source
         bash "$SCRIPT_DIR/bootstrap_container.sh" --target "$TARGET_DIR"
         if [[ "$SKIP_DEPS" == false ]]; then
             deps_args=(--target "$TARGET_DIR")

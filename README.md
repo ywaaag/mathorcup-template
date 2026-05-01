@@ -13,6 +13,38 @@
 这份 `README.md` 主要写给人类维护者和使用者看。  
 仓库里的大部分协议文档、合同文档、模板文档，默认都是面向 Agent 的。
 
+## 0. 快速地图
+
+如果你只是想判断“这个仓库是什么、现在能不能用”，先看这几条：
+
+- 这里是模板源仓库，不是 live 比赛项目。
+- `scaffold/` 是未来实例文件的 source of truth。
+- 根目录 `project/` 只是 placeholder，不要当作当前比赛运行目录。
+- 真实使用路径是先渲染到一个实例目录，再在实例里跑 validator、doctor、容器和 Agent workflow。
+- `reports/` 只放需要长期保留的报告；时间戳 smoke 报告默认是本地验证产物，不入库。
+
+最小自检：
+
+```bash
+bash scripts/validate_agent_docs.sh --template-source-only
+
+tmpdir="$(mktemp -d)"
+bash scripts/setup.sh demo --render-only --target "$tmpdir"
+bash scripts/validate_agent_docs.sh --root "$tmpdir"
+bash scripts/doctor.sh --root "$tmpdir"
+```
+
+完整链路 smoke 要避开本机已有容器端口：
+
+```bash
+bash scripts/smoke_realflow.sh \
+  --with-docker \
+  --with-exec \
+  --jupyter-port 18889 \
+  --rstudio-port 18789 \
+  --keep-temp
+```
+
 ## 1. 这个仓库到底是什么
 
 建议先建立一个清晰心智模型：
@@ -111,7 +143,9 @@
 ### 4.3 `scripts/` 里最重要的入口
 
 - `scripts/setup.sh`
-  - 总编排入口
+  - 已实例化仓库的总编排入口
+- `scripts/instantiate.sh`
+  - 从 template-source clone 原地生成实例；首次创建比赛仓库时优先用它
 - `scripts/render_templates.sh`
   - 只负责从 `scaffold/` 渲染实例文件
 - `scripts/bootstrap_container.sh`
@@ -130,6 +164,7 @@
   - 低风险模板自测入口：render temp instance、validate、advisory checks、dispatch/gate/reset；默认不启动 Docker、不运行 `codex exec`
 - `scripts/smoke_realflow.sh`
   - 可选真实链路自测入口；默认 dry run，不启动 Docker、不运行 `codex exec`，必须显式传 `--with-docker` / `--with-exec`
+  - 本机已有容器占用默认端口时，用 `--jupyter-port` / `--rstudio-port` 覆盖 smoke 实例端口
 - `scripts/check_state_consistency.sh`
   - 只读检查 registry、queue、event log、feedback / retrospective artifact 是否互相矛盾
 - `scripts/dual_brain.sh`
@@ -184,7 +219,7 @@
 ```bash
 git clone <this-template-repo> mathorcup-<比赛名>
 cd mathorcup-<比赛名>
-bash scripts/setup.sh <比赛名>
+bash scripts/instantiate.sh <比赛名>
 ```
 
 默认会做这些事：
@@ -228,7 +263,59 @@ bash scripts/doctor.sh --root <实例目录>
 - `doctor.sh`
   - 更偏“给人看的一页诊断摘要”，包括 repo mode、runtime config、tooling、validation、container state
 
-### 5.4 只想重置运行状态，不碰容器
+### 5.4 进入主脑视角并派发第一个任务
+
+人类通常不直接手改 `task_registry.json` / `work_queue.json`。  
+推荐把自己当成“主脑监督者”，用脚本读取状态、派发任务、检查回传。
+
+在实例仓库里先看全局：
+
+```bash
+bash scripts/doctor.sh
+bash scripts/main_brain_summary.sh
+bash scripts/list_open_tasks.sh --open-only
+```
+
+选择一个任务后，由主脑派发：
+
+```bash
+bash scripts/dispatch_task.sh \
+  --task TASK_REVIEW_CONSISTENCY \
+  --owner alice
+```
+
+这会完成三件事：
+
+- claim 任务并写入 queue / event log
+- 生成 role-aware task packet
+- 自动补建 canonical feedback skeleton
+
+如果你用多会话协作，把生成的 packet 发给另一个 Agent 会话即可。  
+如果你想让本机 `codex exec` 跑 worker，先探活再执行：
+
+```bash
+bash scripts/exec_healthcheck.sh
+bash scripts/run_exec_worker.sh \
+  --task TASK_REVIEW_CONSISTENCY \
+  --owner exec_review
+```
+
+worker 回传后，主脑再验收：
+
+```bash
+bash scripts/show_task.sh --task TASK_REVIEW_CONSISTENCY
+bash scripts/list_history.sh --task TASK_REVIEW_CONSISTENCY
+bash scripts/check_worker_feedback.sh --task TASK_REVIEW_CONSISTENCY
+bash scripts/close_task.sh --task TASK_REVIEW_CONSISTENCY --to review
+```
+
+如果多个 worker 给出不同结论，先生成裁决草案，不要直接 close：
+
+```bash
+bash scripts/adjudicate_task.sh --task TASK_REVIEW_CONSISTENCY
+```
+
+### 5.5 只想重置运行状态，不碰容器
 
 ```bash
 bash scripts/reset_state.sh --target <实例目录>
@@ -237,7 +324,7 @@ bash scripts/reset_state.sh --target <实例目录>
 这个动作和 `setup.sh` 是分离的。  
 这是本模板的刻意设计：`setup` 不是 reset bomb。
 
-### 5.5 只想修复容器或重装依赖
+### 5.6 只想修复容器或重装依赖
 
 ```bash
 bash scripts/setup.sh --bootstrap-only --target <实例目录>
@@ -250,7 +337,7 @@ bash scripts/setup.sh --deps-only --target <实例目录>
 - 依赖修复不等于模板重渲染
 - Agent 和人都更敢重复执行
 
-### 5.6 默认 reference image 与权限基线
+### 5.7 默认 reference image 与权限基线
 
 当前模板默认复用的基础镜像是：
 
@@ -681,18 +768,30 @@ bash scripts/validate_agent_docs.sh --root "$tmpdir"
 bash scripts/doctor.sh --root "$tmpdir"
 ```
 
+如果要跑完整临时实例链路：
+
+```bash
+bash scripts/smoke_realflow.sh \
+  --with-docker \
+  --with-exec \
+  --jupyter-port 18889 \
+  --rstudio-port 18789 \
+  --keep-temp
+```
+
 注意：
 
 - 模板源仓库根目录不是实例目录
 - 这里跑 validator 时会识别 `template-source mode`
 - 真正的实例校验要对渲染后的目录执行
+- 默认 `8888/8787` 端口常被长期容器占用，临时 smoke 建议显式指定备用端口
 
 ### 10.2 在实例仓库里
 
 你通常做的是：
 
 ```bash
-bash scripts/setup.sh <比赛名>
+bash scripts/instantiate.sh <比赛名>
 bash scripts/validate_agent_docs.sh
 bash scripts/doctor.sh
 bash scripts/dual_brain.sh both
@@ -700,14 +799,14 @@ bash scripts/dual_brain.sh both
 
 ## 11. 常用脚本速查
 
-### 11.1 `scripts/setup.sh`
+### 11.1 `scripts/instantiate.sh` / `scripts/setup.sh`
 
-用途：总入口。
+用途：`instantiate.sh` 负责首次把 template-source clone 转成实例；`setup.sh` 负责已实例化仓库的 bootstrap / deps / reset / doctor。
 
 常见模式：
 
 ```bash
-bash scripts/setup.sh demo
+bash scripts/instantiate.sh demo
 bash scripts/setup.sh demo --render-only --target /tmp/demo
 bash scripts/setup.sh --bootstrap-only --target <dir>
 bash scripts/setup.sh --deps-only --target <dir>
@@ -1033,6 +1132,17 @@ tmpdir="$(mktemp -d)"
 bash scripts/setup.sh demo --render-only --target "$tmpdir"
 bash scripts/validate_agent_docs.sh --root "$tmpdir"
 bash scripts/doctor.sh --root "$tmpdir"
+```
+
+完整可用性验证：
+
+```bash
+bash scripts/smoke_realflow.sh \
+  --with-docker \
+  --with-exec \
+  --jupyter-port 18889 \
+  --rstudio-port 18789 \
+  --keep-temp
 ```
 
 如果你改的是模板源仓库自身的行为，也建议补一次：

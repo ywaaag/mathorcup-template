@@ -69,6 +69,11 @@ Thumbs.db
 # Logs
 *.log
 
+# Generated local smoke/context reports. Keep curated reports tracked explicitly.
+reports/smoke_instance_*.md
+reports/smoke_realflow_*.md
+reports/codex_context_handoff_*.md
+
 # Temporary
 *.tmp
 *.swp

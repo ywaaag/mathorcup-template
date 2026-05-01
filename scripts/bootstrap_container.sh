@@ -64,6 +64,8 @@ fi
 status_info "container: $CONTAINER_NAME"
 status_info "image: $IMAGE_NAME"
 status_info "host project dir: $HOST_PROJECT_DIR"
+status_info "jupyter host port: $JUPYTER_PORT -> 8888"
+status_info "rstudio host port: $RSTUDIO_PORT -> 8787"
 status_info "runtime: ${CONTAINER_RUNTIME:-default}"
 status_info "gpus: ${CONTAINER_GPUS:-none}"
 status_info "privileged: $CONTAINER_PRIVILEGED"
@@ -77,6 +79,10 @@ if container_exists && [[ "$RECREATE" == true ]]; then
     docker rm -f "$CONTAINER_NAME" >/dev/null
 fi
 
+if ! container_running; then
+    preflight_host_ports "$TARGET_DIR"
+fi
+
 if ! container_exists; then
     status_info "creating container $CONTAINER_NAME"
     docker run \
@@ -88,5 +94,7 @@ else
     status_skip "container already exists"
 fi
 
-docker start "$CONTAINER_NAME" >/dev/null 2>&1 || true
+if ! container_running; then
+    docker start "$CONTAINER_NAME" >/dev/null
+fi
 status_ok "container running"

@@ -65,8 +65,35 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if [[ ! -d "$ROOT_DIR/scaffold" ]]; then
+    die "render_templates.sh requires a template-source checkout with scaffold/. This root looks like an instantiated repo; use setup.sh --bootstrap-only, --deps-only, --reset-state, or --doctor-only instead."
+fi
+
 mkdir -p "$TARGET_DIR"
+TARGET_ENV_EXISTS=false
+[[ -f "$TARGET_DIR/.env" ]] && TARGET_ENV_EXISTS=true
+JUPYTER_PORT_WAS_SET=false
+RSTUDIO_PORT_WAS_SET=false
+[[ -n "${JUPYTER_PORT+x}" ]] && JUPYTER_PORT_WAS_SET=true
+[[ -n "${RSTUDIO_PORT+x}" ]] && RSTUDIO_PORT_WAS_SET=true
+
 load_root_env "$TARGET_DIR"
+
+if [[ "$TARGET_ENV_EXISTS" == false ]]; then
+    if [[ "$JUPYTER_PORT_WAS_SET" == false ]] && ! port_available "$JUPYTER_PORT"; then
+        old_port="$JUPYTER_PORT"
+        JUPYTER_PORT="$(find_available_port "$old_port" "${RSTUDIO_PORT:-}")"
+        export JUPYTER_PORT
+        status_info "auto-selected JUPYTER_PORT=$JUPYTER_PORT because $old_port is occupied"
+    fi
+    if [[ "$RSTUDIO_PORT_WAS_SET" == false ]] && { [[ "$RSTUDIO_PORT" == "$JUPYTER_PORT" ]] || ! port_available "$RSTUDIO_PORT"; }; then
+        old_port="$RSTUDIO_PORT"
+        RSTUDIO_PORT="$(find_available_port "$old_port" "$JUPYTER_PORT")"
+        export RSTUDIO_PORT
+        status_info "auto-selected RSTUDIO_PORT=$RSTUDIO_PORT because $old_port is occupied or reserved"
+    fi
+fi
+
 load_paper_env "$TARGET_DIR"
 
 export TARGET_DIR ROOT_DIR FORCE INCLUDE_STATE INCLUDE_CONFIG DRY_RUN
