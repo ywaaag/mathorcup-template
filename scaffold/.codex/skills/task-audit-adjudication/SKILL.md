@@ -13,6 +13,7 @@ Use this skill for structured audit, not free-chat arbitration.
 bash scripts/show_task.sh --task <task_id> --target <dir>
 bash scripts/list_history.sh --task <task_id> --target <dir>
 bash scripts/adjudicate_task.sh --task <task_id> --target <dir>
+bash scripts/artifact_index.sh --target <dir>
 ```
 
 ## Core rules
@@ -20,6 +21,7 @@ bash scripts/adjudicate_task.sh --task <task_id> --target <dir>
 - `show_task.sh` is the current-state view.
 - `list_history.sh` is the timeline and audit trace view.
 - `adjudicate_task.sh` is the structured comparison draft.
+- `artifact_index.sh` is a derived review-side index when artifacts are scattered.
 - Final state change still belongs to main brain through repo scripts.
 
 ## Evidence handling

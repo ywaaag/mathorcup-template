@@ -94,6 +94,7 @@
       "name": "worker_failure_hint",
       "enabled": true,
       "on": [
+        "worker.partial",
         "worker.failed"
       ],
       "when": {},

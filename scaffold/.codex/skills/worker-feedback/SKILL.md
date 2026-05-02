@@ -25,7 +25,13 @@ Use this skill after a main-brain dispatch when you are executing a bounded task
 ## Feedback path
 
 - Canonical path: feedback skeleton is normally created by `dispatch_task.sh`.
+- Task packets are normally persisted under `project/workflow/packets/`.
 - Use `bash scripts/submit_feedback.sh --task <task_id> --with-retrospective --target <dir>` only when feedback is missing or retrospective needs manual initialization.
+
+## Model and paper evidence
+
+- If you are a code/model worker and you produce assumptions, canonical numbers, algorithm boundaries, enumeration caps, or paper-facing outputs, update `project/output/model_manifest.json` from `project/output/MODEL_MANIFEST_TEMPLATE.json`.
+- If you are a paper/layout/final-fix worker, run `bash scripts/paper_acceptance_check.sh --target <dir>` after build and report the result. The script checks host-visible artifacts; it does not compile or close the task.
 
 ## Hard boundaries
 

@@ -61,6 +61,9 @@
 
 完成后必须：
 - 回填 task 对应的 feedback / retrospective 文件
+- code/model worker 若产生 assumptions、canonical numbers、算法边界或论文可消费结果，必须更新 `project/output/model_manifest.json`，可从 `project/output/MODEL_MANIFEST_TEMPLATE.json` 初始化
+- code/model worker 的 handoff 必须写明算法边界、最优性声明、枚举上限 / cap（如适用）、验证命令、canonical numbers、paper-facing output files
+- paper/layout/final-fix worker 在主脑验收前应运行 `bash scripts/paper_acceptance_check.sh --target <dir>`，并对照 `project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md`
 - 如果生成 code-brain handoff，使用 `bash scripts/submit_handoff.sh --task <task_id> --handoff <path> --target <dir>` 校验、索引并记录事件，不要手工改 `MEMORY.md -> Handoff Index`
 - 如果消费上游 handoff，使用 `bash scripts/check_handoff_intake.sh` 读取默认 intake 结果，不要直接扫 `project/output/handoff/`
 - feedback / retrospective 主体字段必须填写具体内容，不能只留下空 bullet、裸 `-`、`none`、`n/a`、`no`、`empty` 或 `no meaningful change`
@@ -176,12 +179,14 @@ See:
   - `bash scripts/list_open_tasks.sh --open-only`
   - `bash scripts/check_handoff_intake.sh --target <dir>` when the next worker will consume code-brain handoffs
   - `bash scripts/check_handoff_intake.sh --target <dir> --json` when a tool needs structured indexed handoff intake
-  - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`
+- `bash scripts/dispatch_task.sh --task <task_id> --owner <owner>`
+  - 默认会把 packet 落盘到 `project/workflow/packets/`；只有显式 `--print-only` 才走 stdout-only relay
   - dispatch 会通过 `task.dispatched` callback 自动补 feedback skeleton
   - `bash scripts/show_task.sh --task <task_id>` if main brain wants the current audit summary before or after dispatch
   - `bash scripts/process_callbacks.sh --latest`
   - `bash scripts/list_history.sh --task <task_id>` when main brain needs the timeline instead of raw json/jsonl files
   - `bash scripts/list_history.sh --task <task_id> --target <dir> --json` when a tool needs structured event, queue, callback, exec, and adjudication history
+  - `bash scripts/artifact_index.sh --target <dir>` when main brain wants a compact index of packets / feedback / retrospectives / callbacks / exec runs / handoffs / adjudications
   - `bash scripts/check_worker_feedback.sh --task <task_id>`
   - `bash scripts/submit_handoff.sh --task <task_id> --handoff <path> --target <dir>` if a code-brain handoff was created
   - `bash scripts/close_task.sh --task <task_id> --to review|done`
@@ -199,6 +204,7 @@ See:
 - 如果默认 task slot 太宽、batch 预检会冲突，可给 batch 增加：
   - `--lock <task_id:path>`
 - `scripts/run_exec_worker.sh` 只负责 claim/packet/feedback init/`codex exec`/last-message 落盘，不会自动 close task。
+- 如果 provider run 成功但没有写出 last-message，`scripts/run_exec_worker.sh` 会保留 fallback status artifact 并发出 `worker.partial` event；主脑必须检查 feedback / exec artifacts 后再决定 close、reopen 或 cancel。
 - code-brain workers should submit handoffs through `scripts/submit_handoff.sh`; it validates the six handoff sections, updates `MEMORY.md -> Handoff Index` by default, and records `handoff_submitted` in `event_log.jsonl`.
 - paper-side or review-side consumers should read handoffs through `scripts/check_handoff_intake.sh`; it validates indexed handoffs and warns about unindexed disk handoffs without promoting them into the default intake surface.
 - `scripts/process_callbacks.sh` 只执行受控 built-in actions，不会把任务自动推进到 `done`。

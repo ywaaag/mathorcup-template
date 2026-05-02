@@ -235,22 +235,50 @@ if [[ $exit_code -ne 0 ]]; then
 fi
 
 if [[ ! -f "$LAST_MESSAGE_OUT" ]]; then
+    fallback_status="$exec_run_dir/${TASK_ID}_${stamp}_exec_status.md"
+    cat > "$fallback_status" <<EOF
+# Exec Worker Partial Status
+
+task_id: $TASK_ID
+role: $role_name
+owner: $OWNER
+status: partial
+reason: codex exec finished with exit code 0 but did not write the configured last-message file
+
+## Artifacts
+- packet_path: $PACKET_OUT
+- feedback_path: $feedback_path_rel
+- retrospective_path: $retrospective_path_rel
+- exec_log: $exec_log
+- expected_last_message_path: $LAST_MESSAGE_OUT
+
+## Main-Brain Next Step
+- Inspect the feedback, changed files, and exec log.
+- If evidence is sufficient, run check_worker_feedback.sh and close to review.
+- If evidence is insufficient, cancel or reopen explicitly.
+EOF
     emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" \
-        --event-type worker.failed \
+        --event-type worker.partial \
         --task "$TASK_ID" \
         --actor "$OWNER" \
         --owner "$OWNER" \
         --artifact "$PACKET_OUT" \
         --artifact "$exec_log" \
+        --artifact "$fallback_status" \
+        --artifact "$feedback_path_rel" \
         --note "codex exec finished without writing the last-message file" \
         --metadata "backend=codex_exec" \
+        --metadata "partial_success=true" \
         --metadata "with_retrospective=$WITH_RETROSPECTIVE" >/dev/null
-    echo "[run_exec_worker] FAIL"
+    echo "[run_exec_worker] PARTIAL"
     echo "task_id: $TASK_ID"
     echo "reason: codex exec finished without writing the last-message file"
     echo "packet_path: $PACKET_OUT"
+    echo "feedback_path: $feedback_path_rel"
+    echo "fallback_status_path: $fallback_status"
     echo "exec_log: $exec_log"
-    exit 1
+    echo "next_step_hint: inspect feedback and fallback status; main_brain decides whether to close, cancel, or reopen"
+    exit 0
 fi
 
 worker_complete_args=(

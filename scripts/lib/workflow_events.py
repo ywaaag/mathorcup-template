@@ -224,6 +224,8 @@ def derive_hint(event: Dict[str, Any]) -> str:
         return f"Worker {task_id} is running. Wait for worker.completed or worker.failed before adjudicating."
     if event_type == "worker.completed":
         return f"Inspect the worker reply for {task_id}, then run check_worker_feedback.sh before deciding close/reopen/cancel."
+    if event_type == "worker.partial":
+        return f"Inspect the partial worker artifacts for {task_id}. If feedback is sufficient, run check_worker_feedback.sh; otherwise cancel or reopen explicitly."
     if event_type == "worker.failed":
         return f"Inspect the worker failure artifact for {task_id}, then decide whether to cancel or reopen the task."
     if event_type == "review.checked":

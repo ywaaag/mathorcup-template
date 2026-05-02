@@ -176,7 +176,11 @@ bash scripts/smoke_realflow.sh \
 - `scripts/list_open_tasks.sh`
   - 列出当前可直接派发或按条件过滤的任务
 - `scripts/dispatch_task.sh`
-  - 主脑一键完成 claim + packet 输出
+  - 主脑一键完成 claim + packet 落盘 / 输出
+- `scripts/paper_acceptance_check.sh`
+  - 论文构建后只读检查 host-visible PDF / LOG / AUX 是否和 `paper.env` 对齐
+- `scripts/artifact_index.sh`
+  - 汇总 packet、feedback、retrospective、callback / exec run、handoff、adjudication、paper acceptance report 等派生产物
 - `scripts/exec_healthcheck.sh`
   - 对 `codex exec` 做一次最小真实探活
 - `scripts/run_exec_worker.sh`
@@ -280,14 +284,14 @@ bash scripts/list_open_tasks.sh --open-only
 
 ```bash
 bash scripts/dispatch_task.sh \
-  --task TASK_REVIEW_CONSISTENCY \
-  --owner alice
+  --task TASK_CODE_MODEL_P1 \
+  --owner code_p1_agent
 ```
 
 这会完成三件事：
 
 - claim 任务并写入 queue / event log
-- 生成 role-aware task packet
+- 生成 role-aware task packet，并默认落盘到 `project/workflow/packets/`
 - 自动补建 canonical feedback skeleton
 
 如果你用多会话协作，把生成的 packet 发给另一个 Agent 会话即可。  
@@ -296,8 +300,8 @@ bash scripts/dispatch_task.sh \
 ```bash
 bash scripts/exec_healthcheck.sh
 bash scripts/run_exec_worker.sh \
-  --task TASK_REVIEW_CONSISTENCY \
-  --owner exec_review
+  --task TASK_CODE_MODEL_P1 \
+  --owner exec_code_p1
 ```
 
 worker 回传后，主脑再验收：
@@ -314,6 +318,18 @@ bash scripts/close_task.sh --task TASK_REVIEW_CONSISTENCY --to review
 ```bash
 bash scripts/adjudicate_task.sh --task TASK_REVIEW_CONSISTENCY
 ```
+
+数模实战里更推荐优先派发阶段化任务，而不是反复复用一个大槽位：
+
+```bash
+bash scripts/dispatch_task.sh --task TASK_CODE_MODEL_P1 --owner code_p1_agent --target <dir>
+bash scripts/dispatch_task.sh --task TASK_CODE_MODEL_P23 --owner code_p23_agent --target <dir>
+bash scripts/dispatch_task.sh --task TASK_CODE_MODEL_P4 --owner code_p4_agent --target <dir>
+bash scripts/dispatch_task.sh --task TASK_PAPER_INTEGRATION --owner paper_integrator --target <dir>
+bash scripts/dispatch_task.sh --task TASK_PAPER_FINAL_FIX --owner paper_final_fix --target <dir>
+```
+
+代码阶段如果形成建模假设、canonical numbers、算法边界、枚举上限或论文可消费结果，应从 `project/output/MODEL_MANIFEST_TEMPLATE.json` 初始化并维护 `project/output/model_manifest.json`。论文和主脑验收时优先对照这个 manifest，减少数值口径分散在 handoff / MEMORY / feedback / paper 中。
 
 ### 5.5 只想重置运行状态，不碰容器
 
@@ -425,6 +441,14 @@ bash scripts/export_reference_image.sh \
   - 当前任务占用与并发状态
 - `project/workflow/MAIN_BRAIN_QUEUE.md`
   - 给主脑和人类都更易读的队列表
+- `project/workflow/packets/`
+  - `dispatch_task.sh` 默认写入的历史任务包
+- `project/output/MODEL_MANIFEST_TEMPLATE.json`
+  - 建模假设、算法边界、canonical numbers、输出文件和验证命令的初始化模板
+- `project/output/model_manifest.json`
+  - 实例运行中由 code-brain 维护的建模结果 manifest
+- `project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md`
+  - 终稿提交前的人类 / 主脑检查清单
 - `project/paper/runtime/paper.env`
   - paper active entrypoint / acceptance artifacts 的 machine truth
 
@@ -509,12 +533,14 @@ bash scripts/export_reference_image.sh \
 4. dispatch 的 `task.dispatched` callback 会在缺失时自动补建 feedback skeleton
 5. Agent 完成后填写 feedback / retrospective
 6. code-brain handoff 通过 `submit_handoff.sh` 提交、校验并索引到 `MEMORY.md -> Handoff Index`
-7. 如果 feedback 缺失，或你要手工初始化 retrospective，再执行：
+7. 如需快速汇总当前派生产物，运行：
+   - `bash scripts/artifact_index.sh --target <dir>`
+8. 如果 feedback 缺失，或你要手工初始化 retrospective，再执行：
    - `bash scripts/submit_feedback.sh --task <task_id> --with-retrospective --target <dir>`
-8. 如需重放最新 callback，可执行：
+9. 如需重放最新 callback，可执行：
    - `bash scripts/process_callbacks.sh --latest --target <dir>`
-9. `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
-10. 视情况执行：
+10. `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
+11. 视情况执行：
    - `bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>`
    - `bash scripts/reopen_task.sh --task <task_id> --to ready|review|in_progress --reason <reason> --target <dir>`
    - `bash scripts/cancel_task.sh --task <task_id> --reason <reason> --target <dir>`
@@ -551,6 +577,7 @@ bash scripts/export_reference_image.sh \
 - 它不会自动 close task
 - 它不会替主脑判定 feedback 是否合格
 - 它只是把“生成 packet、初始化回传骨架、调用 `codex exec`、保存最后一条消息”串成一条显式命令
+- 如果 provider run 成功但没有写出 last-message，它会保留 fallback status artifact 并发出 `worker.partial` event；主脑仍需检查 feedback / exec artifacts 后再决定 close、reopen 或 cancel
 - 关键动作会写入 `project/runtime/event_log.jsonl`，并触发受控 `callback_hooks`
 
 ### 7.5 callback / event-log / harness 是怎么工作的
@@ -624,6 +651,8 @@ bash scripts/export_reference_image.sh \
    - `bash scripts/list_history.sh --task <task_id> --target <dir>`
 11. 如果多个 worker 或多个 artifact 对同一 task 给出不同结论，再执行：
    - `bash scripts/adjudicate_task.sh --task <task_id> --target <dir>`
+12. 如果 artifacts 分散，再生成索引：
+   - `bash scripts/artifact_index.sh --target <dir>`
 
 这条链的分工是：
 
@@ -648,6 +677,8 @@ bash scripts/export_reference_image.sh \
   - 看事件链、queue history、callback / exec artifact
 - `adjudicate_task.sh`
   - 只在需要结构化比较多个 worker 证据时再进入
+- `artifact_index.sh`
+  - 只生成 review-side 索引，帮助主脑定位 packet / feedback / retrospective / exec / callback / handoff / acceptance report，不推进任务状态
 
 这里要强调一条边界：
 
@@ -735,6 +766,18 @@ bash scripts/main_brain_summary.sh --target <dir>
 - 如果二者有冲突，以 `paper.env` 为准
 
 如果你在实例仓库里切换论文入口，应该优先修改这个文件，而不是四处改脚本和文档。
+
+构建论文后，主脑或 layout worker 应执行：
+
+```bash
+bash scripts/paper_acceptance_check.sh --target <实例目录> --write-report
+```
+
+这个脚本不会编译论文，也不会 close task。它只读取 `paper.env`，检查 active entrypoint、host-visible PDF / LOG / AUX、页数可读性和高信号 LaTeX log findings。最终提交前再对照：
+
+```text
+project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md
+```
 
 ## 9. 为什么保留“代码脑 / 论文脑”而不是只讲通用 Agent
 
@@ -939,14 +982,17 @@ bash scripts/list_open_tasks.sh --open-only --target <dir>
 bash scripts/list_open_tasks.sh --status blocked --target <dir>
 bash scripts/recommend_tasks.sh --target <dir>
 bash scripts/recommend_tasks.sh --target <dir> --owner-prefix exec
+bash scripts/dispatch_task.sh --task TASK_CODE_MODEL_P1 --owner alice --target <dir>
 bash scripts/dispatch_task.sh --task TASK_PAPER_DRAFT_SLOT --owner alice --target <dir>
 bash scripts/dispatch_task.sh --task TASK_REVIEW_CONSISTENCY --owner bob --packet-out /tmp/review_packet.md --target <dir>
+bash scripts/dispatch_task.sh --task TASK_REVIEW_CONSISTENCY --owner bob --print-only --target <dir>
 ```
 
 注意：
 
 - `--open-only` 只看 `todo/ready` 且 `owner=""` 的任务
 - `recommend_tasks.sh` 只读 `agent_roles.json`、`task_registry.json`、`work_queue.json`，只输出 safe-to-dispatch / blocked reason / dispatch 建议命令，不 claim、不写状态
+- `dispatch_task.sh` 默认会把 packet 写到 `project/workflow/packets/<task>_<time>.md`；只有显式 `--print-only` 才不落盘
 - `blocked` 不在直接派发池里，想看它必须显式 `--status blocked`
 
 ### 11.7 `scripts/exec_healthcheck.sh` / `scripts/run_exec_worker.sh` / `scripts/run_exec_batch.sh`
@@ -971,7 +1017,29 @@ bash scripts/run_exec_batch.sh --tasks TASK_CODE_MODEL_SLOT,TASK_UTILITY_SUPPORT
 - 如果 task slot 的默认 allowed_paths 太宽，可以用 `--lock task_id:path` 给 batch 指定更窄的 claim scope
 - 它不会自动 `close_task.sh`
 - 如果 exec 失败，任务不会被自动取消，仍由主脑决定是 retry、cancel 还是 reopen
+- 如果 exec provider 成功但没生成 last-message，wrapper 会写 fallback status artifact 并标记 `worker.partial`，避免主脑只因 last-message 缺失丢失 worker 证据
 - 默认运行产物会落到 `project/output/review/exec_runs/`
+
+### 11.7.1 `scripts/paper_acceptance_check.sh` / `scripts/artifact_index.sh`
+
+用途：终稿验收和主脑复盘时减少“产物到底在哪、PDF 是否最新、关键 artifact 怎么找”的人工成本。
+
+常见模式：
+
+```bash
+bash scripts/paper_acceptance_check.sh --target <dir>
+bash scripts/paper_acceptance_check.sh --target <dir> --write-report
+bash scripts/paper_acceptance_check.sh --target <dir> --json
+bash scripts/artifact_index.sh --target <dir>
+bash scripts/artifact_index.sh --target <dir> --json --no-write
+```
+
+注意：
+
+- `paper_acceptance_check.sh` 是 read-only checker，不编译、不修改 runtime truth、不 close task
+- `--write-report` 只写 `project/output/review/paper_acceptance_check.md`
+- `artifact_index.sh` 只写派生 review artifact：`project/output/review/artifact_index.md/json`
+- 这两个脚本都不能替代主脑验收，只是减少误判和定位成本
 
 ### 11.8 `scripts/process_callbacks.sh`
 

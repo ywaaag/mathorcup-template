@@ -350,6 +350,8 @@ def validate_contracts(root: Path) -> None:
         "project/workflow/prompt_template_library.md",
         "project/workflow/TASK_PACKET_TEMPLATE.md",
         "project/workflow/MAIN_BRAIN_ACCEPTANCE_TEMPLATE.md",
+        "project/output/MODEL_MANIFEST_TEMPLATE.json",
+        "project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md",
         "project/output/review/WORKER_FEEDBACK_TEMPLATE.md",
         "project/output/retrospectives/RETROSPECTIVE_TEMPLATE.md",
         "project/paper/spec/paper_runtime_contract.md",
@@ -391,8 +393,18 @@ def validate_contracts(root: Path) -> None:
         fail("workflow contract must describe codex exec worker mode via scripts/run_exec_worker.sh")
     if "check_handoff_intake.sh" not in workflow_contract:
         fail("workflow contract must reference scripts/check_handoff_intake.sh")
+    if "paper_acceptance_check.sh" not in workflow_contract:
+        fail("workflow contract must reference scripts/paper_acceptance_check.sh")
+    if "artifact_index.sh" not in workflow_contract:
+        fail("workflow contract must reference scripts/artifact_index.sh")
+    if "model_manifest.json" not in workflow_contract:
+        fail("workflow contract must reference project/output/model_manifest.json")
     if "codex exec" not in prompt_library or "scripts/run_exec_worker.sh" not in prompt_library:
         fail("prompt_template_library.md must reference codex exec and scripts/run_exec_worker.sh")
+    if "paper_acceptance_check.sh" not in prompt_library:
+        fail("prompt_template_library.md must reference scripts/paper_acceptance_check.sh")
+    if "model_manifest.json" not in prompt_library:
+        fail("prompt_template_library.md must reference project/output/model_manifest.json")
     if "check_handoff_intake.sh" not in prompt_library:
         fail("prompt_template_library.md must reference scripts/check_handoff_intake.sh")
     if "process_callbacks.sh" not in prompt_library or "event_log.jsonl" not in prompt_library:
@@ -401,6 +413,10 @@ def validate_contracts(root: Path) -> None:
         fail("prompt_template_library.md must reference adjudicate_task.sh and main_brain_summary.sh")
     if "feedback path" not in task_packet_template or "close_task.sh" not in task_packet_template:
         fail("TASK_PACKET_TEMPLATE.md must describe feedback path and close_task.sh gate")
+    if "model_manifest.json" not in task_packet_template:
+        fail("TASK_PACKET_TEMPLATE.md must reference project/output/model_manifest.json")
+    if "paper_acceptance_check.sh" not in task_packet_template:
+        fail("TASK_PACKET_TEMPLATE.md must reference scripts/paper_acceptance_check.sh")
     if "check_handoff_intake.sh" not in task_packet_template:
         fail("TASK_PACKET_TEMPLATE.md must reference scripts/check_handoff_intake.sh")
     if "event_log.jsonl" not in task_packet_template or "callback_hooks.json" not in task_packet_template:

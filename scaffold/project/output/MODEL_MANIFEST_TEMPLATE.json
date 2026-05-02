@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "problem_id": "",
+  "updated_at": "",
+  "assumptions": [
+    {
+      "id": "A1",
+      "statement": "",
+      "source": "",
+      "paper_consumer": ""
+    }
+  ],
+  "algorithm_boundaries": [
+    {
+      "scope": "",
+      "method": "",
+      "optimality_claim": "",
+      "enumeration_limit": "",
+      "fallback_or_timeout": ""
+    }
+  ],
+  "canonical_numbers": [
+    {
+      "name": "",
+      "value": "",
+      "unit": "",
+      "source_file": "",
+      "paper_location": ""
+    }
+  ],
+  "output_files": [
+    {
+      "path": "",
+      "kind": "csv|figure|markdown|handoff|paper",
+      "producer_task": "",
+      "validation_command": ""
+    }
+  ],
+  "validation_commands": [
+    {
+      "command": "",
+      "expected_result": "",
+      "last_verified": ""
+    }
+  ],
+  "paper_consumers": [
+    {
+      "section_or_table": "",
+      "inputs": [],
+      "status": "pending|integrated|verified"
+    }
+  ]
+}

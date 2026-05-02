@@ -149,6 +149,36 @@ else
 fi
 
 echo ""
+echo "== Acceptance Helpers =="
+if [[ -f "$SCRIPT_DIR/paper_acceptance_check.sh" ]]; then
+    status_ok "paper acceptance checker available via bash scripts/paper_acceptance_check.sh"
+    if [[ "$ROOT_KIND" == "template_source" ]]; then
+        status_info "render an instance first, then run bash scripts/paper_acceptance_check.sh --target <rendered-instance> after paper build"
+    else
+        status_info "run bash scripts/paper_acceptance_check.sh --target $TARGET_DIR after paper build to verify host-visible PDF/log artifacts"
+    fi
+else
+    status_warn "paper acceptance checker script missing"
+fi
+if [[ -f "$SCRIPT_DIR/artifact_index.sh" ]]; then
+    status_ok "artifact index helper available via bash scripts/artifact_index.sh"
+    if [[ "$ROOT_KIND" == "template_source" ]]; then
+        status_info "render an instance first, then run bash scripts/artifact_index.sh --target <rendered-instance>"
+    else
+        status_info "run bash scripts/artifact_index.sh --target $TARGET_DIR to index packets, feedback, retrospectives, exec/callback runs, handoffs, and acceptance reports"
+    fi
+else
+    status_warn "artifact index helper script missing"
+fi
+if [[ "$ROOT_KIND" == "template_source" ]]; then
+    [[ -f "$TARGET_DIR/scaffold/project/output/MODEL_MANIFEST_TEMPLATE.json" ]] && status_ok "model manifest template detected" || status_warn "model manifest template missing"
+    [[ -f "$TARGET_DIR/scaffold/project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md" ]] && status_ok "paper acceptance checklist scaffold detected" || status_warn "paper acceptance checklist scaffold missing"
+else
+    [[ -f "$TARGET_DIR/project/output/MODEL_MANIFEST_TEMPLATE.json" ]] && status_ok "model manifest template detected" || status_warn "model manifest template missing"
+    [[ -f "$TARGET_DIR/project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md" ]] && status_ok "paper acceptance checklist detected" || status_warn "paper acceptance checklist missing"
+fi
+
+echo ""
 echo "== Codex Native Bridge =="
 if [[ "$ROOT_KIND" == "template_source" ]]; then
     [[ -f "$TARGET_DIR/.codex/requirements.toml" ]] && status_ok "template-source .codex requirements detected" || status_warn "template-source .codex requirements missing"

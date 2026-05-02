@@ -149,6 +149,51 @@ def _codex_native_bridge(root: Path, root_kind: str) -> Dict[str, Any]:
     }
 
 
+def _acceptance_helpers(root: Path, root_kind: str, scripts_dir: Path) -> Dict[str, Any]:
+    if root_kind == "template_source":
+        model_manifest = root / "scaffold/project/output/MODEL_MANIFEST_TEMPLATE.json"
+        paper_checklist = root / "scaffold/project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md"
+        return {
+            "paper_acceptance_check": {
+                "available": (scripts_dir / "paper_acceptance_check.sh").is_file(),
+                "command": "bash scripts/paper_acceptance_check.sh --target <rendered-instance>",
+            },
+            "artifact_index": {
+                "available": (scripts_dir / "artifact_index.sh").is_file(),
+                "command": "bash scripts/artifact_index.sh --target <rendered-instance>",
+            },
+            "model_manifest_template": {
+                "path": "scaffold/project/output/MODEL_MANIFEST_TEMPLATE.json",
+                "exists": model_manifest.is_file(),
+            },
+            "paper_acceptance_checklist": {
+                "path": "scaffold/project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md",
+                "exists": paper_checklist.is_file(),
+            },
+        }
+
+    model_manifest = root / "project/output/MODEL_MANIFEST_TEMPLATE.json"
+    paper_checklist = root / "project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md"
+    return {
+        "paper_acceptance_check": {
+            "available": (scripts_dir / "paper_acceptance_check.sh").is_file(),
+            "command": f"bash scripts/paper_acceptance_check.sh --target {root}",
+        },
+        "artifact_index": {
+            "available": (scripts_dir / "artifact_index.sh").is_file(),
+            "command": f"bash scripts/artifact_index.sh --target {root}",
+        },
+        "model_manifest_template": {
+            "path": "project/output/MODEL_MANIFEST_TEMPLATE.json",
+            "exists": model_manifest.is_file(),
+        },
+        "paper_acceptance_checklist": {
+            "path": "project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md",
+            "exists": paper_checklist.is_file(),
+        },
+    }
+
+
 def _validation(root: Path, root_kind: str) -> Dict[str, Any]:
     checks: List[Dict[str, str]] = []
 
@@ -286,6 +331,7 @@ def doctor_payload(root: Path, scripts_dir: Path) -> Dict[str, Any]:
         },
         "tooling": tooling,
         "event_harness": _event_harness(root, root_kind, scripts_dir),
+        "acceptance_helpers": _acceptance_helpers(root, root_kind, scripts_dir),
         "codex_native_bridge": _codex_native_bridge(root, root_kind),
         "validation": validation,
         "container_state": container,

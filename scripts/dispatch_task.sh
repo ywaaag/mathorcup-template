@@ -13,10 +13,11 @@ OWNER=""
 ACTOR="main_brain"
 PACKET_OUT=""
 NO_CLAIM=false
+PRINT_ONLY=false
 LOCK_ARGS=()
 
 usage() {
-    echo "Usage: bash scripts/dispatch_task.sh --task <task_id> [--owner <owner>] [--actor <actor>] [--lock <path>]... [--packet-out <path>] [--no-claim] [--target <dir>]" >&2
+    echo "Usage: bash scripts/dispatch_task.sh --task <task_id> [--owner <owner>] [--actor <actor>] [--lock <path>]... [--packet-out <path>] [--print-only] [--no-claim] [--target <dir>]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -40,6 +41,10 @@ while [[ $# -gt 0 ]]; do
         --packet-out)
             PACKET_OUT="$2"
             shift 2
+            ;;
+        --print-only)
+            PRINT_ONLY=true
+            shift
             ;;
         --no-claim)
             NO_CLAIM=true
@@ -85,6 +90,11 @@ main() {
         OWNER="$CURRENT_OWNER"
     fi
 
+    if [[ -z "$PACKET_OUT" && "$PRINT_ONLY" == false ]]; then
+        stamp="$(date +%Y%m%d_%H%M%S)"
+        PACKET_OUT="$TARGET_DIR/project/workflow/packets/${TASK_ID}_${stamp}.md"
+    fi
+
     if [[ -n "$PACKET_OUT" ]]; then
         mkdir -p "$(dirname "$PACKET_OUT")"
         printf '%s' "$packet" > "$PACKET_OUT"
@@ -126,6 +136,8 @@ main() {
     echo "[dispatch] canonical feedback skeleton path: ensured via task.dispatched callback when missing"
     if [[ -n "$PACKET_OUT" ]]; then
         echo "[dispatch] packet written to $PACKET_OUT"
+    else
+        echo "[dispatch] packet printed only; no packet artifact was written"
     fi
     echo ""
     printf '%s' "$packet"

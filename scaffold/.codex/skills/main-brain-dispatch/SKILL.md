@@ -31,7 +31,23 @@ bash scripts/dispatch_task.sh --task <task_id> --owner <owner> --target <dir>
 ```
 
 - `dispatch_task.sh` is the canonical path for feedback skeleton creation.
+- `dispatch_task.sh` writes a packet artifact under `project/workflow/packets/` by default.
 - `submit_feedback.sh` is only for repair or retrospective initialization.
+- Prefer stage-level modeling tasks when possible:
+  - `TASK_CODE_MODEL_P1`
+  - `TASK_CODE_MODEL_P23`
+  - `TASK_CODE_MODEL_P4`
+- Code/model stages that produce canonical numbers or assumptions should maintain `project/output/model_manifest.json` from `project/output/MODEL_MANIFEST_TEMPLATE.json`.
+
+## Acceptance helpers
+
+```bash
+bash scripts/paper_acceptance_check.sh --target <dir> --write-report
+bash scripts/artifact_index.sh --target <dir>
+```
+
+- Run `paper_acceptance_check.sh` after paper build and before final paper acceptance.
+- Use `artifact_index.sh` when packets, feedback, callbacks, exec runs, handoffs, and adjudications are scattered.
 
 ## State transition rules
 
