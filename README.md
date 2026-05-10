@@ -741,6 +741,21 @@ bash scripts/main_brain_summary.sh --target <dir>
 
 论文侧最容易出错的点，是“大家以为入口文件是 A，实际在编 B”。
 
+当前 paper scaffold 已集成 `latexstudio/CUMCMThesis` 的 `cumcmthesis.cls`，用于生成更接近全国大学生数学建模竞赛格式的论文骨架。实例化后默认结构是：
+
+- `project/paper/main.tex`
+  - 论文 active entrypoint，默认使用 `\documentclass[withoutpreface,bwprint]{cumcmthesis}`
+- `project/paper/metadata.tex`
+  - 题号、队号、学校、队员、日期等比赛元数据
+- `project/paper/sections/`
+  - 正文分章内容
+- `project/paper/cumcmthesis.cls`
+  - 随实例渲染的 CUMCMThesis class，不需要全局安装
+- `project/paper/spec/CUMCMTHESIS_UPSTREAM.md`
+  - 上游来源、导入 commit 和本模板适配说明
+
+正常写论文时，只改 `metadata.tex` 和 `sections/`。不要在实例项目里直接改 `cumcmthesis.cls`，除非任务明确是维护论文模板。
+
 这个模板用 `project/paper/runtime/paper.env` 作为 paper side 的单一事实源，里面会定义：
 
 - `PAPER_ACTIVE_ENTRYPOINT`

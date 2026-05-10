@@ -1,28 +1,30 @@
-\documentclass[12pt]{article}
-\usepackage[margin=1in]{geometry}
-\usepackage{graphicx}
-\usepackage{booktabs}
-\usepackage{amsmath}
-\usepackage{hyperref}
+\documentclass[withoutpreface,bwprint]{cumcmthesis}
 
-\title{MathorCup Working Draft}
-\author{Team TBD}
-\date{\today}
+% CUMCM-style paper entrypoint.
+% Machine truth for the active entrypoint is project/paper/runtime/paper.env.
+% Human/team metadata lives in metadata.tex; paper body lives in sections/.
+
+\input{metadata.tex}
 
 \begin{document}
 
 \maketitle
-\tableofcontents
 
-\input{sections/00_abstract.tex}
+\begin{abstract}
+本文围绕题目要求建立数学模型。摘要应在最终阶段压缩到一页内，明确写出问题、方法、关键结果、验证结论和主要创新点。
+
+\keywords{数学建模\quad 优化模型\quad 数值实验\quad 灵敏度分析}
+\end{abstract}
+
 \input{sections/01_intro.tex}
-\input{sections/02_symbols.tex}
-\input{sections/03_model_1.tex}
-\input{sections/04_model_2.tex}
-\input{sections/05_model_3.tex}
-\input{sections/06_model_4.tex}
-\input{sections/07_validation.tex}
-\input{sections/08_conclusion.tex}
-\input{sections/09_appendix.tex}
+\input{sections/02_assumptions.tex}
+\input{sections/03_symbols.tex}
+\input{sections/04_model_1.tex}
+\input{sections/05_model_2.tex}
+\input{sections/06_model_3.tex}
+\input{sections/07_model_4.tex}
+\input{sections/08_validation.tex}
+\input{sections/09_conclusion.tex}
+\input{sections/10_appendix.tex}
 
 \end{document}

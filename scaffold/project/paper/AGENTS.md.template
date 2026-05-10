@@ -39,6 +39,9 @@
 - Main-brain review/done decisions must inspect indexed intake before accepting paper-side handoff consumption.
 
 ## LaTeX Hard Rules
+- This paper scaffold uses vendored `cumcmthesis.cls` from CUMCMThesis; do not edit the class file during normal paper work.
+- Team/problem metadata lives in `metadata.tex`.
+- Body content lives under `sections/`.
 - Figures must include `\caption{}` and `\label{}`.
 - Tables must use booktabs style (no vertical lines).
 - Important equations must be labelable and referenceable.

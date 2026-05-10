@@ -45,6 +45,11 @@
 
 - Preferred entrypoint command:
   - `bash scripts/paper.sh build`
+- Default paper template:
+  - `project/paper/main.tex` uses the vendored `project/paper/cumcmthesis.cls`.
+  - Competition/team metadata is edited in `project/paper/metadata.tex`.
+  - Body sections are edited under `project/paper/sections/`.
+  - Upstream integration note: `project/paper/spec/CUMCMTHESIS_UPSTREAM.md`.
 - Preferred indexed handoff intake command:
   - `bash scripts/check_handoff_intake.sh --target <instance_dir>`
 - Latest indexed handoff shortcut:
@@ -56,6 +61,7 @@
 - Main-brain review/done decisions must use indexed intake before accepting paper-side work that consumes handoffs.
 - If a task packet writes a direct compile command, it must still be derived from `project/paper/runtime/paper.env`.
 - Do not assume `main.tex`; read the config file.
+- Do not edit `cumcmthesis.cls` unless the task is explicitly template maintenance.
 - The reference image is expected to already provide:
   - `xelatex`
   - `latexmk`

@@ -343,6 +343,9 @@ def validate_contracts(root: Path) -> None:
         "AGENTS.md",
         "README.md",
         "project/paper/AGENTS.md",
+        "project/paper/cumcmthesis.cls",
+        "project/paper/metadata.tex",
+        "project/paper/main.tex",
         "project/spec/runtime_contract.md",
         "project/spec/multi_agent_workflow_contract.md",
         "project/spec/query_schema_contract.md",
@@ -368,7 +371,10 @@ def validate_contracts(root: Path) -> None:
     task_packet_template = (root / "project/workflow/TASK_PACKET_TEMPLATE.md").read_text(encoding="utf-8")
     acceptance_template = (root / "project/workflow/MAIN_BRAIN_ACCEPTANCE_TEMPLATE.md").read_text(encoding="utf-8")
     paper_runtime_contract = (root / "project/paper/spec/paper_runtime_contract.md").read_text(encoding="utf-8")
+    paper_main = (root / "project/paper/main.tex").read_text(encoding="utf-8")
     validate_query_schema_contract(query_schema_contract_path)
+    if "cumcmthesis" not in paper_main or "metadata.tex" not in paper_main:
+        fail("project/paper/main.tex must use cumcmthesis and load metadata.tex")
     if "project/paper/runtime/paper.env" not in runtime_contract or ".env" not in runtime_contract:
         fail("runtime_contract.md must reference .env and project/paper/runtime/paper.env as config truth sources")
     if "project/spec/runtime_contract.md" not in root_agents or "project/spec/multi_agent_workflow_contract.md" not in root_agents:
@@ -433,6 +439,8 @@ def validate_contracts(root: Path) -> None:
         fail("MAIN_BRAIN_ACCEPTANCE_TEMPLATE.md must reference project/spec/query_schema_contract.md")
     if "check_handoff_intake.sh" not in paper_runtime_contract:
         fail("paper_runtime_contract.md must reference scripts/check_handoff_intake.sh")
+    if "cumcmthesis.cls" not in paper_runtime_contract or "metadata.tex" not in paper_runtime_contract:
+        fail("paper_runtime_contract.md must reference cumcmthesis.cls and metadata.tex")
     require_text_contains(
         workflow_contract,
         [
