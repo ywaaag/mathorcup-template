@@ -13,4 +13,4 @@ CONTAINER_NAME="${1:-$CONTAINER_NAME}"
 SCRIPT="${2:-src/main.py}"
 shift $(( $# >= 2 ? 2 : $# ))
 
-docker exec "$CONTAINER_NAME" python "$PROJECT_CONTAINER_DIR/$SCRIPT" "$@"
+docker exec -w / "$CONTAINER_NAME" python "$PROJECT_CONTAINER_DIR/$SCRIPT" "$@"

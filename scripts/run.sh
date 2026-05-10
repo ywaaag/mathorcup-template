@@ -9,4 +9,4 @@ source "$SCRIPT_DIR/lib/common.sh"
 
 load_root_env "$ROOT_DIR"
 CONTAINER_NAME="${1:-$CONTAINER_NAME}"
-docker exec -it "$CONTAINER_NAME" bash
+docker exec -w / -it "$CONTAINER_NAME" bash

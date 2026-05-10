@@ -276,8 +276,37 @@ elif command -v fdfind >/dev/null 2>&1; then
 else
     printf "MISS fd\n"
 fi
+python3 - <<'PY'
+modules = [
+    "numpy",
+    "pandas",
+    "polars",
+    "scipy",
+    "sklearn",
+    "matplotlib",
+    "seaborn",
+    "plotly",
+    "ortools",
+    "pulp",
+    "deap",
+    "pygmo",
+    "sympy",
+    "statsmodels",
+    "openpyxl",
+    "docx",
+    "pptx",
+    "rich",
+    "tqdm",
+]
+for module in modules:
+    try:
+        __import__(module)
+        print(f"OK py:{module}")
+    except Exception:
+        print(f"MISS py:{module}")
+PY
 '''
-    result = subprocess.run(["docker", "exec", container_name, "bash", "-lc", script], text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False)
+    result = subprocess.run(["docker", "exec", "-w", "/", container_name, "bash", "-lc", script], text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False)
     tools: List[Dict[str, Any]] = []
     warnings: List[str] = []
     for line in result.stdout.splitlines():

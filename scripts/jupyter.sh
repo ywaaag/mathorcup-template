@@ -13,7 +13,7 @@ CONTAINER_NAME="${1:-$CONTAINER_NAME}"
 PORT="${2:-$JUPYTER_PORT}"
 
 echo "→ 启动 Jupyter Notebook..."
-docker exec -d "$CONTAINER_NAME" jupyter notebook \
+docker exec -w / -d "$CONTAINER_NAME" jupyter notebook \
     --ip=0.0.0.0 \
     --port="$PORT" \
     --allow-root \

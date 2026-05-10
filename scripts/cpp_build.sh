@@ -18,7 +18,7 @@ if [[ "$CFILE" == "main" ]]; then
     CFILE="main.cpp"
 fi
 
-docker exec "$CONTAINER_NAME" bash -c "
+docker exec -w / "$CONTAINER_NAME" bash -c "
     cd '$PROJECT_CONTAINER_DIR/cpp' && \
     g++ -O3 -std=c++17 -o main \"$CFILE\" && \
     echo '编译成功' && \

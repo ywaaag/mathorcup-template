@@ -47,7 +47,7 @@ container_running || die "container is not running: $CONTAINER_NAME"
 
 if [[ "$SKIP_PYTHON" == false ]]; then
     status_info "installing Python competition packages"
-    docker exec "$CONTAINER_NAME" pip install --no-cache-dir \
+    docker exec -w / "$CONTAINER_NAME" pip install --no-cache-dir \
         polars==1.25.2 \
         lightgbm \
         xgboost \
@@ -73,15 +73,15 @@ else
 fi
 
 if [[ "$SKIP_LATEX" == false ]]; then
-    if docker exec "$CONTAINER_NAME" bash -lc 'command -v xelatex >/dev/null && command -v biber >/dev/null && command -v latexmk >/dev/null'; then
+    if docker exec -w / "$CONTAINER_NAME" bash -lc 'command -v xelatex >/dev/null && command -v biber >/dev/null && command -v latexmk >/dev/null'; then
         status_skip "LaTeX paper baseline already present"
     else
         if [[ "$FULL_LATEX" == true ]]; then
             status_info "repairing LaTeX paper baseline with full toolchain"
-            docker exec "$CONTAINER_NAME" bash -lc 'apt-get update >/dev/null && apt-get install -y texlive-full biber >/dev/null'
+            docker exec -w / "$CONTAINER_NAME" bash -lc 'apt-get update >/dev/null && apt-get install -y texlive-full biber >/dev/null'
         else
             status_info "repairing LaTeX paper baseline with compact toolchain"
-            docker exec "$CONTAINER_NAME" bash -lc 'apt-get update >/dev/null && apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-extra texlive-xetex texlive-bibtex-extra texlive-fonts-recommended fonts-wqy-microhei fonts-wqy-zenhei latexmk biber >/dev/null'
+            docker exec -w / "$CONTAINER_NAME" bash -lc 'apt-get update >/dev/null && apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-extra texlive-xetex texlive-bibtex-extra texlive-fonts-recommended fonts-wqy-microhei fonts-wqy-zenhei latexmk biber >/dev/null'
         fi
         status_ok "LaTeX toolchain ready"
     fi

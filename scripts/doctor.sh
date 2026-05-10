@@ -222,7 +222,7 @@ fi
 echo ""
 echo "== Container Tool Baseline =="
 if command -v docker >/dev/null 2>&1 && container_running; then
-    tool_report="$(docker exec "$CONTAINER_NAME" bash -lc '
+    tool_report="$(docker exec -w / "$CONTAINER_NAME" bash -lc '
 check() {
     local cmd="$1"
     if command -v "$cmd" >/dev/null 2>&1; then
@@ -241,6 +241,35 @@ elif command -v fdfind >/dev/null 2>&1; then
 else
     printf "MISS fd\n"
 fi
+python3 - <<'PY'
+modules = [
+    "numpy",
+    "pandas",
+    "polars",
+    "scipy",
+    "sklearn",
+    "matplotlib",
+    "seaborn",
+    "plotly",
+    "ortools",
+    "pulp",
+    "deap",
+    "pygmo",
+    "sympy",
+    "statsmodels",
+    "openpyxl",
+    "docx",
+    "pptx",
+    "rich",
+    "tqdm",
+]
+for module in modules:
+    try:
+        __import__(module)
+        print(f"OK py:{module}")
+    except Exception:
+        print(f"MISS py:{module}")
+PY
 ' 2>/dev/null || true)"
     while IFS= read -r line; do
         [[ -z "$line" ]] && continue

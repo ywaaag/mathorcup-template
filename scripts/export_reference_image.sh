@@ -66,7 +66,7 @@ container_running_name() {
 }
 
 container_exec() {
-    docker exec -u 0 "$CONTAINER_NAME" bash -euo pipefail -c "$1"
+    docker exec -w / -u 0 "$CONTAINER_NAME" bash -euo pipefail -c "$1"
 }
 
 check_report() {
@@ -95,6 +95,36 @@ fi
 for cmd in python3 pip latexmk xelatex pandoc R rg jq tmux rsync nvidia-smi; do
     check_cmd "$cmd"
 done
+
+python3 - <<'"'"'PY'"'"'
+modules = [
+    "numpy",
+    "pandas",
+    "polars",
+    "scipy",
+    "sklearn",
+    "matplotlib",
+    "seaborn",
+    "plotly",
+    "ortools",
+    "pulp",
+    "deap",
+    "pygmo",
+    "sympy",
+    "statsmodels",
+    "openpyxl",
+    "docx",
+    "pptx",
+    "rich",
+    "tqdm",
+]
+for module in modules:
+    try:
+        __import__(module)
+        print(f"OK py:{module}")
+    except Exception:
+        print(f"MISS py:{module}")
+PY
 '
 }
 
@@ -106,7 +136,8 @@ missing_required() {
             "MISS tree"|\
             "MISS yq"|\
             "MISS fd"|\
-            "WARN fd "*)
+            "WARN fd "*|\
+            "MISS py:"*)
                 return 0
                 ;;
         esac
