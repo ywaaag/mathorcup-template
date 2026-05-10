@@ -5,6 +5,7 @@
 - Upstream repository: `https://github.com/latexstudio/CUMCMThesis`
 - Imported upstream commit: `90d3e85`
 - Imported file: `cumcmthesis.cls`
+- Redistribution status: confirmed with upstream author by the template maintainer; open source redistribution is allowed and no separate license file preservation is required.
 
 ## Template Adaptation
 
@@ -20,4 +21,4 @@
 
 - Do not edit `cumcmthesis.cls` during normal paper writing.
 - If the upstream class is refreshed, record the new upstream commit here and rerun render-only smoke validation.
-- Before public redistribution outside internal competition use, confirm upstream licensing terms because the upstream checkout did not expose a standalone `LICENSE` file during integration.
+- Keep this note updated if upstream licensing or redistribution terms change.
