@@ -23,11 +23,27 @@
 bash scripts/instantiate.sh {{COMPETITION_NAME}}
 ```
 
+默认行为：
+
+- 从 `scaffold/` 渲染实例文件。
+- 生成 `.env` 和 `project/paper/runtime/paper.env`。
+- 在渲染校验通过后删除模板 `.git`，重新 `git init`，创建当前比赛的初始提交。
+- 继续执行容器 bootstrap / 依赖安装。
+
+如果你希望保留模板仓库 Git 历史，显式使用：
+
+```bash
+bash scripts/instantiate.sh {{COMPETITION_NAME}} --keep-template-git
+```
+
 常用变体：
 
 ```bash
 # 只渲染合同与运行配置，不碰容器
 bash scripts/instantiate.sh {{COMPETITION_NAME}} --render-only
+
+# 只渲染并直接生成干净 Git 初始提交
+bash scripts/instantiate.sh {{COMPETITION_NAME}} --render-only --reset-git
 
 # 容器已存在，只补依赖
 bash scripts/setup.sh --deps-only

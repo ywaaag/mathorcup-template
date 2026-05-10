@@ -230,9 +230,23 @@ bash scripts/instantiate.sh <比赛名>
 
 1. 从 `scaffold/` 渲染实例文件
 2. 生成 `.env` 和 paper runtime config
-3. 创建 / 启动容器
-4. 安装依赖
-5. 执行 doctor 和 validator
+3. 在渲染校验通过后删除模板 `.git`，重新 `git init`，并创建实例初始提交
+4. 创建 / 启动容器
+5. 安装依赖
+6. 执行 doctor 和 validator
+
+这意味着实例仓库默认从当前比赛的第一个 commit 开始，不继承模板仓库历史。
+如果你确实想保留模板 Git 历史，显式使用：
+
+```bash
+bash scripts/instantiate.sh <比赛名> --keep-template-git
+```
+
+如果只是预览渲染结果，`--render-only` 默认不会重置 Git；如需把预览目录也直接变成干净实例，显式使用：
+
+```bash
+bash scripts/instantiate.sh <比赛名> --render-only --reset-git
+```
 
 默认不会做这些事：
 
@@ -865,6 +879,8 @@ bash scripts/dual_brain.sh both
 
 ```bash
 bash scripts/instantiate.sh demo
+bash scripts/instantiate.sh demo --keep-template-git
+bash scripts/instantiate.sh demo --render-only --reset-git
 bash scripts/setup.sh demo --render-only --target /tmp/demo
 bash scripts/setup.sh --bootstrap-only --target <dir>
 bash scripts/setup.sh --deps-only --target <dir>
