@@ -67,6 +67,7 @@ This Dockerfile installs the current runtime baseline:
 - R modeling stack
 - XeLaTeX / latexmk / biber / ctex / xeCJK
 - Noto CJK fonts
+- prewarmed matplotlib CJK font cache
 - `qpdf` and `poppler-utils`
 - `PyPDF2` and `PyMuPDF`
 - R packages `ompr` and `ROI`

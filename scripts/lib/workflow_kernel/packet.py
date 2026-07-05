@@ -124,6 +124,8 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
                 "代码侧输出约束：",
                 "- 输出图表到 `project/figures/`",
                 "- 输出 CSV / 中间结果到 `project/output/`",
+                "- 若使用 matplotlib 生成含中文标签的图，必须先调用 `project/src/common/plot_style.py` 中的 `use_chinese_fonts()`",
+                "- 不要临时下载字体；如字体异常，先运行 `bash scripts/doctor.sh --target <dir>` 检查 container matplotlib CJK baseline",
                 "- 若产出建模结论或 canonical numbers，更新 `project/output/model_manifest.json`；可从 `project/output/MODEL_MANIFEST_TEMPLATE.json` 初始化",
                 "- handoff 必须写明算法边界、最优性声明、枚举上限、验证命令和 paper-facing outputs",
                 "- handoff 使用 `project/output/handoff/HANDOFF_TEMPLATE.md`",

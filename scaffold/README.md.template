@@ -80,6 +80,7 @@ bash scripts/setup.sh --reset-state
 - `qpdf`
 - `poppler-utils`
 - `Noto CJK / WenQuanYi / AR PL` 中文字体
+- matplotlib 中文绘图 helper：`project/src/common/plot_style.py`
 - `PyPDF2`
 - `PyMuPDF`
 - R packages: `ompr`, `ROI`

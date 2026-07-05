@@ -304,6 +304,22 @@ for module in modules:
         print(f"OK py:{module}")
     except Exception:
         print(f"MISS py:{module}")
+
+try:
+    from matplotlib import font_manager
+    font_manager._load_fontmanager(try_read_cache=False)
+    candidates = ("WenQuanYi", "Noto Sans CJK", "AR PL UMing", "Droid Sans Fallback")
+    matches = [
+        font.name
+        for font in font_manager.fontManager.ttflist
+        if any(candidate in font.name for candidate in candidates)
+    ]
+    if matches:
+        print(f"OK matplotlib-cjk-font {matches[0]}")
+    else:
+        print("MISS matplotlib-cjk-font")
+except Exception:
+    print("MISS matplotlib-cjk-font")
 PY
 '''
     result = subprocess.run(["docker", "exec", "-w", "/", container_name, "bash", "-lc", script], text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False)

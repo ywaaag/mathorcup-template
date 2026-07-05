@@ -413,6 +413,7 @@ bash scripts/setup.sh --deps-only --target <实例目录>
 - `qpdf`
 - `poppler-utils`
 - `Noto CJK / WenQuanYi / AR PL` 中文字体
+- matplotlib 中文绘图 helper：`project/src/common/plot_style.py`
 - `PyPDF2`
 - `PyMuPDF`
 - R packages: `ompr`, `ROI`

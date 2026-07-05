@@ -68,7 +68,8 @@ RUN set -eux; \
             statsmodels cvxpy pulp openpyxl xlsxwriter python-docx \
             pypdf PyPDF2 PyMuPDF plotly sympy numba; \
     fi; \
-    python3 -c "import numpy, pandas, matplotlib, scipy, sklearn, ortools, networkx, seaborn; import statsmodels, cvxpy, pulp, openpyxl, xlsxwriter, docx; import pypdf, PyPDF2, fitz, plotly, sympy, numba; print('python-modeling-ok')"
+    python3 -c "import numpy, pandas, matplotlib, scipy, sklearn, ortools, networkx, seaborn; import statsmodels, cvxpy, pulp, openpyxl, xlsxwriter, docx; import pypdf, PyPDF2, fitz, plotly, sympy, numba; print('python-modeling-ok')"; \
+    python3 -c "from matplotlib import font_manager; font_manager._load_fontmanager(try_read_cache=False); assert any(('WenQuanYi' in f.name or 'Noto Sans CJK' in f.name or 'AR PL UMing' in f.name or 'Droid Sans Fallback' in f.name) for f in font_manager.fontManager.ttflist); print('matplotlib-cjk-font-ok')"
 
 RUN set -eux; \
     Rscript -e "pkgs <- c('ggplot2','dplyr','readr','data.table','ompr','ROI'); missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly=TRUE)]; if (length(missing)) install.packages(missing, repos='${CRAN_MIRROR}', Ncpus=2L); stopifnot(all(vapply(pkgs, requireNamespace, logical(1), quietly=TRUE)))"
@@ -92,6 +93,7 @@ RUN printf '%s\n' \
     '- R modeling stack' \
     '- XeLaTeX / latexmk / biber / ctex / xeCJK' \
     '- Noto CJK / WenQuanYi / AR PL Chinese fonts' \
+    '- prewarmed matplotlib CJK font cache' \
     '- qpdf and poppler-utils' \
     '' \
     'Mirrors:' \

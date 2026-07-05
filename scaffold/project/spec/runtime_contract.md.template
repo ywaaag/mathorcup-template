@@ -90,6 +90,13 @@
   - `fd`
   - `tree`
   - `yq`
+  - `qpdf`
+  - `poppler-utils`
+  - `Noto CJK / WenQuanYi / AR PL` Chinese fonts
+  - matplotlib CJK helper: `project/src/common/plot_style.py`
+  - `PyPDF2`
+  - `PyMuPDF`
+  - R packages: `ompr`, `ROI`
 - GPU visibility:
   - NVIDIA runtime + `nvidia-smi` available when host GPU runtime is present
 - If any of the above is missing, treat it as reference-image drift and repair with:

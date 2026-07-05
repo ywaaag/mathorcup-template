@@ -51,6 +51,8 @@
 - Indexed-path shortcuts: `bash scripts/check_handoff_intake.sh --latest --target <dir>` or `bash scripts/check_handoff_intake.sh --files --target <dir>` when a packet only needs paths; warnings still go to stderr
 - Default intake is indexed-only; unindexed disk handoffs are warnings and do not enter the consumable surface.
 - Code/model tasks should update or explicitly justify not updating `project/output/model_manifest.json` from `project/output/MODEL_MANIFEST_TEMPLATE.json`.
+- Code/model tasks that generate matplotlib figures with Chinese labels must call `project/src/common/plot_style.py -> use_chinese_fonts()` before plotting.
+- Do not download ad-hoc fonts into output directories. If figure fonts look wrong, run `bash scripts/doctor.sh --target <dir>` and check the container matplotlib CJK baseline.
 - Paper/layout tasks should run `bash scripts/paper_acceptance_check.sh --target <dir>` before final acceptance and consult `project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md`.
 - Extra compile/acceptance step: [fill this if needed]
 

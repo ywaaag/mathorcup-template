@@ -47,6 +47,8 @@
   - `project/spec/runtime_contract.md -> ## Reference Image Environment Snapshot`
 - 预期基础工具：
   - `python3`, `pip`, `latexmk`, `xelatex`, `R`, `biber`, `fd`, `tree`, `yq`
+  - `Noto CJK / WenQuanYi / AR PL` 中文字体
+  - matplotlib 中文绘图入口：`project/src/common/plot_style.py`
 
 若涉及论文：
 - active paper entrypoint 以 `project/paper/runtime/paper.env` 为准
@@ -63,6 +65,7 @@
 - 回填 task 对应的 feedback / retrospective 文件
 - code/model worker 若产生 assumptions、canonical numbers、算法边界或论文可消费结果，必须更新 `project/output/model_manifest.json`，可从 `project/output/MODEL_MANIFEST_TEMPLATE.json` 初始化
 - code/model worker 的 handoff 必须写明算法边界、最优性声明、枚举上限 / cap（如适用）、验证命令、canonical numbers、paper-facing output files
+- code/model worker 如果生成含中文标签的 matplotlib 图表，必须先调用 `from common.plot_style import use_chinese_fonts; use_chinese_fonts()`，不要临时下载字体或把字体文件散落到输出目录
 - paper/layout/final-fix worker 在主脑验收前应运行 `bash scripts/paper_acceptance_check.sh --target <dir>`，并对照 `project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md`
 - 如果生成 code-brain handoff，使用 `bash scripts/submit_handoff.sh --task <task_id> --handoff <path> --target <dir>` 校验、索引并记录事件，不要手工改 `MEMORY.md -> Handoff Index`
 - 如果消费上游 handoff，使用 `bash scripts/check_handoff_intake.sh` 读取默认 intake 结果，不要直接扫 `project/output/handoff/`
