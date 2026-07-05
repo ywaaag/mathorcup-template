@@ -373,9 +373,14 @@ bash scripts/setup.sh --deps-only --target <实例目录>
 
 - `mathorcup-runtime:latest`
 
-这个 tag 现在来自参考容器 `mathorcup_v1-dev` 的导出镜像，并保留了版本标签：
+当前推荐的版本标签是：
 
-- `mathorcup-runtime:20260419`
+- `mathorcup-runtime:20260705`
+
+如果要在另一台机器重建同等 baseline，使用：
+
+- `docker/Dockerfile.runtime`
+- `docker/README.md`
 
 初始化后的默认容器权限基线会写进实例 `.env`，并由 `bootstrap_container.sh` 读取：
 
@@ -405,6 +410,13 @@ bash scripts/setup.sh --deps-only --target <实例目录>
 - `fd`
 - `tree`
 - `yq`
+- `qpdf`
+- `poppler-utils`
+- `Noto CJK / WenQuanYi / AR PL` 中文字体
+- `PyPDF2`
+- `PyMuPDF`
+- R packages: `ompr`, `ROI`
+- `biblatex`（通过 TeX Live 2023 user tree）
 
 如果你用的不是这份已导出的 reference image，或者容器内部 baseline 有漂移，再执行：
 
@@ -415,19 +427,22 @@ bash scripts/install_deps.sh --target <实例目录>
 如果后续你想用新的 reference container 刷新这套厚镜像，优先使用：
 
 ```bash
-bash scripts/export_reference_image.sh \
-  --container mathorcup_v1-dev \
-  --image mathorcup-runtime:20260419 \
-  --tag-latest
+docker build \
+  -f docker/Dockerfile.runtime \
+  --build-arg BASE_IMAGE=mathorcup-runtime:20260510 \
+  -t mathorcup-runtime:20260705 \
+  .
+
+docker tag mathorcup-runtime:20260705 mathorcup-runtime:latest
 ```
 
-这个脚本会：
+如果你只是想从一个已经运行过并补齐依赖的容器导出本机厚镜像，也可以使用 `scripts/export_reference_image.sh`。但跨机器迁移优先用 Dockerfile，因为它更可复现。
 
-- 检测厚镜像 baseline
-- 如果 reference container 的 Ubuntu 主仓 codename 与容器真实 OS 不一致，先自动归一化
-- 自动补装 `biber / fd-find / tree / yq`
-- 在只有 `fdfind` 时补出 `fd` 命令
-- 再执行 `docker commit` 导出 reference image
+`docker/Dockerfile.runtime` 会：
+
+- 复用已有厚基础镜像
+- 补齐中文字体、PDF 工具、Python PDF 包、R 优化包、`biblatex`
+- 写入 `/opt/mathorcup-runtime-baseline.txt`
 
 ## 6. 实例仓库创建后，你会得到什么
 

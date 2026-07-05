@@ -77,10 +77,18 @@ bash scripts/setup.sh --reset-state
 - `fd`
 - `tree`
 - `yq`
+- `qpdf`
+- `poppler-utils`
+- `Noto CJK / WenQuanYi / AR PL` 中文字体
+- `PyPDF2`
+- `PyMuPDF`
+- R packages: `ompr`, `ROI`
+- `biblatex`（通过 TeX Live 2023 user tree）
 
 已知注意事项：
 
 - 如果不是从 reference image 启动，或镜像内部 baseline 漂移，再执行 `bash scripts/install_deps.sh`
+- 如果要跨机器重建同等 runtime baseline，参考模板源仓库的 `docker/Dockerfile.runtime`
 
 ## 3. 关键文件分层
 
