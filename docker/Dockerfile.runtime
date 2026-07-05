@@ -1,6 +1,14 @@
-ARG BASE_IMAGE=mathorcup-runtime:20260510
-FROM ${BASE_IMAGE}
-ARG BASE_IMAGE=mathorcup-runtime:20260510
+# syntax=docker/dockerfile:1.7
+
+# Public base only: a new machine can build this image directly from GitHub
+# without any local prebuilt MathorCup base image.
+FROM ubuntu:22.04
+
+ARG APT_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/ubuntu
+ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+ARG PIP_EXTRA_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+ARG CRAN_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/CRAN
+ARG TLMGR_REPOSITORY=https://mirrors.tuna.tsinghua.edu.cn/tex-historic-archive/systems/texlive/2023/tlnet-final
 
 LABEL org.opencontainers.image.title="mathorcup-runtime"
 LABEL org.opencontainers.image.description="MathorCup modeling runtime with Python/R/LaTeX/CJK baseline"
@@ -20,45 +28,81 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        ca-certificates \
-        curl \
-        fonts-noto-cjk \
-        fonts-noto-cjk-extra \
-        poppler-utils \
-        qpdf \
-        unzip \
-    && fc-cache -f \
-    && rm -rf /var/lib/apt/lists/*
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-RUN python3 -m pip install --no-cache-dir \
-        PyPDF2 \
-        PyMuPDF
+RUN --mount=type=cache,target=/var/cache/apt \
+    --mount=type=cache,target=/var/lib/apt/lists \
+    set -eux; \
+    if [[ -f /etc/apt/sources.list ]]; then \
+        sed -i "s|https\?://[^ ]*/ubuntu/?|${APT_MIRROR}/|g" /etc/apt/sources.list; \
+    fi; \
+    need_pkgs=(); \
+    for pkg in \
+        bash ca-certificates curl sudo git wget unzip \
+        python3 python3-pip python3-venv \
+        build-essential gcc g++ make cmake \
+        r-base r-base-dev \
+        texlive-xetex texlive-latex-recommended texlive-latex-extra \
+        texlive-lang-chinese texlive-fonts-recommended latex-cjk-all \
+        latexmk biber \
+        fonts-noto-cjk fonts-wqy-microhei fonts-wqy-zenhei fonts-arphic-uming \
+        qpdf poppler-utils fd-find tree yq; do \
+        dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'install ok installed' || need_pkgs+=("$pkg"); \
+    done; \
+    if (( ${#need_pkgs[@]} > 0 )); then \
+        apt-get update; \
+        apt-get install -y --no-install-recommends "${need_pkgs[@]}"; \
+    fi; \
+    if ! command -v fd >/dev/null 2>&1 && command -v fdfind >/dev/null 2>&1; then \
+        ln -s "$(command -v fdfind)" /usr/local/bin/fd; \
+    fi; \
+    fc-cache -f; \
+    rm -rf /var/lib/apt/lists/*
 
-RUN Rscript -e "options(repos=c(CRAN='https://cloud.r-project.org')); install.packages(c('ompr','ROI'), Ncpus=2)"
+RUN set -eux; \
+    if ! python3 -c "import numpy, pandas, matplotlib, scipy, sklearn, ortools, networkx, seaborn; import statsmodels, cvxpy, pulp, openpyxl, xlsxwriter, docx; import pypdf, PyPDF2, fitz, plotly, sympy, numba"; then \
+        python3 -m pip install --no-cache-dir \
+            --index-url "${PIP_INDEX_URL}" \
+            --extra-index-url "${PIP_EXTRA_INDEX_URL}" \
+            numpy pandas matplotlib scipy scikit-learn ortools networkx seaborn \
+            statsmodels cvxpy pulp openpyxl xlsxwriter python-docx \
+            pypdf PyPDF2 PyMuPDF plotly sympy numba; \
+    fi; \
+    python3 -c "import numpy, pandas, matplotlib, scipy, sklearn, ortools, networkx, seaborn; import statsmodels, cvxpy, pulp, openpyxl, xlsxwriter, docx; import pypdf, PyPDF2, fitz, plotly, sympy, numba; print('python-modeling-ok')"
 
-RUN tlmgr init-usertree || true \
-    && tlmgr --usermode option repository https://ftp.math.utah.edu/pub/tex/historic/systems/texlive/2023/tlnet-final \
-    && tlmgr --usermode install biblatex \
-    && mktexlsr /root/texmf
+RUN set -eux; \
+    Rscript -e "pkgs <- c('ggplot2','dplyr','readr','data.table','ompr','ROI'); missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly=TRUE)]; if (length(missing)) install.packages(missing, repos='${CRAN_MIRROR}', Ncpus=2L); stopifnot(all(vapply(pkgs, requireNamespace, logical(1), quietly=TRUE)))"
 
-RUN cat > /opt/mathorcup-runtime-baseline.txt <<EOF
-mathorcup-runtime portable refresh baseline
+RUN set -eux; \
+    if ! kpsewhich biblatex.sty >/dev/null 2>&1; then \
+        tlmgr init-usertree || true; \
+        tlmgr --usermode option repository "${TLMGR_REPOSITORY}"; \
+        tlmgr --usermode install biblatex; \
+        mktexlsr /root/texmf; \
+    fi; \
+    kpsewhich biblatex.sty; \
+    kpsewhich ctex.sty; \
+    kpsewhich xeCJK.sty
 
-Base image:
-- ${BASE_IMAGE}
-
-Added/verified layer:
-- Noto CJK fonts
-- qpdf and poppler-utils
-- PyPDF2 and PyMuPDF
-- R packages ompr and ROI
-- biblatex via TeX Live 2023 user tree under /root/texmf
-
-The repository runtime scripts still decide container name, mounts, GPU,
-privileged mode, and root user via rendered .env.
-EOF
+RUN printf '%s\n' \
+    'mathorcup-runtime portable baseline' \
+    '' \
+    'Core baseline:' \
+    '- Python modeling stack' \
+    '- R modeling stack' \
+    '- XeLaTeX / latexmk / biber / ctex / xeCJK' \
+    '- Noto CJK / WenQuanYi / AR PL Chinese fonts' \
+    '- qpdf and poppler-utils' \
+    '' \
+    'Mirrors:' \
+    "- apt: ${APT_MIRROR}" \
+    "- pip: ${PIP_INDEX_URL}" \
+    "- CRAN: ${CRAN_MIRROR}" \
+    "- tlmgr: ${TLMGR_REPOSITORY}" \
+    '' \
+    'The repository runtime scripts still decide container name, mounts, GPU,' \
+    'privileged mode, and root user via rendered .env.' \
+    > /opt/mathorcup-runtime-baseline.txt
 
 ENTRYPOINT ["/usr/bin/env"]
 CMD ["bash", "-lc", "while true; do sleep 86400; done"]

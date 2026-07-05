@@ -23,22 +23,49 @@ actual image from `.env`:
 IMAGE_NAME=mathorcup-runtime:latest
 ```
 
-## Portable Rebuild
+## Portable Build On A New Machine
 
-If another machine already has the previous thick base image:
+This Dockerfile does not require any local MathorCup base image. It starts from
+public `ubuntu:22.04`, then installs the runtime baseline with domestic mirrors.
 
 ```bash
 docker build \
   -f docker/Dockerfile.runtime \
-  --build-arg BASE_IMAGE=mathorcup-runtime:20260510 \
   -t mathorcup-runtime:20260705 \
   .
 
 docker tag mathorcup-runtime:20260705 mathorcup-runtime:latest
 ```
 
-This Dockerfile is an incremental refresh layer. It adds:
+Then create an instance normally; rendered `.env` uses:
 
+```bash
+IMAGE_NAME=mathorcup-runtime:latest
+```
+
+The Dockerfile is designed for China-friendly rebuilds:
+
+- Domestic mirrors are the default for apt, pip, CRAN, and TeX Live 2023.
+- `.dockerignore` excludes `.git`, rendered `project/`, logs, PDFs, and common
+  virtual environments from the build context.
+- It installs only the runtime baseline needed by the template, not unrelated
+  project outputs or historical container labels.
+
+Default mirrors:
+
+```text
+APT_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/ubuntu
+PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+PIP_EXTRA_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+CRAN_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/CRAN
+TLMGR_REPOSITORY=https://mirrors.tuna.tsinghua.edu.cn/tex-historic-archive/systems/texlive/2023/tlnet-final
+```
+
+This Dockerfile installs the current runtime baseline:
+
+- Python modeling stack
+- R modeling stack
+- XeLaTeX / latexmk / biber / ctex / xeCJK
 - Noto CJK fonts
 - `qpdf` and `poppler-utils`
 - `PyPDF2` and `PyMuPDF`

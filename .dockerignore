@@ -1,0 +1,15 @@
+.git
+.codex
+project
+__pycache__
+*.pyc
+*.log
+*.aux
+*.pdf
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+node_modules
+.venv
+venv

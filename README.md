@@ -424,23 +424,22 @@ bash scripts/setup.sh --deps-only --target <实例目录>
 bash scripts/install_deps.sh --target <实例目录>
 ```
 
-如果后续你想用新的 reference container 刷新这套厚镜像，优先使用：
+如果你在新电脑上从 GitHub 拉取模板，直接用 Dockerfile 构建 runtime：
 
 ```bash
 docker build \
   -f docker/Dockerfile.runtime \
-  --build-arg BASE_IMAGE=mathorcup-runtime:20260510 \
   -t mathorcup-runtime:20260705 \
   .
 
 docker tag mathorcup-runtime:20260705 mathorcup-runtime:latest
 ```
 
-如果你只是想从一个已经运行过并补齐依赖的容器导出本机厚镜像，也可以使用 `scripts/export_reference_image.sh`。但跨机器迁移优先用 Dockerfile，因为它更可复现。
+如果你只是想从一个已经运行过并补齐依赖的容器导出本机厚镜像，也可以使用 `scripts/export_reference_image.sh`。但跨机器迁移优先用 Dockerfile，因为它不依赖本机旧镜像，更可复现。
 
 `docker/Dockerfile.runtime` 会：
 
-- 复用已有厚基础镜像
+- 从公开 `ubuntu:22.04` 构建
 - 补齐中文字体、PDF 工具、Python PDF 包、R 优化包、`biblatex`
 - 写入 `/opt/mathorcup-runtime-baseline.txt`
 
