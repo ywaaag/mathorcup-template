@@ -1,14 +1,20 @@
 ARG BASE_IMAGE=mathorcup-runtime:20260510
 FROM ${BASE_IMAGE}
+ARG BASE_IMAGE=mathorcup-runtime:20260510
 
 LABEL org.opencontainers.image.title="mathorcup-runtime"
 LABEL org.opencontainers.image.description="MathorCup modeling runtime with Python/R/LaTeX/CJK baseline"
 LABEL org.opencontainers.image.version="20260705"
 LABEL org.opencontainers.image.created="2026-07-05"
 LABEL desktop.docker.io/binds/0/Source=""
+LABEL desktop.docker.io/binds/0/SourceKind=""
 LABEL desktop.docker.io/binds/0/Target=""
+LABEL desktop.docker.io/ports.scheme=""
 LABEL desktop.docker.io/ports/8787/tcp=""
 LABEL desktop.docker.io/ports/8888/tcp=""
+LABEL desktop.docker.io/wsl-distro=""
+LABEL git-commit=""
+LABEL maintainer=""
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
