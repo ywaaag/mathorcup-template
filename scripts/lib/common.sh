@@ -28,6 +28,33 @@ print(os.path.abspath(sys.argv[1]))
 PY
 }
 
+instance_id_for_root() {
+    local root_dir
+    root_dir="$(abs_path "$1")"
+    python3 - "$root_dir" <<'PY'
+import hashlib
+import sys
+
+print(hashlib.sha256(sys.argv[1].encode("utf-8")).hexdigest()[:8])
+PY
+}
+
+container_slug() {
+    python3 - "$1" <<'PY'
+import re
+import sys
+
+value = re.sub(r"[^a-z0-9_.-]+", "-", sys.argv[1].lower()).strip("-_.")
+print((value or "mathorcup")[:40])
+PY
+}
+
+default_container_name() {
+    local competition_name="$1"
+    local instance_id="$2"
+    printf '%s-%s-dev\n' "$(container_slug "$competition_name")" "$instance_id"
+}
+
 require_cmd() {
     command -v "$1" >/dev/null 2>&1 || die "missing command: $1"
 }
@@ -158,9 +185,12 @@ load_root_env() {
     : "${HOST_DIR:=$root_dir}"
     : "${IMAGE_NAME:=mathorcup-runtime:latest}"
     : "${COMPETITION_NAME:=mathorcup}"
-    : "${CONTAINER_NAME:=${COMPETITION_NAME}-dev}"
+    : "${INSTANCE_ID:=$(instance_id_for_root "$HOST_DIR")}"
+    : "${CONTAINER_NAME:=$(default_container_name "$COMPETITION_NAME" "$INSTANCE_ID")}"
     : "${JUPYTER_PORT:=8888}"
     : "${RSTUDIO_PORT:=8787}"
+    : "${JUPYTER_PORT_MODE:=fixed}"
+    : "${RSTUDIO_PORT_MODE:=fixed}"
     : "${JUPYTER_TOKEN:=mathorcup}"
     : "${CONTAINER_RUNTIME:=nvidia}"
     : "${CONTAINER_GPUS:=all}"
@@ -170,11 +200,61 @@ load_root_env() {
     : "${PROJECT_CONTAINER_DIR:=/workspace/mathorcup}"
     : "${HOST_PROJECT_DIR:=$HOST_DIR/project}"
 
-    export HOST_DIR IMAGE_NAME COMPETITION_NAME CONTAINER_NAME
-    export JUPYTER_PORT RSTUDIO_PORT JUPYTER_TOKEN
+    export HOST_DIR IMAGE_NAME COMPETITION_NAME INSTANCE_ID CONTAINER_NAME
+    export JUPYTER_PORT RSTUDIO_PORT JUPYTER_PORT_MODE RSTUDIO_PORT_MODE JUPYTER_TOKEN
     export CONTAINER_RUNTIME CONTAINER_GPUS CONTAINER_PRIVILEGED
     export CONTAINER_USER CONTAINER_GRANT_SUDO
     export PROJECT_CONTAINER_DIR HOST_PROJECT_DIR
+}
+
+validate_port_mode() {
+    local name="$1"
+    local mode="$2"
+    case "$mode" in
+        auto|fixed) ;;
+        *) die "$name must be auto or fixed, got: $mode" ;;
+    esac
+}
+
+update_env_values() {
+    local env_file="$1"
+    shift
+    [[ -f "$env_file" ]] || die "runtime config not found: $env_file"
+    (( $# % 2 == 0 )) || die "update_env_values requires KEY VALUE pairs"
+    python3 - "$env_file" "$@" <<'PY'
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+path = Path(sys.argv[1])
+pairs = dict(zip(sys.argv[2::2], sys.argv[3::2]))
+lines = path.read_text(encoding="utf-8").splitlines()
+seen = set()
+output = []
+for line in lines:
+    key = line.split("=", 1)[0].strip() if "=" in line and not line.lstrip().startswith("#") else ""
+    if key in pairs:
+        output.append(f"{key}={pairs[key]}")
+        seen.add(key)
+    else:
+        output.append(line)
+for key, value in pairs.items():
+    if key not in seen:
+        output.append(f"{key}={value}")
+
+fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+try:
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write("\n".join(output) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.chmod(temp_name, path.stat().st_mode)
+    os.replace(temp_name, path)
+finally:
+    if os.path.exists(temp_name):
+        os.unlink(temp_name)
+PY
 }
 
 validate_tcp_port() {
@@ -304,6 +384,41 @@ preflight_host_ports() {
     done
 }
 
+allocate_host_ports() {
+    local target_dir="$1"
+    local env_file="$target_dir/.env"
+    validate_tcp_port "$JUPYTER_PORT"
+    validate_tcp_port "$RSTUDIO_PORT"
+    validate_port_mode JUPYTER_PORT_MODE "$JUPYTER_PORT_MODE"
+    validate_port_mode RSTUDIO_PORT_MODE "$RSTUDIO_PORT_MODE"
+
+    PORTS_CHANGED=false
+    local old_jupyter="$JUPYTER_PORT"
+    local old_rstudio="$RSTUDIO_PORT"
+    if ! port_available "$JUPYTER_PORT"; then
+        if [[ "$JUPYTER_PORT_MODE" == "fixed" ]]; then
+            preflight_host_ports "$target_dir"
+        fi
+        JUPYTER_PORT="$(find_available_port "$JUPYTER_PORT" "$RSTUDIO_PORT")"
+        status_info "auto-selected JUPYTER_PORT=$JUPYTER_PORT because $old_jupyter is occupied"
+    fi
+    if [[ "$RSTUDIO_PORT" == "$JUPYTER_PORT" ]] || ! port_available "$RSTUDIO_PORT"; then
+        if [[ "$RSTUDIO_PORT_MODE" == "fixed" ]]; then
+            preflight_host_ports "$target_dir"
+        fi
+        RSTUDIO_PORT="$(find_available_port "$RSTUDIO_PORT" "$JUPYTER_PORT")"
+        status_info "auto-selected RSTUDIO_PORT=$RSTUDIO_PORT because $old_rstudio is occupied or reserved"
+    fi
+
+    if [[ "$JUPYTER_PORT" != "$old_jupyter" || "$RSTUDIO_PORT" != "$old_rstudio" ]]; then
+        update_env_values "$env_file" JUPYTER_PORT "$JUPYTER_PORT" RSTUDIO_PORT "$RSTUDIO_PORT"
+        export JUPYTER_PORT RSTUDIO_PORT
+        status_ok "updated auto-managed host ports in $env_file"
+        PORTS_CHANGED=true
+    fi
+    export PORTS_CHANGED
+}
+
 load_paper_env() {
     local root_dir="${1:-$DEFAULT_ROOT_DIR}"
     root_dir="$(abs_path "$root_dir")"
@@ -358,4 +473,60 @@ container_exists() {
 
 container_running() {
     docker ps --filter "name=^/${CONTAINER_NAME}$" --format '{{.Names}}' | grep -Fx "$CONTAINER_NAME" >/dev/null 2>&1
+}
+
+container_label_value() {
+    local label="$1"
+    docker inspect --format "{{ index .Config.Labels \"$label\" }}" "$CONTAINER_NAME" 2>/dev/null || true
+}
+
+container_mount_source() {
+    docker inspect --format "{{ range .Mounts }}{{ if eq .Destination \"$PROJECT_CONTAINER_DIR\" }}{{ .Source }}{{ end }}{{ end }}" "$CONTAINER_NAME" 2>/dev/null || true
+}
+
+container_host_port() {
+    local container_port="$1"
+    docker inspect --format "{{ with (index .HostConfig.PortBindings \"${container_port}/tcp\") }}{{ (index . 0).HostPort }}{{ end }}" "$CONTAINER_NAME" 2>/dev/null || true
+}
+
+verify_container_port_bindings() {
+    local actual_jupyter actual_rstudio
+    actual_jupyter="$(container_host_port 8888)"
+    actual_rstudio="$(container_host_port 8787)"
+    if [[ "$actual_jupyter" == "$JUPYTER_PORT" && "$actual_rstudio" == "$RSTUDIO_PORT" ]]; then
+        return 0
+    fi
+    status_err "container port bindings do not match .env for $CONTAINER_NAME" >&2
+    echo "expected Jupyter/RStudio: $JUPYTER_PORT | $RSTUDIO_PORT" >&2
+    echo "actual Jupyter/RStudio:   ${actual_jupyter:-<missing>} | ${actual_rstudio:-<missing>}" >&2
+    return 1
+}
+
+verify_container_ownership() {
+    local expected_root expected_project label_instance label_root mount_source
+    expected_root="$(abs_path "$HOST_DIR")"
+    expected_project="$(abs_path "$HOST_PROJECT_DIR")"
+    label_instance="$(container_label_value io.mathorcup.instance.id)"
+    label_root="$(container_label_value io.mathorcup.instance.root)"
+    mount_source="$(container_mount_source)"
+    [[ -n "$mount_source" ]] && mount_source="$(abs_path "$mount_source")"
+
+    if [[ -n "$label_instance" || -n "$label_root" ]]; then
+        if [[ "$label_instance" == "$INSTANCE_ID" && "$label_root" == "$expected_root" && "$mount_source" == "$expected_project" ]]; then
+            return 0
+        fi
+        status_err "container name collision: $CONTAINER_NAME belongs to another instance" >&2
+        echo "expected instance/root/mount: $INSTANCE_ID | $expected_root | $expected_project" >&2
+        echo "actual instance/root/mount:   ${label_instance:-<missing>} | ${label_root:-<missing>} | ${mount_source:-<missing>}" >&2
+        return 1
+    fi
+
+    if [[ "$mount_source" == "$expected_project" ]]; then
+        status_warn "legacy container $CONTAINER_NAME has no instance labels; accepting its matching project mount"
+        return 0
+    fi
+    status_err "legacy container name collision: $CONTAINER_NAME is mounted from another project" >&2
+    echo "expected mount: $expected_project" >&2
+    echo "actual mount:   ${mount_source:-<missing>}" >&2
+    return 1
 }

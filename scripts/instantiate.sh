@@ -130,7 +130,6 @@ if [[ "$ROOT_KIND" != "template_source" ]]; then
 fi
 
 export COMPETITION_NAME="$COMPETITION_ARG"
-export CONTAINER_NAME="${CONTAINER_NAME:-${COMPETITION_ARG}-dev}"
 
 render_args=(--target "$ROOT_DIR" --force)
 [[ "$REWRITE_CONFIG" == true ]] && render_args+=(--include-config)

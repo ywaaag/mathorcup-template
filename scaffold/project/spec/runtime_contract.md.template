@@ -55,6 +55,8 @@
   - `{{HOST_DIR}}/project`
 - Container name:
   - `{{CONTAINER_NAME}}`
+- Stable instance ID:
+  - `{{INSTANCE_ID}}`
 - Expected container project root:
   - `/workspace/mathorcup`
 - Reference image:
@@ -70,9 +72,11 @@
 - `GRANT_SUDO`:
   - `{{CONTAINER_GRANT_SUDO}}`
 - Jupyter port:
-  - `{{JUPYTER_PORT}}`
+  - read live value from `.env#JUPYTER_PORT`
+  - allocation policy: `.env#JUPYTER_PORT_MODE`
 - RStudio port:
-  - `{{RSTUDIO_PORT}}`
+  - read live value from `.env#RSTUDIO_PORT`
+  - allocation policy: `.env#RSTUDIO_PORT_MODE`
 
 ## Reference Image Environment Snapshot
 
@@ -105,6 +109,8 @@
 ## Runtime Rules
 
 - Do not guess runtime facts from old chat context.
+- `INSTANCE_ID` and the Docker instance labels bind one rendered repository to one container. Never reuse a same-name container whose labels or project bind mount point at another instance.
+- `auto` host ports may be reassigned during bootstrap and written back to `.env`; `fixed` host ports fail on conflicts instead of changing silently.
 - If `.env` or `project/paper/runtime/paper.env` conflicts with assumptions, the config file wins.
 - If a runtime fact changes, update the owning config file first, then re-render or re-read the rendered mirror.
 - If task ownership or file occupancy changes, update `task_registry.json` / `work_queue.json`, not `MEMORY.md`.

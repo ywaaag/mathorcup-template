@@ -362,6 +362,22 @@ def validate_contracts(root: Path) -> None:
     for ref in required:
         if not (root / ref).is_file():
             fail(f"missing file: {ref}")
+    runtime_env = parse_kv_env(root / ".env")
+    if runtime_env:
+        for key in ("JUPYTER_PORT", "RSTUDIO_PORT"):
+            try:
+                port = int(runtime_env.get(key, ""))
+            except ValueError:
+                fail(f".env#{key} must be an integer TCP port")
+            if not 1 <= port <= 65535:
+                fail(f".env#{key} must be between 1 and 65535")
+        if runtime_env["JUPYTER_PORT"] == runtime_env["RSTUDIO_PORT"]:
+            fail(".env JUPYTER_PORT and RSTUDIO_PORT must be different")
+        for key in ("JUPYTER_PORT_MODE", "RSTUDIO_PORT_MODE"):
+            if key in runtime_env and runtime_env[key] not in {"auto", "fixed"}:
+                fail(f".env#{key} must be auto or fixed")
+        if "INSTANCE_ID" in runtime_env and not re.fullmatch(r"[0-9a-f]{8}", runtime_env["INSTANCE_ID"]):
+            fail(".env#INSTANCE_ID must be an 8-character lowercase hexadecimal ID")
     runtime_contract = (root / "project/spec/runtime_contract.md").read_text(encoding="utf-8")
     paper_agents = (root / "project/paper/AGENTS.md").read_text(encoding="utf-8")
     root_agents = (root / "AGENTS.md").read_text(encoding="utf-8")

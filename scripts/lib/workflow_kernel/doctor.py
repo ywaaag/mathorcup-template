@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import re
 import shutil
 import subprocess
 from datetime import datetime, timezone
@@ -29,13 +31,18 @@ def generated_timestamp() -> str:
 def _defaulted_env(root: Path) -> Dict[str, str]:
     values = parse_kv_env(root / ".env")
     competition = values.get("COMPETITION_NAME", "mathorcup")
+    instance_id = values.get("INSTANCE_ID", hashlib.sha256(str(root.resolve()).encode("utf-8")).hexdigest()[:8])
+    slug = re.sub(r"[^a-z0-9_.-]+", "-", competition.lower()).strip("-_.") or "mathorcup"
     defaults = {
         "HOST_DIR": str(root),
         "IMAGE_NAME": "mathorcup-runtime:latest",
         "COMPETITION_NAME": competition,
-        "CONTAINER_NAME": f"{competition}-dev",
+        "INSTANCE_ID": instance_id,
+        "CONTAINER_NAME": f"{slug[:40]}-{instance_id}-dev",
         "JUPYTER_PORT": "8888",
         "RSTUDIO_PORT": "8787",
+        "JUPYTER_PORT_MODE": "fixed",
+        "RSTUDIO_PORT_MODE": "fixed",
         "JUPYTER_TOKEN": "mathorcup",
         "CONTAINER_RUNTIME": "nvidia",
         "CONTAINER_GPUS": "all",
@@ -239,17 +246,57 @@ def _docker_names(args: List[str]) -> List[str]:
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
-def _container_state(container_name: str) -> Dict[str, Any]:
+def _container_state(container_name: str, root_env: Dict[str, str]) -> Dict[str, Any]:
     if shutil.which("docker") is None:
         return {"docker_available": False, "exists": False, "running": False, "warnings": ["docker not found"]}
     running = container_name in _docker_names(["docker", "ps", "--filter", f"name=^/{container_name}$", "--format", "{{.Names}}"])
     exists = running or container_name in _docker_names(["docker", "ps", "-a", "--filter", f"name=^/{container_name}$", "--format", "{{.Names}}"])
     warnings: List[str] = []
+    identity: Dict[str, Any] = {"checked": False, "matches": False}
+    if exists:
+        result = subprocess.run(["docker", "inspect", container_name], text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False)
+        if result.returncode == 0:
+            import json
+
+            details = json.loads(result.stdout)[0]
+            labels = details.get("Config", {}).get("Labels") or {}
+            bindings = details.get("HostConfig", {}).get("PortBindings") or {}
+            destination = root_env.get("PROJECT_CONTAINER_DIR", "/workspace/mathorcup")
+            mount_source = next((item.get("Source", "") for item in details.get("Mounts", []) if item.get("Destination") == destination), "")
+            expected_root = str(Path(root_env["HOST_DIR"]).resolve())
+            expected_project = str(Path(root_env["HOST_PROJECT_DIR"]).resolve())
+            label_instance = labels.get("io.mathorcup.instance.id", "")
+            label_root = labels.get("io.mathorcup.instance.root", "")
+            legacy = not label_instance and not label_root
+            matches = (legacy and mount_source == expected_project) or (
+                label_instance == root_env["INSTANCE_ID"] and label_root == expected_root and mount_source == expected_project
+            )
+            actual_jupyter = ((bindings.get("8888/tcp") or [{}])[0]).get("HostPort", "")
+            actual_rstudio = ((bindings.get("8787/tcp") or [{}])[0]).get("HostPort", "")
+            ports_match = actual_jupyter == root_env["JUPYTER_PORT"] and actual_rstudio == root_env["RSTUDIO_PORT"]
+            identity = {
+                "checked": True,
+                "matches": matches,
+                "legacy": legacy,
+                "instance_id": label_instance,
+                "instance_root": label_root,
+                "mount_source": mount_source,
+                "mount_destination": destination,
+                "expected_root": expected_root,
+                "expected_project": expected_project,
+                "ports_match": ports_match,
+                "actual_jupyter_port": actual_jupyter,
+                "actual_rstudio_port": actual_rstudio,
+            }
+            if not matches:
+                warnings.append("container identity or project mount does not match this instance")
+            if not ports_match:
+                warnings.append("container port bindings do not match .env")
     if not exists:
         warnings.append("container does not exist")
     elif not running:
         warnings.append("container exists but is stopped")
-    return {"docker_available": True, "exists": exists, "running": running, "warnings": warnings}
+    return {"docker_available": True, "exists": exists, "running": running, "identity": identity, "warnings": warnings}
 
 
 def _container_tool_baseline(container_name: str, running: bool) -> Dict[str, Any]:
@@ -344,7 +391,7 @@ def doctor_payload(root: Path, scripts_dir: Path) -> Dict[str, Any]:
     paper_env = _defaulted_paper_env(root, root_env)
     tooling = _tool_status(root)
     validation = _validation(root, root_kind)
-    container = _container_state(root_env["CONTAINER_NAME"])
+    container = _container_state(root_env["CONTAINER_NAME"], root_env)
     baseline = _container_tool_baseline(root_env["CONTAINER_NAME"], bool(container["running"]))
     warnings = (
         tooling["warnings"]
@@ -360,9 +407,14 @@ def doctor_payload(root: Path, scripts_dir: Path) -> Dict[str, Any]:
         "read_only": True,
         "runtime_config": {
             "competition": root_env["COMPETITION_NAME"],
+            "instance_id": root_env["INSTANCE_ID"],
             "image": root_env["IMAGE_NAME"],
             "container": root_env["CONTAINER_NAME"],
             "host_project": root_env["HOST_PROJECT_DIR"],
+            "jupyter_port": root_env["JUPYTER_PORT"],
+            "jupyter_port_mode": root_env["JUPYTER_PORT_MODE"],
+            "rstudio_port": root_env["RSTUDIO_PORT"],
+            "rstudio_port_mode": root_env["RSTUDIO_PORT_MODE"],
             "runtime": root_env["CONTAINER_RUNTIME"],
             "gpus": root_env["CONTAINER_GPUS"],
             "privileged": root_env["CONTAINER_PRIVILEGED"],

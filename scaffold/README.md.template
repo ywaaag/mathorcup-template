@@ -62,8 +62,16 @@ bash scripts/setup.sh --reset-state
 - `CONTAINER_PRIVILEGED={{CONTAINER_PRIVILEGED}}`
 - `CONTAINER_USER={{CONTAINER_USER}}`
 - `CONTAINER_GRANT_SUDO={{CONTAINER_GRANT_SUDO}}`
+- `INSTANCE_ID={{INSTANCE_ID}}`
+- `CONTAINER_NAME={{CONTAINER_NAME}}`
+- `JUPYTER_PORT_MODE={{JUPYTER_PORT_MODE}}`
+- `RSTUDIO_PORT_MODE={{RSTUDIO_PORT_MODE}}`
 
 这意味着默认容器会以高权限模式启动，并把工程目录挂到 `/workspace/mathorcup`。
+
+容器名包含持久化的 `INSTANCE_ID`，所以不同目录即使使用相同比赛名，也不会误复用同一个容器。Jupyter / RStudio host 端口默认自动选择并写回 `.env`；容器内部端口仍为 `8888/8787`。
+
+如果 `.env` 中端口模式是 `fixed`，端口冲突时 bootstrap 会失败并显示占用者；如果是 `auto`，bootstrap 会选择新端口并原子更新 `.env`。Docker labels 和实际 project bind mount 必须与当前实例一致，否则脚本拒绝复用或删除该容器。
 
 当前 reference image 的已验证内部环境基线：
 

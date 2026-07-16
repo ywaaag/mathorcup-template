@@ -111,7 +111,6 @@ fi
 
 if [[ -n "$COMPETITION_ARG" ]]; then
     export COMPETITION_NAME="$COMPETITION_ARG"
-    export CONTAINER_NAME="${CONTAINER_NAME:-${COMPETITION_ARG}-dev}"
 fi
 
 if [[ -f "$TARGET_DIR/.env" && -n "$COMPETITION_ARG" && "$REWRITE_CONFIG" == false ]]; then

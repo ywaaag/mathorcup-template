@@ -80,6 +80,17 @@ RSTUDIO_PORT_WAS_SET=false
 load_root_env "$TARGET_DIR"
 
 if [[ "$TARGET_ENV_EXISTS" == false ]]; then
+    if [[ "$JUPYTER_PORT_WAS_SET" == true ]]; then
+        JUPYTER_PORT_MODE="fixed"
+    else
+        JUPYTER_PORT_MODE="auto"
+    fi
+    if [[ "$RSTUDIO_PORT_WAS_SET" == true ]]; then
+        RSTUDIO_PORT_MODE="fixed"
+    else
+        RSTUDIO_PORT_MODE="auto"
+    fi
+    export JUPYTER_PORT_MODE RSTUDIO_PORT_MODE
     if [[ "$JUPYTER_PORT_WAS_SET" == false ]] && ! port_available "$JUPYTER_PORT"; then
         old_port="$JUPYTER_PORT"
         JUPYTER_PORT="$(find_available_port "$old_port" "${RSTUDIO_PORT:-}")"
@@ -141,10 +152,13 @@ replacements = {
     "{{HOST_DIR}}": os.environ["HOST_DIR"],
     "{{HOST_PROJECT_DIR}}": os.environ["HOST_PROJECT_DIR"],
     "{{COMPETITION_NAME}}": os.environ["COMPETITION_NAME"],
+    "{{INSTANCE_ID}}": os.environ["INSTANCE_ID"],
     "{{CONTAINER_NAME}}": os.environ["CONTAINER_NAME"],
     "{{IMAGE_NAME}}": os.environ["IMAGE_NAME"],
     "{{JUPYTER_PORT}}": os.environ["JUPYTER_PORT"],
     "{{RSTUDIO_PORT}}": os.environ["RSTUDIO_PORT"],
+    "{{JUPYTER_PORT_MODE}}": os.environ["JUPYTER_PORT_MODE"],
+    "{{RSTUDIO_PORT_MODE}}": os.environ["RSTUDIO_PORT_MODE"],
     "{{JUPYTER_TOKEN}}": os.environ["JUPYTER_TOKEN"],
     "{{CONTAINER_RUNTIME}}": os.environ["CONTAINER_RUNTIME"],
     "{{CONTAINER_GPUS}}": os.environ["CONTAINER_GPUS"],

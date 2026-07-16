@@ -255,6 +255,45 @@ bash scripts/instantiate.sh <比赛名> --render-only --reset-git
 - 不会无提示覆盖已有 runtime config
 - 不会把 rerun `setup.sh` 等同于“重置项目状态”
 
+### 5.1.1 同时初始化多个比赛实例
+
+新实例会在 `.env` 中持久化一个基于实例目录生成的 `INSTANCE_ID`，默认容器名是：
+
+```text
+<competition-name>-<INSTANCE_ID>-dev
+```
+
+因此，即使两个目录使用相同比赛名，也会得到不同容器名和不同 host project bind mount。每个容器内部仍统一挂载到 `/workspace/mathorcup`；这个路径位于不同容器的独立 mount namespace 中，不会互相覆盖。
+
+Jupyter / RStudio host 端口默认是 `auto` 模式。初始化和 bootstrap 会从 `8888/8787` 开始寻找空闲端口，并把最终值写回 `.env`。同时初始化多个实例时，脚本会用 host allocation lock 串行完成“选端口 + 写配置 + docker run”，避免两个实例抢到同一端口。
+
+正常使用不需要手工指定端口：
+
+```bash
+git clone <this-template-repo> contest-a
+git clone <this-template-repo> contest-b
+(cd contest-a && bash scripts/instantiate.sh demo)
+(cd contest-b && bash scripts/instantiate.sh demo)
+```
+
+需要固定端口或自定义容器名时，在首次实例化命令前显式传入环境变量；显式端口会进入 `fixed` 模式，冲突时脚本报错而不会静默改值：
+
+```bash
+CONTAINER_NAME=my-contest-dev \
+JUPYTER_PORT=18888 \
+RSTUDIO_PORT=18787 \
+bash scripts/instantiate.sh demo
+```
+
+旧实例若没有 `JUPYTER_PORT_MODE` / `RSTUDIO_PORT_MODE`，会按 `fixed` 兼容处理。需要启用自动迁移时，在该实例 `.env` 中明确设置：
+
+```dotenv
+JUPYTER_PORT_MODE=auto
+RSTUDIO_PORT_MODE=auto
+```
+
+`bootstrap_container.sh` 会核对 Docker labels 和实际 bind mount。若同名容器属于另一个实例，它会拒绝复用，也不会因 `--recreate` 而删除对方容器。
+
 ### 5.2 只想先渲染，不想启动容器
 
 ```bash
@@ -389,6 +428,8 @@ bash scripts/setup.sh --deps-only --target <实例目录>
 - `CONTAINER_PRIVILEGED=true`
 - `CONTAINER_USER=root`
 - `CONTAINER_GRANT_SUDO=yes`
+- `JUPYTER_PORT_MODE=auto`
+- `RSTUDIO_PORT_MODE=auto`
 
 也就是说，默认行为就是：
 

@@ -315,6 +315,17 @@ def validate_template_source(root: Path) -> None:
     for rel in TEMPLATE_SOURCE_REQUIRED_FILES:
         if not (root / rel).exists():
             fail(f"missing template-source file: {rel}")
+    env_template = (root / "scaffold/.env.template").read_text(encoding="utf-8")
+    for placeholder in (
+        "{{INSTANCE_ID}}",
+        "{{CONTAINER_NAME}}",
+        "{{JUPYTER_PORT}}",
+        "{{RSTUDIO_PORT}}",
+        "{{JUPYTER_PORT_MODE}}",
+        "{{RSTUDIO_PORT_MODE}}",
+    ):
+        if placeholder not in env_template:
+            fail(f"scaffold/.env.template missing runtime placeholder: {placeholder}")
 
 
 def load_runtime_state(root: Path) -> Dict[str, Any]:

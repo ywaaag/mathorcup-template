@@ -72,9 +72,12 @@ fi
 echo "== Runtime Config =="
 echo "root:            $TARGET_DIR"
 echo "competition:     $COMPETITION_NAME"
+echo "instance id:     $INSTANCE_ID"
 echo "image:           $IMAGE_NAME"
 echo "container:       $CONTAINER_NAME"
 echo "host project:    $HOST_PROJECT_DIR"
+echo "jupyter port:    $JUPYTER_PORT ($JUPYTER_PORT_MODE)"
+echo "rstudio port:    $RSTUDIO_PORT ($RSTUDIO_PORT_MODE)"
 echo "runtime:         ${CONTAINER_RUNTIME:-default}"
 echo "gpus:            ${CONTAINER_GPUS:-none}"
 echo "privileged:      $CONTAINER_PRIVILEGED"
@@ -212,8 +215,26 @@ echo "== Container State =="
 if command -v docker >/dev/null 2>&1; then
     if container_running; then
         status_ok "container is running"
+        if verify_container_ownership; then
+            status_ok "container labels and project mount belong to this instance"
+            status_info "actual project mount: $(container_mount_source) -> $PROJECT_CONTAINER_DIR"
+        else
+            status_err "container identity or project mount does not match this instance"
+        fi
+        if verify_container_port_bindings; then
+            status_ok "container port bindings match .env"
+        fi
     elif container_exists; then
         status_warn "container exists but is stopped"
+        if verify_container_ownership; then
+            status_ok "stopped container project mount belongs to this instance"
+            status_info "actual project mount: $(container_mount_source) -> $PROJECT_CONTAINER_DIR"
+        else
+            status_err "stopped container identity or project mount does not match this instance"
+        fi
+        if verify_container_port_bindings; then
+            status_ok "stopped container port bindings match .env"
+        fi
     else
         status_warn "container does not exist"
     fi
