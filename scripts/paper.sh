@@ -13,7 +13,7 @@ TARGET_DIR="$ROOT_DIR"
 
 usage() {
     cat <<'EOF'
-Usage: bash scripts/paper.sh [--target <dir>] [container_name] <build|biber|clean|open|print-config>
+Usage: bash scripts/paper.sh [--target <dir>] [--container <name>] <build|biber|clean|open|print-config>
 EOF
 }
 
@@ -21,6 +21,11 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --target)
             TARGET_DIR="$(abs_path "$2")"
+            shift 2
+            ;;
+        --container)
+            [[ $# -ge 2 ]] || die "--container requires a value"
+            CONTAINER_OVERRIDE="$2"
             shift 2
             ;;
         -h|--help)
@@ -33,16 +38,13 @@ while [[ $# -gt 0 ]]; do
             break
             ;;
         *)
-            CONTAINER_OVERRIDE="$1"
-            shift
-            if [[ $# -gt 0 ]]; then
-                COMMAND="$1"
-                shift
-            fi
-            break
+            usage >&2
+            die "unknown paper option or command: $1"
             ;;
     esac
 done
+
+[[ $# -eq 0 ]] || die "unexpected paper arguments: $*"
 
 load_root_env "$TARGET_DIR"
 load_paper_env "$TARGET_DIR"

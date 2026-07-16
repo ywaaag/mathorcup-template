@@ -152,10 +152,10 @@ bash scripts/run_exec_worker.sh --task TASK_REVIEW_CONSISTENCY --owner exec_revi
 ## 5. 推荐协作顺序
 
 1. 主脑先读 `AGENTS.md`、`MEMORY.md`、runtime/workflow contracts。
-2. 主脑决定当前唯一目标，再派给代码脑 / 论文脑 / 杂务 Agent。
+2. 主脑决定当前唯一目标，并从 `project/workflow/TASK_CONTRACT_TEMPLATE.json` 准备领域任务合同。
 3. 若走多会话 relay，就先 `dispatch_task.sh` 再把 packet 发给另一个会话。
 4. 若走 `codex exec`，就先 `exec_healthcheck.sh`，再用 `run_exec_worker.sh` 执行。
-5. 无论哪种 worker backend，回传都要落到 feedback / retrospective / close gate。
+5. 无论哪种 worker backend，回传都要落到 feedback；retrospective 按任务风险 policy 执行。
 6. 代码脑产出图表、CSV、handoff。
 7. 论文脑只消费已索引 handoff 和当前 active paper entrypoint。
 8. 编译/验收杂务 Agent 只做 compile 和 host-visible acceptance。
@@ -174,8 +174,11 @@ bash scripts/list_open_tasks.sh --open-only
 派发一个任务：
 
 ```bash
+bash scripts/configure_task_contract.sh --task TASK_REVIEW_CONSISTENCY --file /tmp/review_contract.json
 bash scripts/dispatch_task.sh --task TASK_REVIEW_CONSISTENCY --owner alice
 ```
+
+领域任务在 `task_contract.prepared=false` 时会拒绝派发，避免 Agent 在缺少题目输入、参数、算法边界和精确验收标准时开工。
 
 把生成的 task packet 发给另一个 Agent 会话，或用 `codex exec` 执行：
 
@@ -191,6 +194,7 @@ bash scripts/show_task.sh --task TASK_REVIEW_CONSISTENCY
 bash scripts/list_history.sh --task TASK_REVIEW_CONSISTENCY
 bash scripts/check_worker_feedback.sh --task TASK_REVIEW_CONSISTENCY
 bash scripts/close_task.sh --task TASK_REVIEW_CONSISTENCY --to review
+bash scripts/close_task.sh --task TASK_REVIEW_CONSISTENCY --to done --accepted-by main_brain
 ```
 
 如果多个 worker 结论不一致，先生成裁决草案：

@@ -36,7 +36,57 @@ REQUIRED_TASK_FIELDS = [
     "accepted_by_main_brain",
 ]
 
+RETROSPECTIVE_POLICIES = {"required", "on_incident", "optional"}
+TASK_CONTRACT_FIELDS = [
+    "prepared",
+    "objective",
+    "dependency_mode",
+    "dependencies",
+    "canonical_inputs",
+    "problem_inputs",
+    "fixed_parameters",
+    "algorithm_boundaries",
+    "required_artifacts",
+    "validation_commands",
+    "numeric_acceptance",
+    "manifest_gate",
+]
+
 TASK_STATUSES = {"todo", "ready", "in_progress", "review", "done", "blocked"}
+
+
+def retrospective_policy(task: Dict[str, Any]) -> str:
+    # Schema v1 tasks predate risk grading and retain the strict legacy behavior.
+    return str(task.get("retrospective_policy", "required"))
+
+
+def task_has_incident(root: Path, state: Dict[str, Any], task_id: str) -> bool:
+    if any(
+        item.get("task_id") == task_id and item.get("action") in {"cancel", "reopen"}
+        for item in state.get("queue", {}).get("history", [])
+    ):
+        return True
+    event_path = root / "project/runtime/event_log.jsonl"
+    if event_path.is_file():
+        for raw in event_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not raw.strip():
+                continue
+            try:
+                event = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if event.get("task_id") == task_id and event.get("event_type") in {"worker.failed", "worker.partial"}:
+                return True
+    return False
+
+
+def retrospective_required(root: Path, state: Dict[str, Any], task: Dict[str, Any]) -> bool:
+    policy = retrospective_policy(task)
+    if policy == "required":
+        return True
+    if policy == "optional":
+        return False
+    return task_has_incident(root, state, task["task_id"])
 
 ROOT_CODEX_SKILLS = {
     "template-source-maintenance",
@@ -69,6 +119,7 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scaffold/project/paper/spec/CUMCMTHESIS_UPSTREAM.md",
     "scaffold/project/output/MODEL_MANIFEST_TEMPLATE.json",
     "scaffold/project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md",
+    "scaffold/project/workflow/TASK_CONTRACT_TEMPLATE.json",
     "scripts/setup.sh",
     "scripts/instantiate.sh",
     "scripts/render_templates.sh",
@@ -77,6 +128,9 @@ TEMPLATE_SOURCE_REQUIRED_FILES = [
     "scripts/smoke_instance.sh",
     "scripts/smoke_realflow.sh",
     "scripts/submit_handoff.sh",
+    "scripts/configure_task_contract.sh",
+    "scripts/record_worker_result.sh",
+    "scripts/merge_model_manifest.sh",
     "scripts/check_handoff_intake.sh",
     "scripts/check_state_consistency.sh",
     "scripts/paper_acceptance_check.sh",

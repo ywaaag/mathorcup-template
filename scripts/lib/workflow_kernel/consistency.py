@@ -13,6 +13,7 @@ from workflow_kernel.schema import (
     paths_overlap,
     queue_items,
     role_map,
+    retrospective_required,
     task_map,
 )
 
@@ -196,6 +197,7 @@ def state_consistency_payload(root: Path) -> Tuple[Dict[str, Any], int]:
     check_active_parallelism(report, state, tasks, roles, active)
     check_gate_artifacts(report, root, state)
     check_event_log(report, root, tasks)
+    check_control_plane_freshness(report, root, state, tasks, active)
 
     if not report.error:
         report.add("OK", "no state consistency errors detected", path="project/runtime")
@@ -335,9 +337,81 @@ def check_gate_artifacts(report: ConsistencyReport, root: Path, state: Dict[str,
         if status in {"review", "done"} and isinstance(feedback_path, str) and feedback_path:
             if not (root / feedback_path).is_file():
                 report.add("ERROR", "review/done task feedback_path artifact is missing", task_id=task_id, path=feedback_path)
-        if status == "done" and isinstance(retrospective_path, str) and retrospective_path:
+        if status == "done" and retrospective_required(root, state, task) and isinstance(retrospective_path, str) and retrospective_path:
             if not (root / retrospective_path).is_file():
                 report.add("ERROR", "done task retrospective_path artifact is missing", task_id=task_id, path=retrospective_path)
+
+
+def _parse_timestamp(value: str) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+
+
+def check_control_plane_freshness(
+    report: ConsistencyReport,
+    root: Path,
+    state: Dict[str, Any],
+    tasks: Dict[str, Dict[str, Any]],
+    active: Sequence[Dict[str, Any]],
+) -> None:
+    now = datetime.now(timezone.utc)
+    history = state.get("queue", {}).get("history", [])
+    for item in active:
+        task_id = str(item.get("task_id", "<unknown>"))
+        timestamp = _parse_timestamp(str(item.get("claimed_at", "")))
+        if timestamp is None:
+            candidates = [entry for entry in history if entry.get("task_id") == task_id]
+            timestamp = _parse_timestamp(str(candidates[-1].get("timestamp", ""))) if candidates else None
+        if timestamp is None:
+            report.add("WARN", "active task has no parseable claim timestamp", task_id=task_id, path="project/runtime/work_queue.json")
+            continue
+        age_hours = (now - timestamp.astimezone(timezone.utc)).total_seconds() / 3600
+        if age_hours > 24:
+            report.add("ERROR", f"active claim is stale ({age_hours:.1f}h > 24h)", task_id=task_id, path="project/runtime/work_queue.json")
+        elif age_hours > 12:
+            report.add("WARN", f"active claim is aging ({age_hours:.1f}h > 12h)", task_id=task_id, path="project/runtime/work_queue.json")
+
+    memory_path = root / "MEMORY.md"
+    if memory_path.is_file():
+        memory = memory_path.read_text(encoding="utf-8", errors="replace")
+        progressed = any(task.get("status") not in {"todo", "ready"} for task in tasks.values())
+        indexed = "- latest: none" not in memory
+        if "## Phase\n- init" in memory and (progressed or indexed):
+            report.add("WARN", "MEMORY.md phase is still init although task or handoff state has progressed", path="MEMORY.md")
+
+    manifest_path = root / "project/output/model_manifest.json"
+    paper_done = any(task.get("role") == "paper_brain" and task.get("status") == "done" for task in tasks.values())
+    if paper_done and manifest_path.is_file():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            report.add("ERROR", "model_manifest.json is invalid JSON", path="project/output/model_manifest.json")
+        else:
+            pending = [item for item in manifest.get("paper_consumers", []) if item.get("status") == "pending"]
+            if pending:
+                report.add("WARN", f"paper task is done but {len(pending)} manifest consumer(s) remain pending", path="project/output/model_manifest.json")
+
+    event_path = root / "project/runtime/event_log.jsonl"
+    if event_path.is_file():
+        for raw in event_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not raw.strip():
+                continue
+            try:
+                event = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if event.get("event_type") != "task.packet_generated":
+                continue
+            task_id = str(event.get("task_id", "-"))
+            artifacts = event.get("artifacts", [])
+            if not artifacts:
+                report.add("WARN", "packet_generated event has no retained packet artifact", task_id=task_id, path="project/runtime/event_log.jsonl")
+                continue
+            for artifact in artifacts:
+                if isinstance(artifact, str) and not (root / artifact).is_file():
+                    report.add("WARN", "recorded task packet artifact is missing", task_id=task_id, path=artifact)
 
 
 def check_event_log(report: ConsistencyReport, root: Path, tasks: Dict[str, Dict[str, Any]]) -> None:

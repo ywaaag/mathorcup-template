@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Sequence
 from workflow_kernel.audit_index import check_feedback, check_retrospective, inspect_handoff_intake
 from workflow_kernel.packet import choose_cwd, collect_acceptance_artifacts
 from workflow_kernel.render import write_queue_board
+from workflow_kernel.task_contract import validate_task_contract
 from workflow_kernel.schema import (
     any_path_matches,
     fail,
@@ -15,6 +16,7 @@ from workflow_kernel.schema import (
     paths_overlap,
     queue_items,
     role_map,
+    retrospective_required,
     save_structured,
     task_from_id,
 )
@@ -117,6 +119,7 @@ def claim_task_impl(
             "owner": owner,
             "status": "in_progress",
             "locked_paths": locked_paths,
+            "claimed_at": current_timestamp(),
         }
     )
     append_history(
@@ -302,15 +305,40 @@ def close_task(root: Path, state: Dict[str, Any], task_id: str, next_status: str
     if next_status not in {"review", "done"}:
         fail("--to must be review or done")
     task = task_from_id(state, task_id)
-    active = find_active_queue_item(state, task_id)
-    if not active:
-        fail(f"task {task_id} is not currently claimed")
     from_status = task["status"]
+    active = find_active_queue_item(state, task_id)
+    if next_status == "review":
+        if from_status != "in_progress" or not active:
+            fail(f"task {task_id} must be claimed and in_progress before closing to review")
+    elif from_status == "in_progress":
+        if not active:
+            fail(f"task {task_id} is in_progress but has no active queue item")
+    elif from_status != "review":
+        fail(f"task {task_id} cannot close to done from status '{from_status}'")
     owner = task["owner"]
     handoff_intake = inspect_handoff_intake(root)
     check_feedback(root, state, task_id=task_id, file_path=None, require_exists=True)
     if next_status == "done":
-        check_retrospective(root, state, task_id=task_id, file_path=None, require_exists=True)
+        contract = validate_task_contract(root, state, task_id, for_dispatch=False)
+        if contract.get("dependency_mode") == "provisional":
+            fail(f"task {task_id} uses provisional dependencies and cannot close as done")
+        manifest_gate = contract.get("manifest_gate", "none")
+        if manifest_gate == "producer":
+            fragment = root / "project/output/manifest_fragments" / f"{task_id}.json"
+            if not fragment.is_file():
+                fail(f"task {task_id} producer manifest fragment is missing: {fragment}")
+        if manifest_gate in {"consumer_integrated", "consumer_verified"}:
+            manifest_path = root / "project/output/model_manifest.json"
+            if not manifest_path.is_file():
+                fail(f"task {task_id} requires project/output/model_manifest.json")
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            required_status = "verified" if manifest_gate == "consumer_verified" else "integrated"
+            statuses = [item.get("status", "pending") for item in manifest.get("paper_consumers", [])]
+            allowed = {"verified"} if required_status == "verified" else {"integrated", "verified"}
+            if not statuses or any(status not in allowed for status in statuses):
+                fail(f"task {task_id} manifest paper_consumers have not reached {required_status}")
+        if retrospective_required(root, state, task):
+            check_retrospective(root, state, task_id=task_id, file_path=None, require_exists=True)
         if not accepted_by:
             fail("--accepted-by is required when closing a task as done")
         task["accepted_by_main_brain"] = True

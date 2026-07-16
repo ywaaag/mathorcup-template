@@ -85,6 +85,8 @@ All roles should read from these sources before acting:
 - `owner` only means current active owner while a task is in `in_progress`.
 - Once a task leaves `in_progress`, `owner` should be cleared and the latest actor should be derived from `event_log.jsonl` or `work_queue.json -> history`.
 - Main brain should inspect, dispatch, reopen, cancel, and close tasks through workflow scripts rather than freehand status edits.
+- `task_contract` is the domain execution contract. Domain roles cannot be dispatched while `prepared=false`; main brain fills objective, inputs, fixed parameters, algorithm boundaries, exact artifacts, validation commands, and numeric acceptance first.
+- `dependency_mode=final` requires dependencies to be `done`, canonical handoffs to be indexed, and declared SHA256 values to match. `provisional` must stay watermarked and cannot close as `done` or become a canonical paper input.
 - State-changing workflow scripts acquire a rendered-instance write lock at `project/runtime/.workflow.lock`, use atomic writes for structured registry / queue JSON and the generated queue board, and run a post-change consistency check before returning success.
 - Read-only/advisory commands such as `doctor.sh`, `main_brain_summary.sh`, `recommend_tasks.sh`, `check_state_consistency.sh`, and `extract_policy_hints.sh` do not acquire the write lock or change control-plane state.
 - Machine consumers may add `--json` or `--format json` to read-only/advisory commands that expose structured output; default text output remains the human-facing compatibility path.
@@ -101,23 +103,24 @@ All roles should read from these sources before acting:
   - `bash scripts/check_handoff_intake.sh --target <dir>`
   - `bash scripts/recommend_tasks.sh --target <dir>`
   - `bash scripts/dispatch_task.sh --task <task_id> --owner <owner> --target <dir>`
+  - before dispatch, configure domain details with `bash scripts/configure_task_contract.sh --task <task_id> --file <contract.json> --target <dir>`; start from `project/workflow/TASK_CONTRACT_TEMPLATE.json`
   - dispatch writes a default packet artifact under `project/workflow/packets/`; use `--print-only` only for intentional stdout-only relay
   - canonical feedback skeleton creation happens during dispatch via the `task.dispatched` callback hook
-  - code-brain handoffs must be submitted through `bash scripts/submit_handoff.sh --task <task_id> --handoff <path> --target <dir>` so the file is checked, indexed, and recorded in `event_log.jsonl`
+  - worker validates a candidate handoff with `bash scripts/submit_handoff.sh --validate-only ...`; main brain reruns without `--validate-only` to index it in `MEMORY.md` and record the event
   - `bash scripts/submit_feedback.sh --task <task_id> --with-retrospective --target <dir>` only when you need to repair missing feedback or initialize a retrospective manually
   - `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`
-  - `bash scripts/check_retrospective.sh --task <task_id> --target <dir>` when closing as done
+  - `bash scripts/check_retrospective.sh --task <task_id> --target <dir>` when policy is `required`, or `on_incident` and a failed/partial/reopened/cancelled incident occurred
   - `bash scripts/close_task.sh --task <task_id> --to review|done --target <dir>` or `bash scripts/reopen_task.sh --target <dir>` / `bash scripts/cancel_task.sh --target <dir>`
 - Stage-level modeling tasks are preferred when a competition has sequential problems:
   - `TASK_CODE_MODEL_P1`
   - `TASK_CODE_MODEL_P23`
   - `TASK_CODE_MODEL_P4`
   - keep `TASK_CODE_MODEL_SLOT` as a generic fallback only when the stage cannot yet be named
-- Code-brain outputs that define assumptions, canonical numbers, algorithm boundaries, or paper-facing results should update `project/output/model_manifest.json` from `project/output/MODEL_MANIFEST_TEMPLATE.json`.
+- Code-brain outputs that define assumptions, canonical numbers, algorithm boundaries, or paper-facing results should write `project/output/manifest_fragments/<task_id>.json`; main brain merges conflict-free fragments into `project/output/model_manifest.json` with `bash scripts/merge_model_manifest.sh --target <dir>`.
 - Handoffs and task feedback should state algorithm boundaries, optimality claims, enumeration limits / caps when relevant, validation commands, canonical numbers, and paper-facing output files.
 - Paper/layout/final-fix tasks should consult `project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md` and run:
   - `bash scripts/paper_acceptance_check.sh --target <dir>`
-- The paper acceptance checker is read-only. It verifies the active entrypoint, host-visible acceptance PDF / LOG / AUX, PDF page count when available, and high-signal LaTeX log findings. It does not build or close tasks.
+- The paper acceptance checker is read-only. It fails on fatal/undefined findings, stale PDF/LOG, high-signal source placeholders, and `Overfull \\hbox` above 2pt by default; smaller Overfull and Underfull findings remain visible warnings.
 - Main brain can consolidate packets, feedback, retrospectives, callback runs, exec runs, handoffs, adjudications, paper acceptance reports, and model manifests with:
   - `bash scripts/artifact_index.sh --target <dir>`
 - `artifact_index.sh` writes only derived review artifacts under `project/output/review/`; it does not modify runtime truth or advance state.
@@ -130,6 +133,7 @@ All roles should read from these sources before acting:
 - `check_state_consistency.sh --target <dir> --json` is the structured read-only consistency surface for tools. Its exit code still represents PASS/FAIL, and its JSON must include `schema_version`, `generated_at`, `root`, `root_kind`, `status`, and structured findings.
 - `extract_policy_hints.sh` is not workflow truth. It scans feedback / retrospective artifacts, writes `project/output/review/policy_hints_candidate.md`, and leaves promotion decisions to the main brain.
 - Feedback and retrospective gates now check minimum non-empty content in required body sections, not only heading structure; policy-hint candidate fields may remain at default `none` / `no`.
+- Business `write_roots` and `workflow_artifact_roots` are distinct. Feedback/retrospective permission does not grant arbitrary business-output write permission.
 
 ## Execution Modes
 
@@ -162,7 +166,7 @@ All roles should read from these sources before acting:
   - full ownership
 - 代码脑 / 论文脑 / 杂务 Agent:
   - default behavior is to return structured feedback instead of rewriting `MEMORY.md`
-  - should use `scripts/submit_handoff.sh` for code-brain handoffs instead of manually editing `## Handoff Index`
+  - workers use `scripts/submit_handoff.sh --validate-only`; main brain owns the indexing call and must not manually edit `## Handoff Index`
   - should use `scripts/check_handoff_intake.sh` before consuming indexed handoffs instead of scanning `project/output/handoff/` directly
   - may update `## Blockers` and `## Next Actions` only when explicitly assigned or when acting as the only active session
 
@@ -288,6 +292,7 @@ The required body sections in these files must be filled with concrete content b
   - `bash scripts/reopen_task.sh`
   - `bash scripts/cancel_task.sh`
 - worker must not run close_task.sh; workers fill feedback/retrospective and return evidence for main-brain judgement.
+- Main brain moves claimed `in_progress -> review`, releasing owner/locks, then may accept `review -> done` directly. Do not reopen an accepted review merely to satisfy the done gate.
 
 ## Delegation Note
 

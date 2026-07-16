@@ -11,6 +11,7 @@ from workflow_kernel.schema import (
     load_runtime_state,
     parse_kv_env,
     queue_items,
+    retrospective_required,
     task_map,
 )
 from workflow_kernel.transitions import current_timestamp
@@ -119,7 +120,7 @@ def ready_or_todo_tasks(tasks: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]
     return [task for task in tasks if task.get("status") in {"todo", "ready"}]
 
 
-def missing_gates(root: Path, tasks: Sequence[Dict[str, Any]]) -> List[str]:
+def missing_gates(root: Path, state: Dict[str, Any], tasks: Sequence[Dict[str, Any]]) -> List[str]:
     issues: List[str] = []
     for task in tasks:
         task_id = task.get("task_id", "<unknown>")
@@ -131,7 +132,7 @@ def missing_gates(root: Path, tasks: Sequence[Dict[str, Any]]) -> List[str]:
             issues.append(f"{task_id}: in_progress but feedback_path is missing: {feedback_path}")
         if status in {"review", "done"} and feedback_path and not (root / feedback_path).is_file():
             issues.append(f"{task_id}: {status} but feedback_path is missing: {feedback_path}")
-        if status == "done" and retrospective_path and not (root / retrospective_path).is_file():
+        if status == "done" and retrospective_required(root, state, task) and retrospective_path and not (root / retrospective_path).is_file():
             issues.append(f"{task_id}: done but retrospective_path is missing: {retrospective_path}")
     return issues
 
@@ -405,7 +406,7 @@ def main_summary_payload(root: Path) -> Dict[str, Any]:
     paper_env = parse_kv_env(root / "project/paper/runtime/paper.env")
     counts = status_counts(tasks)
     recent_events, recent_event_note = read_recent_events(root, limit=5)
-    gate_issues = missing_gates(root, tasks)
+    gate_issues = missing_gates(root, state, tasks)
 
     active_section = [
         {
@@ -566,7 +567,7 @@ def main_summary_report(root: Path) -> str:
     append_close_gate(lines, root, tasks, active)
 
     lines.extend(["", "## Missing Gates"])
-    gate_issues = missing_gates(root, tasks)
+    gate_issues = missing_gates(root, state, tasks)
     if gate_issues:
         lines.extend(f"- {issue}" for issue in gate_issues)
     else:

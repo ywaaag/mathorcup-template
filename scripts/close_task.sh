@@ -74,7 +74,10 @@ main() {
         --to-status "$NEXT_STATUS"
         --artifact "$feedback_path"
     )
-    [[ "$NEXT_STATUS" == "done" ]] && event_args+=(--artifact "$retro_path" --metadata "accepted_by=$ACCEPTED_BY")
+    if [[ "$NEXT_STATUS" == "done" ]]; then
+        [[ -f "$TARGET_DIR/$retro_path" ]] && event_args+=(--artifact "$retro_path")
+        event_args+=(--metadata "accepted_by=$ACCEPTED_BY")
+    fi
     emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${event_args[@]}" >/dev/null
     workflow_post_change_consistency "$SCRIPT_DIR" "$TARGET_DIR"
 }

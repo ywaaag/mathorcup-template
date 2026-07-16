@@ -160,6 +160,17 @@ def evaluate_task(
         reasons.append(f"status is {task.get('status', '<missing>')}, not todo/ready")
     if task.get("owner"):
         reasons.append(f"owner is already set to {task['owner']}")
+    contract = task.get("task_contract", {})
+    if role_name in {"code_brain", "paper_brain", "layout_worker", "review_worker", "citation_worker"}:
+        if not isinstance(contract, dict) or not contract.get("prepared", False):
+            reasons.append("domain task_contract is not prepared")
+        else:
+            for dependency in contract.get("dependencies", []):
+                dependency_task = tasks.get(dependency)
+                if dependency_task is None:
+                    reasons.append(f"unknown dependency: {dependency}")
+                elif contract.get("dependency_mode", "final") == "final" and dependency_task.get("status") != "done":
+                    reasons.append(f"dependency {dependency} is not done")
     if role is None:
         reasons.append(f"role {role_name or '<missing>'} does not exist in agent_roles.json")
         return reasons

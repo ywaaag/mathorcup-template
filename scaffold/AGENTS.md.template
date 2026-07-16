@@ -27,6 +27,7 @@
 8. Use `bash scripts/check_handoff_intake.sh --latest --target <instance_dir>` or `bash scripts/check_handoff_intake.sh --files --target <instance_dir>` only as indexed-path shortcuts.
 9. Read the latest indexed handoff docs listed in `## Handoff Index`.
 10. If this task is delegated or multi-session, read the relevant templates under `project/workflow/`.
+11. For a domain task, verify its `task_contract` is prepared and obey its dependency mode, canonical inputs, parameters, algorithm boundaries, artifact contract, and numeric acceptance.
 
 ## Runtime Board Contract
 - `MEMORY.md` is the only runtime state board.
@@ -58,6 +59,7 @@
 - Hard rule: run project Python/C++/LaTeX programs inside Docker container only.
 - Host is only for orchestration (`git`, editing, `docker`, prompt dispatch).
 - Do not guess runtime facts from chat memory; read `.env` and `project/paper/runtime/paper.env` as machine truth, then use `project/spec/runtime_contract.md` as the rendered mirror summary.
+- Host `project/` is mounted directly at container `/workspace/mathorcup`; never insert an extra `/project` segment in container paths.
 - Before major work, explicitly confirm container name, image, runtime, user, and tool baseline from `.env`, `project/paper/runtime/paper.env`, and `project/spec/runtime_contract.md`.
 - Before major work, run `bash scripts/validate_agent_docs.sh`.
 

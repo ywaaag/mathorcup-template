@@ -12,13 +12,14 @@ TASK_ID=""
 HANDOFF_PATH=""
 ACTOR=""
 NO_INDEX=false
+VALIDATE_ONLY=false
 
 usage() {
     cat <<'EOF'
-Usage: bash scripts/submit_handoff.sh --task <task_id> --handoff <path> [--target <dir>] [--actor <name>] [--no-index]
+Usage: bash scripts/submit_handoff.sh --task <task_id> --handoff <path> [--target <dir>] [--actor <name>] [--validate-only]
 
-Validates a code-brain handoff in a rendered instance, updates MEMORY.md -> Handoff Index by default,
-and emits a handoff_submitted workflow event. It does not change task status or close tasks.
+Workers use --validate-only to check a candidate without changing MEMORY.md or event state.
+Main brain omits --validate-only to validate, index MEMORY.md, and emit handoff_submitted.
 EOF
 }
 
@@ -44,6 +45,10 @@ while [[ $# -gt 0 ]]; do
             NO_INDEX=true
             shift
             ;;
+        --validate-only)
+            VALIDATE_ONLY=true
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -57,6 +62,15 @@ done
 
 [[ -n "$TASK_ID" ]] || { usage >&2; exit 2; }
 [[ -n "$HANDOFF_PATH" ]] || { usage >&2; exit 2; }
+if [[ "$VALIDATE_ONLY" == true && "$NO_INDEX" == true ]]; then
+    die "--validate-only and deprecated --no-index cannot be combined"
+fi
+
+if [[ "$VALIDATE_ONLY" == true ]]; then
+    python3 "$SCRIPT_DIR/lib/workflow_state.py" check-handoff --root "$TARGET_DIR" --file "$HANDOFF_PATH"
+    echo "[workflow] validate-only: MEMORY.md and event_log.jsonl were not modified"
+    exit 0
+fi
 
 main() {
     args=(submit-handoff --root "$TARGET_DIR" --task "$TASK_ID" --handoff "$HANDOFF_PATH")

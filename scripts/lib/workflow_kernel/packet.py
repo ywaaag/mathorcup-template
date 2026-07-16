@@ -54,6 +54,7 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
             if item not in must_read:
                 must_read.append(item)
     acceptance = collect_acceptance_artifacts(root, role, task)
+    contract = task.get("task_contract", {}) if task else {}
 
     lines = [
         f"你现在在 `{cwd}` 工作。",
@@ -75,8 +76,42 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
                 f"- active_owner: `{task['owner'] or '-'}`",
                 f"- feedback_path: `{task['feedback_path']}`",
                 f"- retrospective_path: `{task['retrospective_path']}`",
+                f"- retrospective_policy: `{task.get('retrospective_policy', 'required')}`",
+                f"- dependency_mode: `{contract.get('dependency_mode', 'final')}`",
             ]
         )
+        lines.extend(["", "任务合同："])
+        contract_sections = [
+            ("objective", "目标"),
+            ("dependencies", "依赖任务"),
+            ("canonical_inputs", "canonical inputs"),
+            ("problem_inputs", "题目/数据输入"),
+            ("fixed_parameters", "固定参数"),
+            ("algorithm_boundaries", "算法与最优性边界"),
+            ("required_artifacts", "精确产物合同"),
+            ("validation_commands", "验证命令"),
+            ("numeric_acceptance", "数值验收"),
+        ]
+        lines.append(f"- prepared: `{str(bool(contract.get('prepared', False))).lower()}`")
+        for key, label in contract_sections:
+            value = contract.get(key, "")
+            lines.append(f"- {label}:")
+            values = value if isinstance(value, list) else [value]
+            if values:
+                for item in values:
+                    rendered = json.dumps(item, ensure_ascii=False) if isinstance(item, dict) else str(item)
+                    lines.append(f"  - {rendered}")
+            else:
+                lines.append("  - <none>")
+        lines.append(f"- manifest gate: `{contract.get('manifest_gate', 'none')}`")
+        if contract.get("dependency_mode") == "provisional":
+            lines.extend(
+                [
+                    "- PROVISIONAL: upstream canonical evidence is not final.",
+                    "- 产物、feedback、handoff 和 manifest 必须显式标注 PROVISIONAL。",
+                    "- 本任务不得 close 为 done，也不得作为论文 canonical input。",
+                ]
+            )
     lines.extend(
         [
             "",
@@ -111,6 +146,10 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
             "- 容器用户：`{}`".format(env.get("CONTAINER_USER", "")),
             "- GRANT_SUDO：`{}`".format(env.get("CONTAINER_GRANT_SUDO", "")),
             "- machine truth：根目录 `.env` + `project/paper/runtime/paper.env`",
+            f"- host project root：`{env.get('HOST_PROJECT_DIR', str(root / 'project'))}`",
+            "- container project root：`/workspace/mathorcup`（host 的 `project/` 直接挂载到这里）",
+            "- 容器内 artifact 示例：host `project/output/result.csv` 对应 `/workspace/mathorcup/output/result.csv`",
+            "- 不要使用错误路径 `/workspace/mathorcup/project/...`",
             "- rendered mirror：`project/spec/runtime_contract.md` / `project/paper/spec/paper_runtime_contract.md`",
             "- 容器环境镜像说明入口：`project/spec/runtime_contract.md -> ## Current Host / Container Facts`",
             "- reference image baseline 入口：`project/spec/runtime_contract.md -> ## Reference Image Environment Snapshot`",
@@ -161,7 +200,8 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
                 "",
                 "流程 gate：",
                 f"- 完成后补 `feedback`: `{task['feedback_path']}`",
-                f"- 若要 closed as done，再补 `retrospective`: `{task['retrospective_path']}`",
+                f"- retrospective policy `{task.get('retrospective_policy', 'required')}`；需要时补 `{task['retrospective_path']}`",
+                "- feedback / retrospective 属于 workflow artifact scope，不会扩大业务文件 write scope。",
                 "- canonical feedback skeleton 路径：`dispatch_task.sh` 触发 `task.dispatched` callback 自动补建",
                 "- `submit_feedback.sh` 仅用于 repair missing feedback、初始化 retrospective、或手工补录",
                 "- 不允许绕开 `check_*` / `close_task.sh` 流程；worker 只提交结果，不自行验收结案",
@@ -174,7 +214,7 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
                 "",
                 "完成后必须做的事：",
                 f"- 把结构化结论写回 `{task['feedback_path']}`",
-                f"- 如主脑要求 done 级结案，再补 `{task['retrospective_path']}`",
+                f"- 按 retrospective policy 或 incident 要求补 `{task['retrospective_path']}`",
                 "- 若消费 handoff，先通过 indexed intake 读取结果；不要直接扫描 `project/output/handoff/`。",
                 "- 最终回复必须和 feedback 中的已验证事实 / 风险结论一致",
             ]

@@ -10,8 +10,10 @@ from workflow_kernel.schema import (
     INSTANCE_CODEX_SKILLS,
     REQUIRED_ROLE_FIELDS,
     REQUIRED_TASK_FIELDS,
+    RETROSPECTIVE_POLICIES,
     ROOT_CODEX_SKILLS,
     TASK_STATUSES,
+    TASK_CONTRACT_FIELDS,
     any_path_matches,
     check_required_paths,
     detect_root_kind,
@@ -23,6 +25,8 @@ from workflow_kernel.schema import (
     paths_overlap,
     queue_items,
     role_map,
+    retrospective_policy,
+    retrospective_required,
     task_from_id,
     task_map,
     validate_template_source,
@@ -748,9 +752,13 @@ def validate_roles(root: Path, state: Dict[str, Any]) -> None:
         fail(f"agent_roles.json missing roles: {', '.join(missing_roles)}")
     for name, config in roles.items():
         ensure_fields(config, REQUIRED_ROLE_FIELDS, f"role {name}")
+        if roles_payload.get("schema_version", 1) >= 2 and "workflow_artifact_roots" not in config:
+            fail(f"role {name} missing field 'workflow_artifact_roots' in schema v2")
         for field in ["read_roots", "write_roots", "forbidden_roots", "must_read_docs", "default_acceptance_artifacts", "parallel_safe_with", "parallel_forbidden_with"]:
             if not isinstance(config[field], list):
                 fail(f"role {name} field '{field}' must be a list")
+        if "workflow_artifact_roots" in config and not isinstance(config["workflow_artifact_roots"], list):
+            fail(f"role {name} field 'workflow_artifact_roots' must be a list")
         if not isinstance(config["memory_permissions"], dict):
             fail(f"role {name} field 'memory_permissions' must be an object")
         check_required_paths(root, config["must_read_docs"], f"role {name}")
@@ -783,6 +791,14 @@ def validate_tasks(root: Path, state: Dict[str, Any]) -> None:
             fail(f"task {task_id} must clear owner when status is not in_progress")
         if not isinstance(task["parallel_ok"], bool):
             fail(f"task {task_id} field 'parallel_ok' must be boolean")
+        policy = retrospective_policy(task)
+        if policy not in RETROSPECTIVE_POLICIES:
+            fail(f"task {task_id} has invalid retrospective_policy: {policy}")
+        contract = task.get("task_contract")
+        if state["registry"].get("schema_version", 1) >= 2:
+            if not isinstance(contract, dict):
+                fail(f"task {task_id} must define task_contract in schema v2")
+            ensure_fields(contract, TASK_CONTRACT_FIELDS, f"task {task_id} task_contract")
         role = roles[task["role"]]
         for path in task["allowed_paths"]:
             if not any_path_matches(role["write_roots"], path):
@@ -797,6 +813,9 @@ def validate_tasks(root: Path, state: Dict[str, Any]) -> None:
             fail(f"task {task_id} feedback_path parent does not exist: {feedback_parent.relative_to(root)}")
         if not retro_parent.exists():
             fail(f"task {task_id} retrospective_path parent does not exist: {retro_parent.relative_to(root)}")
+        for artifact_path in [task["feedback_path"], task["retrospective_path"]]:
+            if state["roles"].get("schema_version", 1) >= 2 and not any_path_matches(role["workflow_artifact_roots"], artifact_path):
+                fail(f"task {task_id} workflow artifact '{artifact_path}' is outside role workflow_artifact_roots")
         packet = make_task_packet(root, state, task["role"], task_id)
         require_text_contains(
             packet,
@@ -879,7 +898,7 @@ def validate_retrospectives(root: Path, state: Dict[str, Any]) -> None:
         task_id = task["task_id"]
         status = task["status"]
         accepted = bool(task["accepted_by_main_brain"])
-        if status == "done" or accepted:
+        if (status == "done" or accepted) and retrospective_required(root, state, task):
             check_retrospective(root, state, task_id=task_id, file_path=None, require_exists=True, require_content=True)
         else:
             check_retrospective(root, state, task_id=task_id, file_path=None, require_exists=False, require_content=False)

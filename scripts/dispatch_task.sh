@@ -15,9 +15,10 @@ PACKET_OUT=""
 NO_CLAIM=false
 PRINT_ONLY=false
 LOCK_ARGS=()
+BACKEND="relay"
 
 usage() {
-    echo "Usage: bash scripts/dispatch_task.sh --task <task_id> [--owner <owner>] [--actor <actor>] [--lock <path>]... [--packet-out <path>] [--print-only] [--no-claim] [--target <dir>]" >&2
+    echo "Usage: bash scripts/dispatch_task.sh --task <task_id> [--owner <owner>] [--actor <actor>] [--backend <relay|codex_exec|subagent|human>] [--lock <path>]... [--packet-out <path>] [--print-only] [--no-claim] [--target <dir>]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -32,6 +33,11 @@ while [[ $# -gt 0 ]]; do
             ;;
         --actor)
             ACTOR="$2"
+            shift 2
+            ;;
+        --backend)
+            BACKEND="$2"
+            case "$BACKEND" in relay|codex_exec|subagent|human) ;; *) die "invalid backend: $BACKEND" ;; esac
             shift 2
             ;;
         --lock)
@@ -73,6 +79,7 @@ if [[ "$NO_CLAIM" == false && -z "$OWNER" ]]; then
 fi
 
 main() {
+    python3 "$SCRIPT_DIR/lib/workflow_state.py" check-task-contract --root "$TARGET_DIR" --task "$TASK_ID" --for-dispatch >/dev/null
     if [[ "$NO_CLAIM" == false ]]; then
         bash "$SCRIPT_DIR/claim_task.sh" \
             --task "$TASK_ID" \
@@ -108,6 +115,7 @@ main() {
         --from-status in_progress
         --to-status in_progress
         --metadata "role=$ROLE_NAME"
+        --metadata "backend=$BACKEND"
         --note "task dispatched and packet ready for worker handoff"
     )
     emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${dispatch_event_args[@]}" >/dev/null
@@ -118,8 +126,11 @@ main() {
         --actor "$ACTOR"
         --owner "$OWNER"
         --metadata "role=$ROLE_NAME"
+        --metadata "backend=$BACKEND"
     )
     if [[ -n "$PACKET_OUT" ]]; then
+        packet_sha256="$(sha256sum "$PACKET_OUT" | awk '{print $1}')"
+        packet_event_args+=(--metadata "packet_sha256=$packet_sha256")
         packet_event_args+=(--artifact "$PACKET_OUT")
     else
         packet_event_args+=(--note "packet generated to stdout only")

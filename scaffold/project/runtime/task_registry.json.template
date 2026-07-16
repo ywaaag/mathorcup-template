@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "tasks": [
     {
       "task_id": "TASK_MAIN_SYNC",
@@ -35,7 +35,29 @@
       ],
       "feedback_path": "project/output/review/TASK_MAIN_SYNC_feedback.md",
       "retrospective_path": "project/output/retrospectives/TASK_MAIN_SYNC_retrospective.md",
-      "accepted_by_main_brain": false
+      "accepted_by_main_brain": false,
+      "retrospective_policy": "optional",
+      "task_contract": {
+        "prepared": true,
+        "objective": "Maintain runtime board, queue, and consensus sync",
+        "dependency_mode": "final",
+        "dependencies": [],
+        "canonical_inputs": [],
+        "problem_inputs": [],
+        "fixed_parameters": [],
+        "algorithm_boundaries": [],
+        "required_artifacts": [
+          "MEMORY.md",
+          "project/runtime/task_registry.json",
+          "project/runtime/work_queue.json",
+          "project/workflow/MAIN_BRAIN_QUEUE.md"
+        ],
+        "validation_commands": [
+          "bash scripts/validate_agent_docs.sh"
+        ],
+        "numeric_acceptance": [],
+        "manifest_gate": "none"
+      }
     },
     {
       "task_id": "TASK_CODE_MODEL_SLOT",
@@ -71,7 +93,22 @@
       ],
       "feedback_path": "project/output/review/TASK_CODE_MODEL_SLOT_feedback.md",
       "retrospective_path": "project/output/retrospectives/TASK_CODE_MODEL_SLOT_retrospective.md",
-      "accepted_by_main_brain": false
+      "accepted_by_main_brain": false,
+      "retrospective_policy": "required",
+      "task_contract": {
+        "prepared": false,
+        "objective": "",
+        "dependency_mode": "final",
+        "dependencies": [],
+        "canonical_inputs": [],
+        "problem_inputs": [],
+        "fixed_parameters": [],
+        "algorithm_boundaries": [],
+        "required_artifacts": [],
+        "validation_commands": [],
+        "numeric_acceptance": [],
+        "manifest_gate": "none"
+      }
     },
     {
       "task_id": "TASK_CODE_MODEL_P1",
@@ -109,7 +146,22 @@
       ],
       "feedback_path": "project/output/review/TASK_CODE_MODEL_P1_feedback.md",
       "retrospective_path": "project/output/retrospectives/TASK_CODE_MODEL_P1_retrospective.md",
-      "accepted_by_main_brain": false
+      "accepted_by_main_brain": false,
+      "retrospective_policy": "required",
+      "task_contract": {
+        "prepared": false,
+        "objective": "",
+        "dependency_mode": "final",
+        "dependencies": [],
+        "canonical_inputs": [],
+        "problem_inputs": [],
+        "fixed_parameters": [],
+        "algorithm_boundaries": [],
+        "required_artifacts": [],
+        "validation_commands": [],
+        "numeric_acceptance": [],
+        "manifest_gate": "producer"
+      }
     },
     {
       "task_id": "TASK_CODE_MODEL_P23",
@@ -147,7 +199,24 @@
       ],
       "feedback_path": "project/output/review/TASK_CODE_MODEL_P23_feedback.md",
       "retrospective_path": "project/output/retrospectives/TASK_CODE_MODEL_P23_retrospective.md",
-      "accepted_by_main_brain": false
+      "accepted_by_main_brain": false,
+      "retrospective_policy": "required",
+      "task_contract": {
+        "prepared": false,
+        "objective": "",
+        "dependency_mode": "final",
+        "dependencies": [
+          "TASK_CODE_MODEL_P1"
+        ],
+        "canonical_inputs": [],
+        "problem_inputs": [],
+        "fixed_parameters": [],
+        "algorithm_boundaries": [],
+        "required_artifacts": [],
+        "validation_commands": [],
+        "numeric_acceptance": [],
+        "manifest_gate": "producer"
+      }
     },
     {
       "task_id": "TASK_CODE_MODEL_P4",
@@ -185,7 +254,24 @@
       ],
       "feedback_path": "project/output/review/TASK_CODE_MODEL_P4_feedback.md",
       "retrospective_path": "project/output/retrospectives/TASK_CODE_MODEL_P4_retrospective.md",
-      "accepted_by_main_brain": false
+      "accepted_by_main_brain": false,
+      "retrospective_policy": "required",
+      "task_contract": {
+        "prepared": false,
+        "objective": "",
+        "dependency_mode": "final",
+        "dependencies": [
+          "TASK_CODE_MODEL_P1"
+        ],
+        "canonical_inputs": [],
+        "problem_inputs": [],
+        "fixed_parameters": [],
+        "algorithm_boundaries": [],
+        "required_artifacts": [],
+        "validation_commands": [],
+        "numeric_acceptance": [],
+        "manifest_gate": "producer"
+      }
     },
     {
       "task_id": "TASK_PAPER_DRAFT_SLOT",
@@ -218,7 +304,22 @@
       ],
       "feedback_path": "project/output/review/TASK_PAPER_DRAFT_SLOT_feedback.md",
       "retrospective_path": "project/output/retrospectives/TASK_PAPER_DRAFT_SLOT_retrospective.md",
-      "accepted_by_main_brain": false
+      "accepted_by_main_brain": false,
+      "retrospective_policy": "on_incident",
+      "task_contract": {
+        "prepared": false,
+        "objective": "",
+        "dependency_mode": "final",
+        "dependencies": [],
+        "canonical_inputs": [],
+        "problem_inputs": [],
+        "fixed_parameters": [],
+        "algorithm_boundaries": [],
+        "required_artifacts": [],
+        "validation_commands": [],
+        "numeric_acceptance": [],
+        "manifest_gate": "none"
+      }
     },
     {
       "task_id": "TASK_PAPER_INTEGRATION",
@@ -253,7 +354,26 @@
       ],
       "feedback_path": "project/output/review/TASK_PAPER_INTEGRATION_feedback.md",
       "retrospective_path": "project/output/retrospectives/TASK_PAPER_INTEGRATION_retrospective.md",
-      "accepted_by_main_brain": false
+      "accepted_by_main_brain": false,
+      "retrospective_policy": "required",
+      "task_contract": {
+        "prepared": false,
+        "objective": "",
+        "dependency_mode": "final",
+        "dependencies": [
+          "TASK_CODE_MODEL_P1",
+          "TASK_CODE_MODEL_P23",
+          "TASK_CODE_MODEL_P4"
+        ],
+        "canonical_inputs": [],
+        "problem_inputs": [],
+        "fixed_parameters": [],
+        "algorithm_boundaries": [],
+        "required_artifacts": [],
+        "validation_commands": [],
+        "numeric_acceptance": [],
+        "manifest_gate": "consumer_integrated"
+      }
     },
     {
       "task_id": "TASK_PAPER_FINAL_FIX",
@@ -288,7 +408,24 @@
       ],
       "feedback_path": "project/output/review/TASK_PAPER_FINAL_FIX_feedback.md",
       "retrospective_path": "project/output/retrospectives/TASK_PAPER_FINAL_FIX_retrospective.md",
-      "accepted_by_main_brain": false
+      "accepted_by_main_brain": false,
+      "retrospective_policy": "required",
+      "task_contract": {
+        "prepared": false,
+        "objective": "",
+        "dependency_mode": "final",
+        "dependencies": [
+          "TASK_PAPER_INTEGRATION"
+        ],
+        "canonical_inputs": [],
+        "problem_inputs": [],
+        "fixed_parameters": [],
+        "algorithm_boundaries": [],
+        "required_artifacts": [],
+        "validation_commands": [],
+        "numeric_acceptance": [],
+        "manifest_gate": "consumer_verified"
+      }
     },
     {
       "task_id": "TASK_LAYOUT_ACCEPTANCE",
@@ -318,7 +455,22 @@
       ],
       "feedback_path": "project/output/review/TASK_LAYOUT_ACCEPTANCE_feedback.md",
       "retrospective_path": "project/output/retrospectives/TASK_LAYOUT_ACCEPTANCE_retrospective.md",
-      "accepted_by_main_brain": false
+      "accepted_by_main_brain": false,
+      "retrospective_policy": "on_incident",
+      "task_contract": {
+        "prepared": false,
+        "objective": "",
+        "dependency_mode": "final",
+        "dependencies": [],
+        "canonical_inputs": [],
+        "problem_inputs": [],
+        "fixed_parameters": [],
+        "algorithm_boundaries": [],
+        "required_artifacts": [],
+        "validation_commands": [],
+        "numeric_acceptance": [],
+        "manifest_gate": "none"
+      }
     },
     {
       "task_id": "TASK_REVIEW_CONSISTENCY",
@@ -351,7 +503,22 @@
       ],
       "feedback_path": "project/output/review/TASK_REVIEW_CONSISTENCY_feedback.md",
       "retrospective_path": "project/output/retrospectives/TASK_REVIEW_CONSISTENCY_retrospective.md",
-      "accepted_by_main_brain": false
+      "accepted_by_main_brain": false,
+      "retrospective_policy": "on_incident",
+      "task_contract": {
+        "prepared": false,
+        "objective": "",
+        "dependency_mode": "final",
+        "dependencies": [],
+        "canonical_inputs": [],
+        "problem_inputs": [],
+        "fixed_parameters": [],
+        "algorithm_boundaries": [],
+        "required_artifacts": [],
+        "validation_commands": [],
+        "numeric_acceptance": [],
+        "manifest_gate": "none"
+      }
     },
     {
       "task_id": "TASK_CITATION_AUDIT",
@@ -383,7 +550,22 @@
       ],
       "feedback_path": "project/output/review/TASK_CITATION_AUDIT_feedback.md",
       "retrospective_path": "project/output/retrospectives/TASK_CITATION_AUDIT_retrospective.md",
-      "accepted_by_main_brain": false
+      "accepted_by_main_brain": false,
+      "retrospective_policy": "optional",
+      "task_contract": {
+        "prepared": false,
+        "objective": "",
+        "dependency_mode": "final",
+        "dependencies": [],
+        "canonical_inputs": [],
+        "problem_inputs": [],
+        "fixed_parameters": [],
+        "algorithm_boundaries": [],
+        "required_artifacts": [],
+        "validation_commands": [],
+        "numeric_acceptance": [],
+        "manifest_gate": "none"
+      }
     },
     {
       "task_id": "TASK_UTILITY_SUPPORT",
@@ -415,7 +597,27 @@
       ],
       "feedback_path": "project/output/review/TASK_UTILITY_SUPPORT_feedback.md",
       "retrospective_path": "project/output/retrospectives/TASK_UTILITY_SUPPORT_retrospective.md",
-      "accepted_by_main_brain": false
+      "accepted_by_main_brain": false,
+      "retrospective_policy": "optional",
+      "task_contract": {
+        "prepared": true,
+        "objective": "Handle bounded support automation without touching model or paper sections",
+        "dependency_mode": "final",
+        "dependencies": [],
+        "canonical_inputs": [],
+        "problem_inputs": [],
+        "fixed_parameters": [],
+        "algorithm_boundaries": [],
+        "required_artifacts": [
+          "project/runtime/task_registry.json",
+          "project/runtime/work_queue.json"
+        ],
+        "validation_commands": [
+          "bash scripts/validate_agent_docs.sh"
+        ],
+        "numeric_acceptance": [],
+        "manifest_gate": "none"
+      }
     }
   ]
 }

@@ -15,7 +15,9 @@ Use this checklist before final submission. It is a human/main-brain gate, not a
 - [ ] Page count is known and acceptable.
 - [ ] Fatal LaTeX errors are absent from the latest log.
 - [ ] Undefined references and undefined citations are absent or explicitly accepted.
-- [ ] Overfull warnings that affect visible layout are fixed or explicitly accepted.
+- [ ] `paper_acceptance_check.sh` reports no Overfull above 2pt; smaller Overfull and Underfull warnings were visually reviewed.
+- [ ] No active TeX source contains high-signal placeholders such as TODO, TBD, TODO_CODE_HANDOFF, 待补, or 待确认.
+- [ ] Acceptance PDF and LOG are not older than the newest TeX source.
 
 ## Modeling Consistency
 - [ ] `project/output/model_manifest.json` exists or main brain explicitly records why it is not needed.

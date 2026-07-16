@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "roles": {
     "main_brain": {
       "description": "Owns task decomposition, queue coordination, acceptance, and consensus sync.",
@@ -44,7 +44,11 @@
         "citation_worker",
         "utility_worker"
       ],
-      "parallel_forbidden_with": []
+      "parallel_forbidden_with": [],
+      "workflow_artifact_roots": [
+        "project/output/review",
+        "project/output/retrospectives"
+      ]
     },
     "code_brain": {
       "description": "Owns modeling, scripts, experiments, figures, outputs, and handoff creation.",
@@ -103,7 +107,11 @@
         "utility_worker",
         "main_brain"
       ],
-      "parallel_forbidden_with": []
+      "parallel_forbidden_with": [],
+      "workflow_artifact_roots": [
+        "project/output/review",
+        "project/output/retrospectives"
+      ]
     },
     "paper_brain": {
       "description": "Owns LaTeX drafting, paper-side integration, and section-level writing.",
@@ -157,6 +165,10 @@
       "parallel_forbidden_with": [
         "layout_worker",
         "citation_worker"
+      ],
+      "workflow_artifact_roots": [
+        "project/output/review",
+        "project/output/retrospectives"
       ]
     },
     "layout_worker": {
@@ -206,6 +218,10 @@
       "parallel_forbidden_with": [
         "paper_brain",
         "citation_worker"
+      ],
+      "workflow_artifact_roots": [
+        "project/output/review",
+        "project/output/retrospectives"
       ]
     },
     "review_worker": {
@@ -257,7 +273,11 @@
         "citation_worker",
         "utility_worker"
       ],
-      "parallel_forbidden_with": []
+      "parallel_forbidden_with": [],
+      "workflow_artifact_roots": [
+        "project/output/review",
+        "project/output/retrospectives"
+      ]
     },
     "citation_worker": {
       "description": "Owns citation audit, terminology alignment, and bounded paper-side reference fixes.",
@@ -305,6 +325,10 @@
       "parallel_forbidden_with": [
         "paper_brain",
         "layout_worker"
+      ],
+      "workflow_artifact_roots": [
+        "project/output/review",
+        "project/output/retrospectives"
       ]
     },
     "utility_worker": {
@@ -348,7 +372,11 @@
         "review_worker",
         "citation_worker"
       ],
-      "parallel_forbidden_with": []
+      "parallel_forbidden_with": [],
+      "workflow_artifact_roots": [
+        "project/output/review",
+        "project/output/retrospectives"
+      ]
     }
   }
 }

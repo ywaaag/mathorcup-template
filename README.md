@@ -382,7 +382,25 @@ bash scripts/dispatch_task.sh --task TASK_PAPER_INTEGRATION --owner paper_integr
 bash scripts/dispatch_task.sh --task TASK_PAPER_FINAL_FIX --owner paper_final_fix --target <dir>
 ```
 
-代码阶段如果形成建模假设、canonical numbers、算法边界、枚举上限或论文可消费结果，应从 `project/output/MODEL_MANIFEST_TEMPLATE.json` 初始化并维护 `project/output/model_manifest.json`。论文和主脑验收时优先对照这个 manifest，减少数值口径分散在 handoff / MEMORY / feedback / paper 中。
+这些领域任务初始为 `task_contract.prepared=false`，这是有意的：主脑必须先把本场比赛的输入、固定参数、算法边界、精确产物和验收标准写进去，避免 worker 只拿到一个通用标题就开工。最短用法：
+
+```bash
+cp project/workflow/TASK_CONTRACT_TEMPLATE.json /tmp/TASK_CODE_MODEL_P1.json
+# 编辑 /tmp/TASK_CODE_MODEL_P1.json，填入本场比赛事实
+bash scripts/configure_task_contract.sh \
+  --task TASK_CODE_MODEL_P1 \
+  --file /tmp/TASK_CODE_MODEL_P1.json \
+  --target <实例目录>
+bash scripts/dispatch_task.sh \
+  --task TASK_CODE_MODEL_P1 \
+  --owner code_p1_agent \
+  --backend subagent \
+  --target <实例目录>
+```
+
+`dependency_mode=final` 会阻止 worker 消费尚未 `done`、尚未进入 Handoff Index 或 hash 已漂移的 canonical input。只有明确探索时才用 `provisional`；provisional 任务不能标记 `done`，也不能作为论文 canonical input。
+
+代码阶段如果形成建模假设、canonical numbers、算法边界、枚举上限或论文可消费结果，worker 应写 `project/output/manifest_fragments/<task_id>.json`，由主脑运行 `bash scripts/merge_model_manifest.sh --target <实例目录>` 合并为 `project/output/model_manifest.json`。冲突条目和 provisional fragment 会被拒绝。
 
 ### 5.5 只想重置运行状态，不碰容器
 
@@ -601,8 +619,8 @@ docker tag mathorcup-runtime:20260705 mathorcup-runtime:latest
 2. `bash scripts/dispatch_task.sh --task <task_id> --owner <owner> --target <dir>`
 3. 把任务包发给某个 Agent 会话
 4. dispatch 的 `task.dispatched` callback 会在缺失时自动补建 feedback skeleton
-5. Agent 完成后填写 feedback / retrospective
-6. code-brain handoff 通过 `submit_handoff.sh` 提交、校验并索引到 `MEMORY.md -> Handoff Index`
+5. Agent 完成后填写 feedback；retrospective 按任务的 `required / on_incident / optional` policy 执行
+6. code-brain worker 用 `submit_handoff.sh --validate-only` 校验候选；主脑验收后再运行普通 `submit_handoff.sh` 索引到 `MEMORY.md -> Handoff Index`
 7. 如需快速汇总当前派生产物，运行：
    - `bash scripts/artifact_index.sh --target <dir>`
 8. 如果 feedback 缺失，或你要手工初始化 retrospective，再执行：
@@ -858,7 +876,7 @@ bash scripts/main_brain_summary.sh --target <dir>
 bash scripts/paper_acceptance_check.sh --target <实例目录> --write-report
 ```
 
-这个脚本不会编译论文，也不会 close task。它只读取 `paper.env`，检查 active entrypoint、host-visible PDF / LOG / AUX、页数可读性和高信号 LaTeX log findings。最终提交前再对照：
+这个脚本不会编译论文，也不会 close task。它读取 `paper.env`，检查 active entrypoint、host-visible PDF / LOG / AUX、产物新鲜度、页数、高信号占位符和 LaTeX log。默认 `Overfull` 超过 2pt 会 FAIL；较小 Overfull 与 Underfull 会保留为人工检查 warning。最终提交前再对照：
 
 ```text
 project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md
@@ -1160,6 +1178,8 @@ bash scripts/close_task.sh --task TASK_CODE_MODEL_SLOT --to review --target <dir
 bash scripts/close_task.sh --task TASK_REVIEW_CONSISTENCY --to done --accepted-by main_brain --target <dir>
 ```
 
+标准验收链是 `in_progress -> review -> done`：进入 review 时会释放 owner 和 path lock；主脑可以从 review 直接验收为 done，不需要为了 close 再人为 reopen。
+
 ### 11.10 `scripts/submit_feedback.sh` / `scripts/submit_handoff.sh`
 
 用途：repair missing feedback skeleton、初始化 retrospective、或手工补建回传文件。
@@ -1169,8 +1189,8 @@ bash scripts/close_task.sh --task TASK_REVIEW_CONSISTENCY --to done --accepted-b
 ```bash
 bash scripts/submit_feedback.sh --task TASK_CODE_MODEL_SLOT --target <dir>
 bash scripts/submit_feedback.sh --task TASK_REVIEW_CONSISTENCY --with-retrospective --target <dir>
+bash scripts/submit_handoff.sh --validate-only --task TASK_CODE_MODEL_SLOT --handoff <dir>/project/output/handoff/P1_model_20260425.md --target <dir>
 bash scripts/submit_handoff.sh --task TASK_CODE_MODEL_SLOT --handoff <dir>/project/output/handoff/P1_model_20260425.md --target <dir>
-bash scripts/submit_handoff.sh --task TASK_CODE_MODEL_SLOT --handoff <dir>/project/output/handoff/P1_model_20260425.md --target <dir> --no-index
 ```
 
 注意：
@@ -1178,7 +1198,8 @@ bash scripts/submit_handoff.sh --task TASK_CODE_MODEL_SLOT --handoff <dir>/proje
 - canonical path 是 `dispatch_task.sh` 触发 `task.dispatched` callback 自动补 feedback skeleton
 - `submit_feedback.sh` 不是和 dispatch 并列的主路径
 - 它更适合 repair missing feedback、补 retrospective、或者手工补录
-- `submit_handoff.sh` 是 code-brain handoff 的提交入口：它只接受 rendered instance root，检查 `project/output/handoff/P*.md` 的 6 个 heading 和最低具体内容，默认原子更新 `MEMORY.md -> Handoff Index`，并写入 `handoff_submitted` event；`--no-index` 只校验并记事件，不改 MEMORY
+- worker 只使用 `--validate-only`，该模式不修改 `MEMORY.md`、event log 或 task state
+- 主脑省略 `--validate-only` 后才会原子更新 `MEMORY.md -> Handoff Index` 并写入 `handoff_submitted` event
 
 ### 11.10.1 `scripts/extract_policy_hints.sh`
 

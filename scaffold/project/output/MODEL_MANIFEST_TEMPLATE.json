@@ -1,7 +1,19 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "problem_id": "",
   "updated_at": "",
+  "provenance": {
+    "source_hashes": [],
+    "code_commit": "",
+    "container_image_id": "",
+    "random_seed": "",
+    "generated_at": "",
+    "uncertainty": {
+      "confidence_interval": "",
+      "standard_error": ""
+    }
+  },
+  "merged_fragments": [],
   "assumptions": [
     {
       "id": "A1",

@@ -11,10 +11,11 @@ TARGET_DIR="$ROOT_DIR"
 OUTPUT_FORMAT="text"
 WRITE_REPORT=false
 REPORT_OUT=""
+MAX_OVERFULL_PT="2.0"
 
 usage() {
     cat <<'EOF'
-Usage: bash scripts/paper_acceptance_check.sh [--target <dir>] [--json|--format text|json] [--write-report] [--report-out <path>]
+Usage: bash scripts/paper_acceptance_check.sh [--target <dir>] [--json|--format text|json] [--write-report] [--report-out <path>] [--max-overfull-pt <pt>]
 
 Read-only paper acceptance check. It does not build paper files and does not advance workflow state.
 EOF
@@ -50,6 +51,10 @@ while [[ $# -gt 0 ]]; do
             WRITE_REPORT=true
             shift 2
             ;;
+        --max-overfull-pt)
+            MAX_OVERFULL_PT="$2"
+            shift 2
+            ;;
         -h|--help)
             usage
             exit 0
@@ -73,7 +78,7 @@ if [[ "$ROOT_KIND" != "instance" && "$WRITE_REPORT" == true ]]; then
     die "paper_acceptance_check.sh writes review reports only for rendered instance roots. Re-run with --target <rendered-instance> or omit --write-report for a template-source scan."
 fi
 
-python3 - "$TARGET_DIR" "$OUTPUT_FORMAT" "$WRITE_REPORT" "$REPORT_OUT" <<'PY'
+python3 - "$TARGET_DIR" "$OUTPUT_FORMAT" "$WRITE_REPORT" "$REPORT_OUT" "$MAX_OVERFULL_PT" <<'PY'
 import json
 import os
 import re
@@ -86,6 +91,12 @@ root = Path(sys.argv[1])
 output_format = sys.argv[2]
 write_report = sys.argv[3] == "true"
 report_out = Path(sys.argv[4])
+try:
+    max_overfull_pt = float(sys.argv[5])
+except ValueError:
+    raise SystemExit("--max-overfull-pt must be numeric")
+if max_overfull_pt < 0:
+    raise SystemExit("--max-overfull-pt must be non-negative")
 
 entry = os.environ.get("PAPER_ACTIVE_ENTRYPOINT", "main.tex")
 accept_pdf = os.environ.get("PAPER_ACCEPT_PDF", "project/paper/main.pdf")
@@ -145,6 +156,9 @@ def log_findings(path: Path) -> dict:
         "fatal_errors": [],
         "undefined_refs": [],
         "overfull_hbox": [],
+        "underfull_hbox": [],
+        "fontspec_warnings": [],
+        "hyperref_warnings": [],
         "warnings": [],
     }
     if not path.is_file():
@@ -152,7 +166,10 @@ def log_findings(path: Path) -> dict:
     patterns = {
         "fatal_errors": re.compile(r"(^! |Fatal error|Emergency stop|LaTeX Error)", re.IGNORECASE),
         "undefined_refs": re.compile(r"(undefined references|Reference .* undefined|Citation .* undefined|There were undefined)", re.IGNORECASE),
-        "overfull_hbox": re.compile(r"Overfull \\\\hbox", re.IGNORECASE),
+        "overfull_hbox": re.compile(r"Overfull \\hbox", re.IGNORECASE),
+        "underfull_hbox": re.compile(r"Underfull \\hbox", re.IGNORECASE),
+        "fontspec_warnings": re.compile(r"fontspec warning", re.IGNORECASE),
+        "hyperref_warnings": re.compile(r"(?:Package )?hyperref Warning", re.IGNORECASE),
         "warnings": re.compile(r"LaTeX Warning|Package .* Warning", re.IGNORECASE),
     }
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -162,8 +179,31 @@ def log_findings(path: Path) -> dict:
                 break
     return {key: values[:20] for key, values in findings.items()}
 
+def source_placeholders(paper_dir: Path) -> list[dict]:
+    pattern = re.compile(r"\b(?:TODO|TBD|TODO_CODE_HANDOFF)\b|待补|待确认", re.IGNORECASE)
+    matches = []
+    for source in sorted(paper_dir.rglob("*.tex")):
+        for line_no, raw in enumerate(source.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+            # TeX comments are not submitted content. Keep escaped percent signs in the visible text.
+            visible = re.split(r"(?<!\\)%", raw, maxsplit=1)[0]
+            if pattern.search(visible):
+                matches.append({"path": rel(source), "line": line_no, "text": visible.strip()[:240]})
+    return matches[:50]
+
+def overfull_amounts(lines: list[str]) -> list[float]:
+    amounts = []
+    pattern = re.compile(r"\(([0-9]+(?:\.[0-9]+)?)pt too wide\)", re.IGNORECASE)
+    for line in lines:
+        match = pattern.search(line)
+        if match:
+            amounts.append(float(match.group(1)))
+    return amounts
+
 pdf_pages, page_counter = count_pdf_pages(pdf_path)
 log = log_findings(log_path)
+placeholders = source_placeholders(root / paper_host_rel)
+overfull_amount_values = overfull_amounts(log["overfull_hbox"])
+max_overfull = max(overfull_amount_values, default=0.0)
 
 entry_info = file_info(entry_path)
 pdf_info = file_info(pdf_path)
@@ -188,6 +228,24 @@ else:
     add_check("pdf_page_count_available", False, page_counter)
 add_check("latex_fatal_free", len(log["fatal_errors"]) == 0, f"{len(log['fatal_errors'])} fatal/error lines")
 add_check("latex_undefined_refs_free", len(log["undefined_refs"]) == 0, f"{len(log['undefined_refs'])} undefined reference/citation lines")
+add_check(
+    "latex_overfull_within_threshold",
+    max_overfull <= max_overfull_pt,
+    f"max={max_overfull:.5f}pt threshold={max_overfull_pt:.5f}pt count={len(log['overfull_hbox'])}",
+)
+add_check("source_placeholders_free", len(placeholders) == 0, f"{len(placeholders)} high-signal placeholder lines")
+if entry_info["exists"] and pdf_info["exists"]:
+    add_check(
+        "acceptance_pdf_fresh",
+        pdf_path.stat().st_mtime >= max(path.stat().st_mtime for path in (root / paper_host_rel).rglob("*.tex")),
+        "PDF mtime must be at least the newest TeX source mtime",
+    )
+if entry_info["exists"] and log_info["exists"]:
+    add_check(
+        "acceptance_log_fresh",
+        log_path.stat().st_mtime >= max(path.stat().st_mtime for path in (root / paper_host_rel).rglob("*.tex")),
+        "LOG mtime must be at least the newest TeX source mtime",
+    )
 
 payload = {
     "schema_version": "paper_acceptance_check.v1",
@@ -211,6 +269,15 @@ payload = {
         "aux": aux_info,
     },
     "log_findings": log,
+    "layout_summary": {
+        "max_overfull_pt": max_overfull,
+        "overfull_threshold_pt": max_overfull_pt,
+        "overfull_count": len(log["overfull_hbox"]),
+        "underfull_count": len(log["underfull_hbox"]),
+        "fontspec_warning_count": len(log["fontspec_warnings"]),
+        "hyperref_warning_count": len(log["hyperref_warnings"]),
+    },
+    "source_placeholders": placeholders,
     "checks": checks,
 }
 
@@ -243,6 +310,15 @@ def render_text(data: dict) -> str:
             lines.extend(f"- {item}" for item in values)
         else:
             lines.append("- none")
+    lines.extend(["", "## Layout Summary"])
+    for key, value in data["layout_summary"].items():
+        lines.append(f"- {key}: {value}")
+    lines.extend(["", "## Source Placeholders"])
+    if data["source_placeholders"]:
+        for item in data["source_placeholders"]:
+            lines.append(f"- {item['path']}:{item['line']}: {item['text']}")
+    else:
+        lines.append("- none")
     return "\n".join(lines) + "\n"
 
 text = render_text(payload)

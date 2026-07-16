@@ -1,0 +1,14 @@
+{
+  "prepared": true,
+  "objective": "One bounded, testable objective",
+  "dependency_mode": "final",
+  "dependencies": [],
+  "canonical_inputs": [],
+  "problem_inputs": [],
+  "fixed_parameters": [],
+  "algorithm_boundaries": [],
+  "required_artifacts": [],
+  "validation_commands": [],
+  "numeric_acceptance": [],
+  "manifest_gate": "none"
+}

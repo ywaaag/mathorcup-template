@@ -50,6 +50,7 @@ from workflow_kernel.schema import (
     validate_template_source,
 )
 from workflow_kernel.summary import main_summary_payload, main_summary_report
+from workflow_kernel.task_contract import configure_task_contract, validate_task_contract
 from workflow_kernel.transitions import (
     append_history,
     batch_check,
@@ -169,6 +170,16 @@ def build_parser() -> argparse.ArgumentParser:
     packet.add_argument("--root", required=True)
     packet.add_argument("--role")
     packet.add_argument("--task")
+
+    check_contract = subparsers.add_parser("check-task-contract")
+    check_contract.add_argument("--root", required=True)
+    check_contract.add_argument("--task", required=True)
+    check_contract.add_argument("--for-dispatch", action="store_true")
+
+    configure_contract = subparsers.add_parser("configure-task-contract")
+    configure_contract.add_argument("--root", required=True)
+    configure_contract.add_argument("--task", required=True)
+    configure_contract.add_argument("--file", required=True)
 
     task_field = subparsers.add_parser("task-field")
     task_field.add_argument("--root", required=True)
@@ -355,6 +366,16 @@ def main(argv: Sequence[str]) -> int:
         if not role_name:
             fail("task-packet requires --role or --task")
         sys.stdout.write(make_task_packet(root, state, role_name, args.task))
+        return 0
+
+    if args.command == "check-task-contract":
+        validate_task_contract(root, state, args.task, for_dispatch=args.for_dispatch)
+        print(f"[workflow] task contract OK: {args.task}")
+        return 0
+
+    if args.command == "configure-task-contract":
+        configure_task_contract(root, state, args.task, args.file)
+        print(f"[workflow] task contract configured: {args.task}")
         return 0
 
     if args.command == "task-field":
