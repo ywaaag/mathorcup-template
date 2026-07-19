@@ -78,3 +78,5 @@ reports/codex_context_handoff_*.md
 *.tmp
 *.swp
 *.swo
+project/runtime/.workflow.lock
+project/runtime/.worker_pool.lock

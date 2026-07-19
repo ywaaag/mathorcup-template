@@ -56,6 +56,7 @@ done
 main() {
     FROM_STATUS="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" status)"
     OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
+    CYCLE_ID="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" cycle_id)"
     feedback_path="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" feedback_path)"
     retro_path="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" retrospective_path)"
 
@@ -74,6 +75,7 @@ main() {
         --to-status "$NEXT_STATUS"
         --artifact "$feedback_path"
     )
+    [[ -n "$CYCLE_ID" ]] && event_args+=(--metadata "cycle_id=$CYCLE_ID")
     if [[ "$NEXT_STATUS" == "done" ]]; then
         [[ -f "$TARGET_DIR/$retro_path" ]] && event_args+=(--artifact "$retro_path")
         event_args+=(--metadata "accepted_by=$ACCEPTED_BY")

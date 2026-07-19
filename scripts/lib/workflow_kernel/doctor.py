@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import shutil
 import subprocess
@@ -137,6 +138,8 @@ def _codex_native_bridge(root: Path, root_kind: str) -> Dict[str, Any]:
     if root_kind == "template_source":
         root_skills = list((root / ".codex/skills").glob("*")) if (root / ".codex/skills").is_dir() else []
         scaffold_skills = list((root / "scaffold/.codex/skills").glob("*")) if (root / "scaffold/.codex/skills").is_dir() else []
+        root_agents = list((root / ".codex/agents").glob("*.toml")) if (root / ".codex/agents").is_dir() else []
+        scaffold_agents = list((root / "scaffold/.codex/agents").glob("*.toml")) if (root / "scaffold/.codex/agents").is_dir() else []
         return {
             "requirements": {"path": ".codex/requirements.toml", "exists": (root / ".codex/requirements.toml").is_file()},
             "skills_count": len([item for item in root_skills if item.is_dir()]),
@@ -145,13 +148,35 @@ def _codex_native_bridge(root: Path, root_kind: str) -> Dict[str, Any]:
                 "exists": (root / "scaffold/.codex/requirements.toml.template").is_file(),
             },
             "instance_skills_count": len([item for item in scaffold_skills if item.is_dir()]),
+            "agent_definitions_count": len(root_agents),
+            "instance_agent_definitions_count": len(scaffold_agents),
             "hooks_present": (root / ".codex/hooks.json").is_file() or (root / "scaffold/.codex/hooks.json.template").is_file(),
         }
 
     skills = list((root / ".codex/skills").glob("*")) if (root / ".codex/skills").is_dir() else []
+    agents = list((root / ".codex/agents").glob("*.toml")) if (root / ".codex/agents").is_dir() else []
+    worker_pool_path = root / "project/runtime/worker_pool.json"
+    worker_pool: Dict[str, Any] = {"path": "project/runtime/worker_pool.json", "exists": worker_pool_path.is_file()}
+    if worker_pool_path.is_file():
+        try:
+            pool = json.loads(worker_pool_path.read_text(encoding="utf-8"))
+            workers = pool.get("workers", {})
+            worker_pool.update(
+                {
+                    "generation": pool.get("pool_generation", ""),
+                    "max_open_threads": pool.get("max_open_threads", 0),
+                    "registered_count": len(workers),
+                    "busy_count": sum(item.get("status") == "busy" for item in workers.values()),
+                    "idle_count": sum(item.get("status") == "idle" for item in workers.values()),
+                }
+            )
+        except (OSError, json.JSONDecodeError):
+            worker_pool["parse_error"] = True
     return {
         "requirements": {"path": ".codex/requirements.toml", "exists": (root / ".codex/requirements.toml").is_file()},
         "skills_count": len([item for item in skills if item.is_dir()]),
+        "agent_definitions_count": len(agents),
+        "worker_pool": worker_pool,
         "hooks_present": (root / ".codex/hooks.json").is_file(),
     }
 

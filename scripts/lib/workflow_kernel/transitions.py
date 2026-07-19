@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
@@ -112,8 +113,10 @@ def claim_task_impl(
     task["status"] = "in_progress"
     task["owner"] = owner
     task["accepted_by_main_brain"] = False
+    cycle_id = f"cycle_{uuid.uuid4().hex[:12]}"
     state["queue"].setdefault("active_items", []).append(
         {
+            "cycle_id": cycle_id,
             "task_id": task_id,
             "role": task["role"],
             "owner": owner,
@@ -131,7 +134,7 @@ def claim_task_impl(
         owner=owner,
         actor=actor or owner,
         reason=reason,
-        extra={"locked_paths": locked_paths},
+        extra={"locked_paths": locked_paths, "cycle_id": cycle_id},
     )
     save_structured(state["registry_path"], state["registry"])
     save_structured(state["queue_path"], state["queue"])
@@ -148,6 +151,7 @@ def task_field_value(root: Path, state: Dict[str, Any], task_id: str, field: str
         "title": task["title"],
         "status": task["status"],
         "owner": task["owner"],
+        "cycle_id": (find_active_queue_item(state, task_id) or {}).get("cycle_id", ""),
         "allowed_paths": task["allowed_paths"],
         "parallel_ok": task["parallel_ok"],
         "feedback_path": task["feedback_path"],

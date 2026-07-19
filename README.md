@@ -184,7 +184,9 @@ bash scripts/smoke_realflow.sh \
 - `scripts/exec_healthcheck.sh`
   - 对 `codex exec` 做一次最小真实探活
 - `scripts/run_exec_worker.sh`
-  - 用 `codex exec` 串起 claim + packet + feedback init + worker 执行
+  - 用持久化 `codex exec` session 串起 claim + packet + feedback init + worker 执行，并支持明确 ID resume
+- `scripts/worker_pool.sh`
+  - 记录 native sub-agent / exec session 的 role routing、busy/idle/stale 状态；不负责调用 native Agent API，也不改变 task 状态
 - `scripts/process_callbacks.sh`
   - 处理 event log 对应的 callback hooks，并生成可审计 callback artifact；写入时使用 workflow lock
 - `scripts/run_exec_batch.sh`
@@ -331,6 +333,7 @@ bash scripts/doctor.sh --root <实例目录>
 bash scripts/doctor.sh
 bash scripts/main_brain_summary.sh
 bash scripts/list_open_tasks.sh --open-only
+bash scripts/worker_pool.sh status
 ```
 
 选择一个任务后，由主脑派发：
@@ -348,6 +351,29 @@ bash scripts/dispatch_task.sh \
 - 自动补建 canonical feedback skeleton
 
 如果你用多会话协作，把生成的 packet 发给另一个 Agent 会话即可。  
+如果当前 Codex 支持 native sub-agent，推荐在比赛开始时只创建一次 `code_brain`、`paper_brain`、`layout_worker`、`utility_worker`，后续把任务继续发给原 `agent_id`，不要每个小任务重新创建 Agent。完成一轮任务只代表 worker 进入 idle，不代表应关闭会话。
+
+主脑通过 `worker_pool.sh` 记录会话路由；真正的 `spawn_agent` / `send_input` 仍由交互式 Codex 主脑执行：
+
+> `.codex/agents/*.toml` 在 Codex session 启动时加载。模板更新后若当前会话看不到 `code_brain` 等 custom agent，请退出并在实例根目录重新启动 `codex`，不要在旧会话里反复 spawn 内建 worker 代替。
+
+```bash
+bash scripts/worker_pool.sh register \
+  --worker-key code_brain:primary \
+  --role code_brain \
+  --backend native_subagent \
+  --session-id <agent_id>
+
+bash scripts/dispatch_task.sh \
+  --task TASK_CODE_MODEL_P1 \
+  --owner code_primary \
+  --backend subagent \
+  --pool-worker code_brain:primary \
+  --session-id <agent_id>
+```
+
+默认 Codex 上限是 6 个 open agent threads。本模板常驻四个核心角色，剩余两个席位用于 review、citation 或真正独立的并行 code worker。
+
 如果你想让本机 `codex exec` 跑 worker，先探活再执行：
 
 ```bash
@@ -649,6 +675,9 @@ docker tag mathorcup-runtime:20260705 mathorcup-runtime:latest
 
 1. `bash scripts/exec_healthcheck.sh --target <dir>`
 2. `bash scripts/run_exec_worker.sh --task <task_id> --owner <owner> --target <dir>`
+   - 默认持久化 session，并从 JSONL 记录 `thread_id`
+   - 后续使用 `--resume-session <thread_id>` 续接同一 worker
+   - 只有明确不需要复用时才传 `--ephemeral`
 3. 如需显式重放最新 callback，可执行：
    - `bash scripts/process_callbacks.sh --latest --target <dir>`
 4. 主脑检查：
@@ -662,6 +691,7 @@ docker tag mathorcup-runtime:20260705 mathorcup-runtime:latest
 这条路径的边界要理解清楚：
 
 - `run_exec_worker.sh` 不是后台调度器
+- `run_exec_batch.sh` 仍把并发 worker 作为 ephemeral burst 使用，避免批任务留下未登记的常驻 thread
 - 它不会自动 close task
 - 它不会替主脑判定 feedback 是否合格
 - 它只是把“生成 packet、初始化回传骨架、调用 `codex exec`、保存最后一条消息”串成一条显式命令
@@ -698,18 +728,22 @@ docker tag mathorcup-runtime:20260705 mathorcup-runtime:latest
 
 如果环境支持 sub-agent delegation，也不要再维护一套独立状态系统。
 
-推荐做法仍然是：
+推荐做法是维护一个常驻 worker pool：
 
-1. 主脑看 `task_registry.json` / `MAIN_BRAIN_QUEUE.md`
-2. 主脑用 `dispatch_task.sh` 领取并生成 packet
-3. 把 packet 发给 sub-agent
-4. sub-agent 按同一套 feedback / retrospective / close / reopen / cancel 机制回传
+1. 主脑启动后创建四个核心角色各一个 session，并用 `worker_pool.sh register` 登记 `agent_id`
+2. 主脑看 `task_registry.json` / `MAIN_BRAIN_QUEUE.md`，用 `dispatch_task.sh` claim 并绑定对应 pool worker
+3. 把 packet 用 `send_input` 发给已登记的同一 sub-agent
+4. worker 完成后用 `record_worker_result.sh` 留痕并回到 idle，不调用 `close_agent`
+5. 后续同角色任务继续发送给原 session；小返场使用 `--no-claim --delta-file` 短 packet
+6. 比赛结束、session 损坏或 thread slot 不足时才关闭 worker
 
 也就是说：
 
 - sub-agent 只是执行媒介
 - 不是另一套 workflow contract
 - 如果 `codex exec` 也可用，它和 sub-agent 只是两个不同的 worker backend
+- `project/runtime/worker_pool.json` 只记录 session routing，不决定 task status、owner、lock 或验收
+- 主脑重启后先探测旧 native `agent_id`；无法恢复时标记 stale，再从 packet、handoff、feedback 和 event 重建 worker context
 - 不建议 worker 自己继续任意分裂新总任务，除非主脑任务包显式允许
 
 ### 7.7 主脑怎么做审计与裁决

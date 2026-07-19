@@ -147,19 +147,23 @@ bash scripts/exec_healthcheck.sh
 
 # 用 codex exec 跑一个非交互 worker
 bash scripts/run_exec_worker.sh --task TASK_REVIEW_CONSISTENCY --owner exec_review
+
+# 查看常驻角色会话路由
+bash scripts/worker_pool.sh status
 ```
 
 ## 5. 推荐协作顺序
 
 1. 主脑先读 `AGENTS.md`、`MEMORY.md`、runtime/workflow contracts。
 2. 主脑决定当前唯一目标，并从 `project/workflow/TASK_CONTRACT_TEMPLATE.json` 准备领域任务合同。
-3. 若走多会话 relay，就先 `dispatch_task.sh` 再把 packet 发给另一个会话。
-4. 若走 `codex exec`，就先 `exec_healthcheck.sh`，再用 `run_exec_worker.sh` 执行。
-5. 无论哪种 worker backend，回传都要落到 feedback；retrospective 按任务风险 policy 执行。
-6. 代码脑产出图表、CSV、handoff。
-7. 论文脑只消费已索引 handoff 和当前 active paper entrypoint。
-8. 编译/验收杂务 Agent 只做 compile 和 host-visible acceptance。
-9. 重要踩坑点写入 `project/output/retrospectives/`。
+3. 若 native sub-agent 可用，主脑启动 code/paper/layout/utility 四个核心会话并登记到 `worker_pool.sh`；后续任务用同一 `agent_id`，不要重复 spawn。
+4. 若走多会话 relay，就先 `dispatch_task.sh` 再把 packet 发给另一个会话。
+5. 若走 `codex exec`，就先 `exec_healthcheck.sh`，再用 `run_exec_worker.sh` 执行；默认 session 可持久化，后续用 `--resume-session <id>`。
+6. 无论哪种 worker backend，回传都要落到 feedback；retrospective 按任务风险 policy 执行。
+7. 代码脑产出图表、CSV、handoff。
+8. 论文脑只消费已索引 handoff 和当前 active paper entrypoint。
+9. 编译/验收杂务 Agent 只做 compile 和 host-visible acceptance。
+10. 重要踩坑点写入 `project/output/retrospectives/`。
 
 ## 6. 人类如何调用主脑工作流
 
@@ -169,7 +173,12 @@ bash scripts/run_exec_worker.sh --task TASK_REVIEW_CONSISTENCY --owner exec_revi
 bash scripts/doctor.sh
 bash scripts/main_brain_summary.sh
 bash scripts/list_open_tasks.sh --open-only
+bash scripts/worker_pool.sh status
 ```
+
+在交互式 Codex 主脑中，首次 spawn 后把返回的 `agent_id` 登记为对应角色的 primary worker。Agent 完成任务后保持 idle，下一次用 `send_input` 继续发送给相同 ID；只有比赛结束或 session 已失效才关闭。
+
+`.codex/agents/*.toml` 在 Codex session 启动时加载。首次 render 或更新这些定义后，请在实例根目录新开 `codex` 主脑会话，使 custom agent roles 生效。
 
 派发一个任务：
 

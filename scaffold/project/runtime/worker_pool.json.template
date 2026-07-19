@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "pool_generation": "{{INSTANCE_ID}}",
+  "max_open_threads": 6,
+  "core_workers": [
+    "code_brain:primary",
+    "paper_brain:primary",
+    "layout_worker:primary",
+    "utility_worker:primary"
+  ],
+  "workers": {},
+  "history": []
+}

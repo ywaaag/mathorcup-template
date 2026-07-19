@@ -128,6 +128,7 @@ def reset_runtime_state(root: Path, template_root: Path) -> None:
     sources = {
         "project/runtime/task_registry.json": template_root / "scaffold/project/runtime/task_registry.json.template",
         "project/runtime/work_queue.json": template_root / "scaffold/project/runtime/work_queue.json.template",
+        "project/runtime/worker_pool.json": template_root / "scaffold/project/runtime/worker_pool.json.template",
         "project/runtime/event_log.jsonl": template_root / "scaffold/project/runtime/event_log.jsonl.template",
     }
     for rel, source in sources.items():
@@ -193,6 +194,7 @@ def build_parser() -> argparse.ArgumentParser:
             "title",
             "status",
             "owner",
+            "cycle_id",
             "allowed_paths",
             "parallel_ok",
             "feedback_path",

@@ -22,7 +22,7 @@
 3. Read `MEMORY.md`.
 4. Read `project/spec/runtime_contract.md`.
 5. Read `project/spec/multi_agent_workflow_contract.md`.
-6. If this task is claimed or delegated, read `project/spec/agent_roles.json`, `project/runtime/task_registry.json`, and `project/runtime/work_queue.json`.
+6. If this task is claimed or delegated, read `project/spec/agent_roles.json`, `project/runtime/task_registry.json`, and `project/runtime/work_queue.json`; read `project/runtime/worker_pool.json` only for session routing.
 7. Before consuming handoffs, run the default intake guard: `bash scripts/check_handoff_intake.sh --target <instance_dir>`.
 8. Use `bash scripts/check_handoff_intake.sh --latest --target <instance_dir>` or `bash scripts/check_handoff_intake.sh --files --target <instance_dir>` only as indexed-path shortcuts.
 9. Read the latest indexed handoff docs listed in `## Handoff Index`.
@@ -31,6 +31,7 @@
 
 ## Runtime Board Contract
 - `MEMORY.md` is the only runtime state board.
+- `project/runtime/worker_pool.json` is session-routing state only. It never overrides task status, owner, locks, or acceptance.
 - Exact section order:
   1. `## Phase`
   2. `## Current Task`

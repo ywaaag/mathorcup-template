@@ -12,7 +12,7 @@ purpose = "Route Codex into scaffold-first template maintenance without introduc
 [truth]
 template_truth = ["scaffold/", "scripts/"]
 rendered_truth = ["rendered instance files under a target directory, not repo-root project/"]
-not_truth = [".codex/requirements.toml", ".codex/skills/", "repo-root project/ placeholder tree"]
+not_truth = [".codex/requirements.toml", ".codex/skills/", ".codex/agents/", "repo-root project/ placeholder tree"]
 
 [read_order]
 primary = [
@@ -36,6 +36,7 @@ forbidden = [
   "Do not treat repo-root project/ as a live instance.",
   "Do not move runtime truth into .codex.",
   "Do not update rendered outputs without updating scaffold.",
+  "Do not register live worker sessions in the template-source root; worker_pool.json exists only in rendered instances.",
 ]
 
 [hooks]

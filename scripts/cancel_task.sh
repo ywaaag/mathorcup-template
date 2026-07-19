@@ -56,17 +56,21 @@ done
 main() {
     FROM_STATUS="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" status)"
     OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
+    CYCLE_ID="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" cycle_id)"
 
     python3 "$SCRIPT_DIR/lib/workflow_state.py" cancel-task --root "$TARGET_DIR" --task "$TASK_ID" --reason "$REASON" --actor "$ACTOR" --to "$NEXT_STATUS"
 
-    emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" \
+    event_args=(
         --event-type task.cancelled \
         --task "$TASK_ID" \
         --actor "$ACTOR" \
         --owner "$OWNER" \
         --from-status "$FROM_STATUS" \
         --to-status "$NEXT_STATUS" \
-        --note "$REASON" >/dev/null
+        --note "$REASON"
+    )
+    [[ -n "$CYCLE_ID" ]] && event_args+=(--metadata "cycle_id=$CYCLE_ID")
+    emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${event_args[@]}" >/dev/null
     workflow_post_change_consistency "$SCRIPT_DIR" "$TARGET_DIR"
 }
 

@@ -150,6 +150,11 @@ if [[ -f "$SCRIPT_DIR/run_exec_batch.sh" ]]; then
 else
     status_warn "batch supervisor script missing"
 fi
+if [[ -f "$SCRIPT_DIR/worker_pool.sh" ]]; then
+    status_ok "persistent worker-pool router available via bash scripts/worker_pool.sh"
+else
+    status_warn "worker-pool router script missing"
+fi
 
 echo ""
 echo "== Acceptance Helpers =="
@@ -188,6 +193,10 @@ if [[ "$ROOT_KIND" == "template_source" ]]; then
     root_skill_count="$(find "$TARGET_DIR/.codex/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
     [[ "${root_skill_count:-0}" -gt 0 ]] && status_ok "template-source .codex skills detected (${root_skill_count})" || status_warn "template-source .codex skills missing"
     [[ -f "$TARGET_DIR/scaffold/.codex/requirements.toml.template" ]] && status_ok "instance scaffold .codex requirements template detected" || status_warn "instance scaffold .codex requirements template missing"
+    root_agent_count="$(find "$TARGET_DIR/.codex/agents" -mindepth 1 -maxdepth 1 -type f -name '*.toml' 2>/dev/null | wc -l | tr -d ' ')"
+    [[ "${root_agent_count:-0}" -ge 6 ]] && status_ok "template-source native agent definitions detected (${root_agent_count})" || status_warn "template-source native agent definitions incomplete"
+    scaffold_agent_count="$(find "$TARGET_DIR/scaffold/.codex/agents" -mindepth 1 -maxdepth 1 -type f -name '*.toml' 2>/dev/null | wc -l | tr -d ' ')"
+    [[ "${scaffold_agent_count:-0}" -ge 6 ]] && status_ok "instance scaffold native agent definitions detected (${scaffold_agent_count})" || status_warn "instance scaffold native agent definitions incomplete"
     scaffold_skill_count="$(find "$TARGET_DIR/scaffold/.codex/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
     [[ "${scaffold_skill_count:-0}" -gt 0 ]] && status_ok "instance scaffold .codex skills detected (${scaffold_skill_count})" || status_warn "instance scaffold .codex skills missing"
     if [[ -f "$TARGET_DIR/.codex/hooks.json" || -f "$TARGET_DIR/scaffold/.codex/hooks.json.template" ]]; then
@@ -199,6 +208,14 @@ else
     [[ -f "$TARGET_DIR/.codex/requirements.toml" ]] && status_ok "rendered instance .codex requirements detected" || status_warn "rendered instance .codex requirements missing"
     instance_skill_count="$(find "$TARGET_DIR/.codex/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
     [[ "${instance_skill_count:-0}" -gt 0 ]] && status_ok "rendered instance .codex skills detected (${instance_skill_count})" || status_warn "rendered instance .codex skills missing"
+    instance_agent_count="$(find "$TARGET_DIR/.codex/agents" -mindepth 1 -maxdepth 1 -type f -name '*.toml' 2>/dev/null | wc -l | tr -d ' ')"
+    [[ "${instance_agent_count:-0}" -ge 6 ]] && status_ok "rendered instance native agent definitions detected (${instance_agent_count})" || status_warn "rendered instance native agent definitions incomplete"
+    if [[ -f "$TARGET_DIR/project/runtime/worker_pool.json" ]]; then
+        status_ok "worker-pool session routing state detected"
+        bash "$SCRIPT_DIR/worker_pool.sh" status --target "$TARGET_DIR" | sed 's/^/  /'
+    else
+        status_warn "worker-pool session routing state missing"
+    fi
     if [[ -f "$TARGET_DIR/.codex/hooks.json" ]]; then
         status_warn "rendered instance native hooks file present; review whether it is still intentionally optional"
     else

@@ -7,6 +7,7 @@ from typing import Any, Dict, Sequence
 from workflow_kernel.audit_index import check_feedback, check_handoff, check_retrospective
 from workflow_kernel.packet import make_task_packet
 from workflow_kernel.schema import (
+    CODEX_AGENT_NAMES,
     INSTANCE_CODEX_SKILLS,
     REQUIRED_ROLE_FIELDS,
     REQUIRED_TASK_FIELDS,
@@ -20,6 +21,7 @@ from workflow_kernel.schema import (
     ensure_fields,
     fail,
     load_runtime_state,
+    load_structured,
     parse_kv_env,
     path_matches,
     paths_overlap,
@@ -31,6 +33,7 @@ from workflow_kernel.schema import (
     task_map,
     validate_template_source,
 )
+from worker_pool import validate_pool
 
 
 PHASE6_CLOSE_GATE_COMMANDS = [
@@ -284,6 +287,38 @@ def validate_skill_collection(skills_root: Path, *, context: str, required_names
         validate_skill_dir(skills_root / name, context=f"{context}/{name}")
 
 
+def validate_agent_collection(agents_root: Path, *, context: str) -> None:
+    if not agents_root.is_dir():
+        fail(f"missing directory: {agents_root}")
+    seen = {item.stem for item in agents_root.glob("*.toml") if item.is_file()}
+    missing = sorted(CODEX_AGENT_NAMES - seen)
+    if missing:
+        fail(f"{context} missing agent definitions: {', '.join(missing)}")
+    for name in sorted(CODEX_AGENT_NAMES):
+        path = agents_root / f"{name}.toml"
+        try:
+            content = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            fail(f"{context}/{name}.toml cannot be read: {exc}")
+        scalar_values: Dict[str, str] = {}
+        for field in ("name", "description"):
+            match = re.search(rf'^\s*{field}\s*=\s*"([^"]+)"\s*$', content, re.MULTILINE)
+            if not match:
+                fail(f"{context}/{name}.toml field {field} must be a non-empty basic string")
+            scalar_values[field] = match.group(1)
+        instructions = re.search(
+            r'^\s*developer_instructions\s*=\s*"""(.*?)"""\s*$',
+            content,
+            re.MULTILINE | re.DOTALL,
+        )
+        if not instructions or not instructions.group(1).strip():
+            fail(f"{context}/{name}.toml field developer_instructions must be a non-empty multiline string")
+        if content.count('"""') != 2:
+            fail(f"{context}/{name}.toml has unbalanced multiline strings")
+        if scalar_values["name"] != name:
+            fail(f"{context}/{name}.toml name must be {name}")
+
+
 def validate_optional_hooks_json(path: Path, *, context: str) -> None:
     if not path.exists():
         return
@@ -296,14 +331,19 @@ def validate_codex_bridge(root: Path, *, template_source: bool) -> None:
     if template_source:
         validate_query_schema_contract(root / "scaffold/project/spec/query_schema_contract.md.template")
         validate_requirements_toml(root / ".codex/requirements.toml", context=".codex/requirements.toml")
+        validate_agent_collection(root / ".codex/agents", context=".codex/agents")
         validate_skill_collection(root / ".codex/skills", context=".codex/skills", required_names=ROOT_CODEX_SKILLS)
         validate_optional_hooks_json(root / ".codex/hooks.json", context=".codex/hooks.json")
         validate_requirements_toml(root / "scaffold/.codex/requirements.toml.template", context="scaffold/.codex/requirements.toml.template")
+        validate_agent_collection(root / "scaffold/.codex/agents", context="scaffold/.codex/agents")
         validate_skill_collection(root / "scaffold/.codex/skills", context="scaffold/.codex/skills", required_names=INSTANCE_CODEX_SKILLS)
         validate_optional_hooks_json(root / "scaffold/.codex/hooks.json.template", context="scaffold/.codex/hooks.json.template")
         return
 
     validate_requirements_toml(root / ".codex/requirements.toml", context=".codex/requirements.toml")
+    agents_root = root / ".codex/agents"
+    if agents_root.exists():
+        validate_agent_collection(agents_root, context=".codex/agents")
     validate_skill_collection(root / ".codex/skills", context=".codex/skills", required_names=INSTANCE_CODEX_SKILLS)
     validate_optional_hooks_json(root / ".codex/hooks.json", context=".codex/hooks.json")
 
@@ -881,6 +921,25 @@ def validate_queue(root: Path, state: Dict[str, Any]) -> None:
             )
             if role_conflict or lock_conflict:
                 fail(f"active task conflict between {left['task_id']} and {right['task_id']}")
+
+    pool_path = root / "project/runtime/worker_pool.json"
+    if not pool_path.is_file():
+        return
+    pool = load_structured(pool_path)
+    validate_pool(pool)
+    active_ids = {item["task_id"] for item in active}
+    busy_tasks: set[str] = set()
+    for worker_key, worker in pool["workers"].items():
+        if worker["status"] != "busy":
+            continue
+        task_id = worker["current_task_id"]
+        if task_id not in active_ids:
+            fail(f"busy pool worker {worker_key} references non-active task {task_id}")
+        if task_id in busy_tasks:
+            fail(f"more than one pool worker is assigned to task {task_id}")
+        busy_tasks.add(task_id)
+        if task_id not in tasks or worker["role"] != tasks[task_id]["role"]:
+            fail(f"pool worker {worker_key} role does not match task {task_id}")
 
 
 def validate_feedback(root: Path, state: Dict[str, Any]) -> None:

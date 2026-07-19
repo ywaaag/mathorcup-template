@@ -175,6 +175,10 @@ See:
 - 推荐主脑不要手写任务包，而是先运行：
   - `bash scripts/make_task_packet.sh --role <role> --task <task_id>`
 - packet 既可以贴给另一个会话，也可以直接作为 `codex exec` 的 stdin 输入。
+- Native sub-agent 可用时，主脑默认维护 code/paper/layout/utility 四个常驻角色会话。worker 完成一轮后保留为 idle，后续用相同 `agent_id` 接收 `send_input`，不要为同角色的每个小任务重新 spawn。
+- 主脑用 `bash scripts/worker_pool.sh status --target <dir>` 查看 session routing；该文件不替代 task registry / queue。
+- 首次绑定 native worker 时，dispatch 增加 `--backend subagent --pool-worker <key> --session-id <agent_id>`。
+- active task 的小返场使用 `--no-claim --delta-file <delta.md>` 生成短增量 packet；canonical numbers、算法边界和 task contract 变化必须重新走完整 packet。
 - feedback / retrospective gate now checks minimum non-empty content in required body sections, not only heading structure.
 - 推荐的半自动派单顺序是：
   - `bash scripts/doctor.sh --target <dir>`
@@ -199,6 +203,8 @@ See:
 - 如果要走 exec worker 路径，建议顺序是：
   - `bash scripts/exec_healthcheck.sh --target <dir>`
   - `bash scripts/run_exec_worker.sh --task <task_id> --owner <owner> --target <dir>`
+  - 默认会保存 `thread.started.thread_id`；后续用 `--resume-session <id>` 明确续接，不使用 `--last`
+  - 只有明确不需要复用时才传 `--ephemeral`
   - `bash scripts/process_callbacks.sh --latest --target <dir>` if you need to replay the newest callback deterministically
   - `bash scripts/show_task.sh --task <task_id> --target <dir>` before deciding close/reopen/cancel
   - `bash scripts/check_worker_feedback.sh --task <task_id> --target <dir>`

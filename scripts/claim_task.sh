@@ -62,6 +62,7 @@ main() {
     args+=("${LOCK_ARGS[@]}")
 
     python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}"
+    CYCLE_ID="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" cycle_id)"
 
     event_args=(
         --event-type task.claimed
@@ -71,6 +72,7 @@ main() {
         --from-status "$FROM_STATUS"
         --to-status in_progress
         --metadata "role=$ROLE_NAME"
+        --metadata "cycle_id=$CYCLE_ID"
     )
     for pair in "${LOCK_ARGS[@]}"; do
         if [[ "$pair" != "--lock" ]]; then

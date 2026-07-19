@@ -18,6 +18,7 @@ machine_truth = [
   "project/runtime/work_queue.json",
   "project/runtime/event_log.jsonl",
 ]
+session_routing = ["project/runtime/worker_pool.json"]
 rendered_mirrors = [
   "project/spec/runtime_contract.md",
   "project/paper/spec/paper_runtime_contract.md",
@@ -50,6 +51,13 @@ do_not_hand_edit = [
   "project/runtime/work_queue.json",
   "project/runtime/event_log.jsonl",
 ]
+
+[worker_pool]
+authoritative_for = "session routing only"
+not_authoritative_for = ["task status", "task owner", "write locks", "acceptance", "canonical results"]
+core_workers = ["code_brain:primary", "paper_brain:primary", "layout_worker:primary", "utility_worker:primary"]
+reuse_rule = "Reuse a completed agent thread with send_input; do not close it after every task."
+shutdown_rule = "Close core workers only at competition shutdown or after a confirmed unhealthy session."
 
 [entry_chain]
 default = [

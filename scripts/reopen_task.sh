@@ -74,6 +74,7 @@ main() {
     python3 "$SCRIPT_DIR/lib/workflow_state.py" "${args[@]}"
 
     CURRENT_OWNER="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" owner)"
+    CYCLE_ID="$(workflow_task_field "$SCRIPT_DIR" "$TARGET_DIR" "$TASK_ID" cycle_id)"
     event_owner="$CURRENT_OWNER"
     [[ -z "$event_owner" ]] && event_owner="$PREV_OWNER"
     event_args=(
@@ -85,6 +86,7 @@ main() {
         --to-status "$NEXT_STATUS"
         --note "$REASON"
     )
+    [[ -n "$CYCLE_ID" ]] && event_args+=(--metadata "cycle_id=$CYCLE_ID")
     emit_workflow_event "$SCRIPT_DIR" "$TARGET_DIR" "${event_args[@]}" >/dev/null
     workflow_post_change_consistency "$SCRIPT_DIR" "$TARGET_DIR"
 }

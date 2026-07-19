@@ -211,6 +211,7 @@ launch_worker() {
         --target "$TARGET_DIR"
         --packet-out "$packet_path"
         --last-message-out "$last_message_path"
+        --ephemeral
     )
     [[ "$WITH_RETROSPECTIVE" == true ]] && args+=(--with-retrospective)
     [[ -n "$GOAL" ]] && args+=(--goal "$GOAL")
