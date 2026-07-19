@@ -67,7 +67,9 @@
 - code/model worker 若产生 assumptions、canonical numbers、算法边界或论文可消费结果，先写 `project/output/manifest_fragments/<task_id>.json`，由主脑运行 `merge_model_manifest.sh` 生成 `project/output/model_manifest.json`
 - code/model worker 的 handoff 必须写明算法边界、最优性声明、枚举上限 / cap（如适用）、验证命令、canonical numbers、paper-facing output files
 - code/model worker 如果生成含中文标签的 matplotlib 图表，必须先调用 `from common.plot_style import use_chinese_fonts; use_chinese_fonts()`，不要临时下载字体或把字体文件散落到输出目录
-- paper/layout/final-fix worker 在主脑验收前应运行 `bash scripts/paper_acceptance_check.sh --target <dir>`，并对照 `project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md`
+- paper/layout/final-fix worker 必须先读 `project/paper/AGENTS.md -> 数模竞赛论文写作与工程约束`，默认只走“改写 -> 编译 -> 人工抽查关键数值 -> 九项写作自查”，不得为论文修改新增脚本或工程设施
+- 既有 `paper_acceptance_check.sh` / `PAPER_ACCEPTANCE_CHECKLIST.md` 仅供主脑内部 gate 按需使用，不是 paper worker 默认施工内容，也不得进入论文文本
+- paper worker 最终回传不得声称已消除 AI 痕迹，必须请用户本人通读摘要和引言判断文风是否自然
 - worker 生成 code-brain handoff 后只运行 `bash scripts/submit_handoff.sh --validate-only ...`；主脑验收后再运行不带该选项的命令完成索引
 - 如果消费上游 handoff，使用 `bash scripts/check_handoff_intake.sh` 读取默认 intake 结果，不要直接扫 `project/output/handoff/`
 - feedback / retrospective 主体字段必须填写具体内容，不能只留下空 bullet、裸 `-`、`none`、`n/a`、`no`、`empty` 或 `no meaningful change`

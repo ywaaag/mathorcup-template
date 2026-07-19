@@ -35,7 +35,7 @@
 - [exact paths]
 
 ## Mandatory Read List
-1. `AGENTS.md` or `project/paper/AGENTS.md`
+1. `AGENTS.md` or `project/paper/AGENTS.md`; paper/layout/review tasks must obey `project/paper/AGENTS.md -> 数模竞赛论文写作与工程约束`
 2. `MEMORY.md`
 3. `project/spec/runtime_contract.md`
 4. `project/spec/multi_agent_workflow_contract.md`
@@ -68,7 +68,9 @@
 - Code/model tasks should write a task-owned `project/output/manifest_fragments/<task_id>.json`; main brain merges canonical `project/output/model_manifest.json`.
 - Code/model tasks that generate matplotlib figures with Chinese labels must call `project/src/common/plot_style.py -> use_chinese_fonts()` before plotting.
 - Do not download ad-hoc fonts into output directories. If figure fonts look wrong, run `bash scripts/doctor.sh --target <dir>` and check the container matplotlib CJK baseline.
-- Paper/layout tasks should run `bash scripts/paper_acceptance_check.sh --target <dir>` before final acceptance and consult `project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md`.
+- Paper/layout modification order is: rewrite -> compile -> manually sample key numbers -> apply the nine-point writing self-check. Do not add scripts or infrastructure for this process.
+- Existing `paper_acceptance_check.sh` and `PAPER_ACCEPTANCE_CHECKLIST.md` are optional main-brain internal gates, not paper-worker construction tasks and never paper content.
+- Paper-facing final replies must not claim that AI style was eliminated and must ask the user to personally read the abstract and introduction for naturalness.
 - Extra compile/acceptance step: [fill this if needed]
 
 ## Feedback Gate

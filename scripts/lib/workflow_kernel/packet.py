@@ -180,8 +180,11 @@ def make_task_packet(root: Path, state: Dict[str, Any], role_name: str, task_id:
                 f"- 当前 entrypoint: `{paper_env.get('PAPER_ACTIVE_ENTRYPOINT', '')}`",
                 f"- 当前 acceptance PDF: `{paper_env.get('PAPER_ACCEPT_PDF', '')}`",
                 f"- 当前 acceptance LOG: `{paper_env.get('PAPER_ACCEPT_LOG', '')}`",
-                "- 终稿/排版验收前运行：`bash scripts/paper_acceptance_check.sh --target <dir>`",
-                "- 提交前核对：`project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md`",
+                "- 论文 worker 必须遵守 `project/paper/AGENTS.md -> 数模竞赛论文写作与工程约束`",
+                "- 默认执行顺序：改写 -> 重新编译 -> 人工抽查关键数值 -> 九项写作自查",
+                "- 不为论文修改新增 acceptance checker、manifest、hash、CLI、测试或其他工程设施",
+                "- 既有 `paper_acceptance_check.sh` 仅供主脑内部 gate 按需使用，不得成为 PDF 内容或 paper worker 的默认施工内容",
+                "- 最终回传不得自称消除 AI 痕迹；必须请用户本人通读摘要和引言判断文风",
             ]
         )
     lines.extend(["", "验收产物："])

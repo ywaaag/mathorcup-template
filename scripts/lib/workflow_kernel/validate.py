@@ -445,6 +445,16 @@ def validate_contracts(root: Path) -> None:
         fail("project/paper/AGENTS.md must route to paper runtime contract")
     if "check_handoff_intake.sh" not in paper_agents:
         fail("project/paper/AGENTS.md must mention scripts/check_handoff_intake.sh for indexed handoff intake")
+    paper_policy_markers = [
+        "数模竞赛论文写作与工程约束",
+        "免责句去重复化",
+        "摘要必须采用叙事三段式",
+        "GB/T 7714",
+        "请本人通读一遍摘要和引言部分",
+    ]
+    for marker in paper_policy_markers:
+        if marker not in paper_agents:
+            fail(f"project/paper/AGENTS.md missing paper-writing constraint marker: {marker}")
     if "project/output/review/WORKER_FEEDBACK_TEMPLATE.md" not in workflow_contract:
         fail("workflow contract must reference worker feedback template")
     if "project/output/retrospectives/RETROSPECTIVE_TEMPLATE.md" not in workflow_contract:

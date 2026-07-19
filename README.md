@@ -904,7 +904,7 @@ bash scripts/main_brain_summary.sh --target <dir>
 
 如果你在实例仓库里切换论文入口，应该优先修改这个文件，而不是四处改脚本和文档。
 
-构建论文后，主脑或 layout worker 应执行：
+构建论文后，主脑可按需执行内部 gate：
 
 ```bash
 bash scripts/paper_acceptance_check.sh --target <实例目录> --write-report
@@ -915,6 +915,10 @@ bash scripts/paper_acceptance_check.sh --target <实例目录> --write-report
 ```text
 project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md
 ```
+
+上述 checker 和 manifest 都属于主脑内部 repo harness，不是论文内容，也不是论文脑需要扩建或维护的软件工程。渲染实例的 `project/paper/AGENTS.md` 内置“数模竞赛论文写作与工程约束”：论文脑与排版脑默认只按“改写、重新编译、人工抽查关键数值、九项写作自查”推进；容器名、文件路径、哈希、JSON/CSV 文件名、任务编号和 manifest 等内部工程痕迹不得进入最终 PDF。
+
+Agent 无法可靠替代人类判断文风。每轮论文修改后，仍请本人通读摘要和引言，凭直觉判断表达是否自然。
 
 ## 9. 为什么保留“代码脑 / 论文脑”而不是只讲通用 Agent
 

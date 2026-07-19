@@ -47,6 +47,45 @@
 - Important equations must be labelable and referenceable.
 - Keep figure/output paths under `../figures/` and `../output/`.
 
+## 数模竞赛论文写作与工程约束
+
+> 本节适用于本项目下所有涉及论文撰写或修改的任务。项目性质是一次性数学建模竞赛作业（高教杯国赛），最终交付物是一篇能通过评审的论文和配套图表，不是一个软件工程项目。任何与“论文最终是否读起来像人写的、是否符合竞赛规范”无关的基础设施建设，都不应该发生。
+
+### 工程层面禁令
+
+- 论文 worker 不搭建、不维护任何形式的验收流水线、acceptance check 脚本、`model_manifest.json`、SHA256 校验或 Docker 镜像引用体系。既有 repo harness 只供主脑内部调度和验收，不属于论文内容。
+- 即便内部状态或工具用于核对数值一致性，也绝不能在论文正文、图注、表格、附录中留下痕迹。容器名、文件路径、哈希值、JSON/CSV 文件名一律不得出现在最终 PDF 文本里。
+- “确保改动前后关键数值一致”只需人工挑选关键数字对比一次，不得为论文修改任务新增自动化核对脚本。
+- 不使用面向对象封装，不写单元测试，不做命令行参数解析，不做复杂异常处理。论文配套代码只需能跑通、出结果、画图。
+- 不主动新增脚本文件、构建流程或工具链，除非用户明确要求。
+
+### 写作层面禁令
+
+1. **免责句去重复化**：全文对“这是模拟数据 / 不代表真实统计 / 不能解释为因果”等声明，只允许在“模型假设”与“局限与改进”两节各出现一次。其余每张图、每张表后面不得再单独跟一句否定或限定句。陈述结果使用肯定语气，不要写一个结论就否定一次。
+2. **数值精度与数据性质一致**：模拟数据不保留六位小数的伪精度。正文中比例、权重和统计量保留 2-3 位小数，百分比保留 1 位，距离保留 1 位，p 值保留 3 位；附录复现参数表可以保留原始精度。
+3. **禁止限定词强迫性重复**：同一限定词（如“情景”“代理”）全文出现不应超过约 10 次。第一次完整说明含义后，后文使用简称、直接省略或依靠上下文表达。
+4. **摘要必须采用叙事三段式**：背景任务、方法路线、核心结论与政策方向。摘要控制在 300-400 字，不堆砌超过 2-3 个具体数值指标，不写成结果汇总表。
+5. **公式和符号必须有实际计算支撑**：论文中每个公式和符号都必须在正文中真实代入数值并给出结果。删除没有计算支撑的装饰性公式，改为自然语言，并同步清理符号表中不再使用的符号。
+6. **图注与正文分析分离**：图注不超过 20 字，只说明图的内容。详细解读放在图后正文，用“由图可见”或“图 X 表明”等自然衔接展开。
+7. **禁止工程痕迹词汇进入图文**：任务编号（如 P1/P2/P3）、baseline、pre-trend gate、canonical、lambda +/-20% 等英文或工程习语，不得出现在图表标题、图例和论文正文中，必须改为面向读者的自然中文表述。
+8. **参考文献采用 GB/T 7714 顺序编码格式**：不强行为每条文献补全 DOI/ISBN，不使用 APA/Chicago 等格式夹带 DOI，保持国内竞赛论文常用风格。
+9. **章节标题和中文表达统一**：章节标题统一为名词性短语。全文排查翻译腔和生硬限定句，改为自然中文学术表达；标点使用中文全角标点。
+
+### 论文修改执行顺序
+
+每次论文修改严格按以下顺序执行：
+
+1. 改写；
+2. 重新编译；
+3. 人工抽查若干关键数值，不新增脚本；
+4. 按上述九条逐项自查。
+
+### 文风自我认知边界
+
+- Agent 对自己默认生成文本的“AI 腔”没有可靠的第三方视角，不能自行证明文本已经自然或像人写作。
+- 完成后不得声称“已消除 AI 痕迹”或“已通过人性化审查”。只报告具体改写了哪些句子、删除了哪些内容、逐项完成了哪些检查。
+- 最终回传必须明确提示用户：**请本人通读一遍摘要和引言部分，凭直觉判断文风是否自然。** 这一步不能由 Agent 代替，也不得暗示已经不再需要人工通读。
+
 ## Runtime State Contract
 - 主脑 owns full `../../MEMORY.md`.
 - 论文脑 only updates `## Blockers`, `## Next Actions`, `## Handoff Index` when explicitly needed or when it is the only active session.
@@ -57,7 +96,7 @@
 - Never run project LaTeX toolchain directly on host.
 - Use `bash ../../scripts/paper.sh build` or an equivalent command derived from `project/paper/runtime/paper.env`.
 - Before writing or compiling, treat `../../.env` and `runtime/paper.env` as machine truth, and use `../spec/runtime_contract.md` plus `spec/paper_runtime_contract.md` as rendered mirrors.
-- Before writing or compiling, run `bash ../../scripts/validate_agent_docs.sh`.
+- 论文 worker 不为正文修改新增 validator、acceptance checker 或其他工具。既有 repo validator 由主脑按需运行，不属于论文修改默认步骤。
 
 ## Failure Recovery
 - If validation fails, fix docs first.
