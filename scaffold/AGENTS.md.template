@@ -29,6 +29,11 @@
 10. If this task is delegated or multi-session, read the relevant templates under `project/workflow/`.
 11. For a domain task, verify its `task_contract` is prepared and obey its dependency mode, canonical inputs, parameters, algorithm boundaries, artifact contract, and numeric acceptance.
 
+## Paper Quality Routing
+- Any task that writes or reviews paper text, captions, tables, figures, references, or paper-facing handoff prose must first read `project/paper/AGENTS.md`.
+- The paper-specific writing and quality rules in that file apply to `paper_brain`, `layout_worker`, `citation_worker`, `review_worker`, and any code/utility worker that produces paper-facing output.
+- The main brain may use repo harness tools for internal coordination, but no container name, path, hash, task ID, log, JSON/CSV filename, or manifest terminology may enter the final paper PDF.
+
 ## Runtime Board Contract
 - `MEMORY.md` is the only runtime state board.
 - `project/runtime/worker_pool.json` is session-routing state only. It never overrides task status, owner, locks, or acceptance.

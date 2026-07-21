@@ -451,6 +451,10 @@ def validate_contracts(root: Path) -> None:
         "摘要必须采用叙事三段式",
         "GB/T 7714",
         "请本人通读一遍摘要和引言部分",
+        "数学建模论文质量规范",
+        "问题重述",
+        "模型假设",
+        "写作质量红线",
     ]
     for marker in paper_policy_markers:
         if marker not in paper_agents:

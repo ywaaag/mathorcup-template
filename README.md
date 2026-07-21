@@ -920,6 +920,8 @@ project/output/review/PAPER_ACCEPTANCE_CHECKLIST.md
 
 Agent 无法可靠替代人类判断文风。每轮论文修改后，仍请本人通读摘要和引言，凭直觉判断表达是否自然。
 
+这套论文规则不是只给 `paper_brain` 使用：`layout_worker`、`citation_worker`、`review_worker` 直接适用；`code_brain` 和 `utility_worker` 只要产出论文可见文字、图表、图注、表格或 handoff prose，也必须先读取并遵守。
+
 ## 9. 为什么保留“代码脑 / 论文脑”而不是只讲通用 Agent
 
 因为在数模实战里，这两个角色的读写边界天然不同：

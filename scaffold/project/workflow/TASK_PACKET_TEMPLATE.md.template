@@ -71,6 +71,7 @@
 - Paper/layout modification order is: rewrite -> compile -> manually sample key numbers -> apply the nine-point writing self-check. Do not add scripts or infrastructure for this process.
 - Existing `paper_acceptance_check.sh` and `PAPER_ACCEPTANCE_CHECKLIST.md` are optional main-brain internal gates, not paper-worker construction tasks and never paper content.
 - Paper-facing final replies must not claim that AI style was eliminated and must ask the user to personally read the abstract and introduction for naturalness.
+- Any worker that creates paper-facing text, figures, captions, tables, references, or handoff prose must apply both `project/paper/AGENTS.md` sections `数模竞赛论文写作与工程约束` and `数学建模论文质量规范`.
 - Extra compile/acceptance step: [fill this if needed]
 
 ## Feedback Gate
